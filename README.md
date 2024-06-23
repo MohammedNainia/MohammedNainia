@@ -24,9 +24,7 @@
 
 - 📫 How to reach me **[LinkedIn](https://www.linkedin.com/in/nainia-mohammed-7655ab167/)**
 
-### Blogs posts
-<!-- BLOG-POST-LIST:START -->
-<!-- BLOG-POST-LIST:END -->
+
 
 
 
