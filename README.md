@@ -16,10 +16,6 @@
 
 - 📫 How to reach me **https://www.linkedin.com/in/nainia-mohammed-7655ab167/**
 
-### Blogs posts
-<!-- BLOG-POST-LIST:START -->
-<!-- BLOG-POST-LIST:END -->
-
 <h3 align="left">Connect with me:</h3>
 <p align="left">
 <a href="https://x.com/NainiaMohamed" target="blank"><img align="center" src="https://raw.githubusercontent.com/rahuldkjain/github-profile-readme-generator/master/src/images/icons/Social/twitter.svg" alt="NainiaMohamed" height="30" width="40" /></a>
