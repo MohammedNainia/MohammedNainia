@@ -352,9 +352,9 @@ def draw_story(img, L, cam, t):
         # old woman, lantern dims and goes out
         h = 160
         P, hc = person(d, T, z, fx, fy, h, dress='#8a5a5a', hair=GREY, kind='old', arm=(.22, .42))
-        lb = 1 - ss(31.5, 34.0, t) if t < 38 else 0
+        lb = 1 - ss(32.5, 35.2, t) if t < 38 else 0
         # flicker before going out
-        if 31.5 < t < 34: lb *= 0.75 + 0.25 * math.sin(t * 31) * math.sin(t * 7)
+        if 32.5 < t < 35.2: lb *= 0.75 + 0.25 * math.sin(t * 31) * math.sin(t * 7)
         lantern(d, P, (.22, .42), L, T, z, h, lb if t < 38 else 0, t, fx, fy)
         if t >= 38:   # she fades away gently, leaving the hill
             pass

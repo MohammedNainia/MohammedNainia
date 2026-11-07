@@ -2,10 +2,13 @@
 usage: python render.py [workers]"""
 import os, sys, subprocess, numpy as np
 from multiprocessing import Pool
-import scene
+import scene, json
+TM = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'timing.json')))
+KV, KS = zip(*TM['knots'])
+def story(v): return float(np.interp(v, KV, KS))
 from config import FFMPEG, FPS, OUT
 
-N = int(round(scene.DUR * FPS))
+N = int(round(TM['duration'] * FPS))
 
 def work(args):
     i, a, b = args
@@ -15,7 +18,7 @@ def work(args):
                           '-c:v', 'libx264', '-preset', 'slow', '-crf', '12', '-pix_fmt', 'yuv420p', path],
                          stdin=subprocess.PIPE)
     for f in range(a, b):
-        p.stdin.write(scene.frame(f / FPS).tobytes())
+        p.stdin.write(scene.frame(story(f / FPS)).tobytes())
     p.stdin.close(); p.wait()
     return path
 
