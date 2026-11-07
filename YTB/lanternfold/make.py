@@ -4,13 +4,29 @@
   python make.py reels/<reel> ambience         -> wind + chimes bed
   python make.py reels/<reel> render [workers] -> parallel, resumable master render
   python make.py reels/<reel> finalize         -> captions + mix + 1080x1920 + 720p preview
-  python make.py reels/<reel> all              -> timing, ambience, render, finalize"""
+  python make.py reels/<reel> all              -> timing, ambience, render, finalize
+  python make.py envs                          -> preview every environment preset"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine.reel import Reel
 from engine import timing, ambience, render, finalize
 
+def env_preview():
+    """python make.py envs -> environments_preview.png (every preset with a stand-in figure)"""
+    import numpy as np; from PIL import Image
+    from engine import paper as P; from engine.environments import ENVS, draw_env
+    tiles = []
+    for name, env in ENVS.items():
+        cam = P.Cam(1.0, (540., 1000.)); img = P.sky(); L = np.zeros((P.H, P.W, 3), np.float32); P.set_reveal(1.0)
+        g = draw_env(img, L, cam, 3.0, env); T, z = cam.f(1.0); fi, d = P.new_fig_layer()
+        P.person(d, T, z, 540, g(540) + 3, 150, kind='adult', arm=(.22, .4)); P.composite_fig(img, fi)
+        im = Image.fromarray(P.finish(img, L)).resize((270, 480)); tiles.append(im); print('  env', name)
+    sheet = Image.new('RGB', (270 * 4, 480 * ((len(tiles) + 3) // 4)))
+    for i, im in enumerate(tiles): sheet.paste(im, (i % 4 * 270, i // 4 * 480))
+    sheet.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'environments_preview.png'))
+
 if __name__ == '__main__':
+    if len(sys.argv) == 2 and sys.argv[1] == 'envs': env_preview(); sys.exit()
     if len(sys.argv) < 3: sys.exit(__doc__)
     reel, step, args = Reel(sys.argv[1]), sys.argv[2], sys.argv[3:]
     if step == 'frames':
