@@ -29,9 +29,9 @@ def cues(reel, spans):
 def cue_img(text, size=70):
     f = ImageFont.truetype(FONT, size); im = Image.new('RGBA', (W, 300), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
     x = (W - d.textlength(text, font=f)) / 2; y = 110
-    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).text((x, y + 3), text, font=f, fill=(5, 8, 25, 200))
+    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).text((x, y + 3), text, font=f, fill=(5, 8, 25, 235), stroke_width=6, stroke_fill=(5, 8, 25, 235))
     im = Image.alpha_composite(sh.filter(ImageFilter.GaussianBlur(7)), im)
-    ImageDraw.Draw(im).text((x, y), text, font=f, fill=(255, 244, 224, 255)); return np.asarray(im)
+    ImageDraw.Draw(im).text((x, y), text, font=f, fill=(255, 244, 224, 255), stroke_width=2, stroke_fill=(30, 26, 40, 255)); return np.asarray(im)
 
 def srt(cs, path):
     ts = lambda s: f'{int(s // 3600):02}:{int(s % 3600 // 60):02}:{int(s % 60):02},{int(s % 1 * 1000):03}'
