@@ -15,13 +15,13 @@ OPEN_Z = 3.0
 OPEN_C = (540 + (SUN[0] - 540) / .4, 960 + (SUN[1] - 960) / .4)   # centres the sun (parallax .4) on screen
 OLD = {'plank': '#6e4a31', 'sail': '#e3d5b5', 'mast': '#4e3524'}
 NEW = {'plank': '#c8925c', 'sail': '#fbf6ea', 'mast': '#93613a'}
-PARTS = [5.5 + i * 1.25 for i in range(6)]     # story time each part gets replaced: 4 planks, sail, mast
+PARTS = [7.0 + i * 1.0 for i in range(6)]     # story time each part gets replaced: 4 planks, sail, mast
 
 def camera(t):
     sea, girl, wide = (850., 1150.), (560., 1190.), (540., 1040.)
     def mix(a, b, k): return (lerp(a[0], b[0], k), lerp(a[1], b[1], k))
     if t < 4: return OPEN_Z, OPEN_C
-    if t < 10: k = ss(4, 10, t); return lerp(OPEN_Z, 1.6, k), mix(OPEN_C, sea, k)
+    if t < 7: k = ss(4, 7, t); return lerp(OPEN_Z, 1.6, k), mix(OPEN_C, sea, k)
     if t < 21.5: return 1.6, (lerp(850, 830, ss(14, 18, t)), 1150.)
     if t < 46: k = ss(21.5, 23.5, t); return lerp(1.6, 1.85, k), mix((830., 1150.), girl, k)
     if t < 51: k = ss(46, 50.5, t); return lerp(1.85, 1.0, k), mix(girl, wide, k)
@@ -83,7 +83,7 @@ def frame(t):
     out = finish(img, L, reveal=reveal).astype(np.float32) / 255
     # loop anchor: the sun survives the fade (same position at t=0 and t=DUR)
     Ts, zs = cam.f(.4); sx, sy = Ts(*SUN); Ls = np.zeros((H, W, 3), np.float32)
-    b = 0.35 + 0.65 * ss(1.0, 1.4, t) if t < 10 else 1.0
+    b = 0.35 + 0.65 * ss(1.0, 1.4, t) if t < 7 else 1.0
     if t > DUR - 0.6: b = 0.35 + 0.65 * (1 - ss(DUR - 0.6, DUR, t))
     glow(Ls, sx, sy, 9 * zs ** .5, np.array([1, .95, .85], np.float32), .9 * b)
     glow(Ls, sx, sy, 45 * zs ** .5, hexc('#ffb070'), .3 * b)
