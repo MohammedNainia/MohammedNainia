@@ -259,6 +259,7 @@ def frame(t):
 
     # fade scene in/out (stars + hero star survive as the loop frame)
     img = img * VIGN
+    L *= reveal                                   # lantern/spark light fades with the scene (clean loop)
     out = 1 - (1 - np.clip(img, 0, 1)) * (1 - np.clip(L, 0, 1))
     return (np.clip(out, 0, 1) * 255).astype(np.uint8)
 
