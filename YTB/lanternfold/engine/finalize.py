@@ -1,0 +1,75 @@
+"""Captions (3-4 words, top third) + mix (voice, music, ambience) + exports (1080x1920 master, 720p preview <30 MB)."""
+import os, subprocess, numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from .config import FFMPEG, FPS, FONT
+from .audio import check, speech_spans
+W, H = 1080, 1920
+
+def spread(words, spans):
+    wt = np.array([len(w) + 2 for w in words], float); wt /= wt.sum()
+    total = sum(b - a for a, b in spans); edges = np.concatenate([[0], np.cumsum(wt)]) * total
+    def at(x):
+        for a, b in spans:
+            if x <= b - a + 1e-9: return a + x
+            x -= b - a
+        return spans[-1][1]
+    return [(at(edges[i]), at(edges[i + 1])) for i in range(len(words))]
+
+def cues(reel, spans):
+    out, dur = [], reel.timing['duration']
+    for ln, (la, lb) in zip(reel.cfg['lines'], reel.timing['lines']):
+        iv = [(max(a, la), min(b, lb)) for a, b in spans if b > la and a < lb] or [(la, lb)]
+        words = ' '.join(ln['chunks']).split(); wt = spread(words, iv); i = 0
+        for ch in ln['chunks']:
+            n = len(ch.split()); out.append([wt[i][0], wt[i + n - 1][1], ch]); i += n
+    for a, b in zip(out, out[1:]): a[1] = b[0] - 0.05 if b[0] - a[1] < 0.7 else a[1] + 0.35
+    out[-1][1] = min(dur - 0.4, out[-1][1] + 0.6)
+    return out
+
+def cue_img(text, size=70):
+    f = ImageFont.truetype(FONT, size); im = Image.new('RGBA', (W, 300), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    x = (W - d.textlength(text, font=f)) / 2; y = 110
+    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).text((x, y + 3), text, font=f, fill=(5, 8, 25, 200))
+    im = Image.alpha_composite(sh.filter(ImageFilter.GaussianBlur(7)), im)
+    ImageDraw.Draw(im).text((x, y), text, font=f, fill=(255, 244, 224, 255)); return np.asarray(im)
+
+def srt(cs, path):
+    ts = lambda s: f'{int(s // 3600):02}:{int(s % 3600 // 60):02}:{int(s % 60):02},{int(s % 1 * 1000):03}'
+    with open(path, 'w', encoding='utf-8') as f:
+        for n, (a, b, c) in enumerate(cs, 1): f.write(f'{n}\n{ts(a)} --> {ts(b)}\n{c}\n\n')
+
+def run(reel):
+    voice, amb, master = (os.path.join(reel.build, x) for x in ('voice.wav', 'ambience.wav', 'master_clean.mp4'))
+    music = next((reel.path(f) for f in os.listdir(reel.dir) if f.startswith('music.')), None)
+    if not music: raise SystemExit('put the score in the reel folder as music.mp3/.wav')
+    for p in (voice, music, amb): check(p)
+    dur = reel.timing['duration']; cs = cues(reel, speech_spans(voice)); srt(cs, reel.path('captions.srt'))
+    imgs = {c: cue_img(c) for _, _, c in cs}
+    dips = ''.join(f'*(1-0.9*between(t,{reel.video(a):.2f},{reel.video(b):.2f}))' for a, b in reel.cfg.get('stillness', []))
+    mv = reel.cfg.get('music_volume', 0.5)
+    env = f"volume='{mv}{dips}*min(1,t/1.5)*min(1,({dur}-t)/2.0)':eval=frame"
+    af = (f'[2:a]aresample=44100,aformat=channel_layouts=stereo,apad,asplit[vk][vo];'
+          f'[3:a]aresample=44100,{env}[sc];[4:a]volume=0.6[am];[sc][am]amix=inputs=2:normalize=0[bed];'
+          f'[bed][vk]sidechaincompress=threshold=0.05:ratio=4:attack=40:release=600[md];'
+          f'[md][vo]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[a]')
+    final = reel.path(f'{reel.slug}_1080x1920.mp4')
+    p = subprocess.Popen([FFMPEG, '-hide_banner', '-loglevel', 'error', '-y', '-i', master, '-f', 'rawvideo', '-pix_fmt', 'rgba',
+                          '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-i', voice, '-i', music, '-i', amb, '-filter_complex',
+                          f'[0:v][1:v]overlay=0:0:format=auto,format=yuv420p[v];{af}', '-map', '[v]', '-map', '[a]', '-t', str(dur),
+                          '-r', str(FPS), '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-profile:v', 'high', '-c:a', 'aac',
+                          '-b:a', '192k', '-ar', '44100', '-movflags', '+faststart', final], stdin=subprocess.PIPE)
+    blank = bytes(H * W * 4); top = 420
+    for fi in range(int(dur * FPS)):
+        t = fi / FPS; a, cur = 0.0, None
+        for s, e, c in cs:
+            if s - 0.15 <= t <= e + 0.15: a = min(1, (t - s + 0.15) / 0.3, (e + 0.15 - t) / 0.3); cur = c; break
+        if cur is None or a <= 0: p.stdin.write(blank); continue
+        fr = np.zeros((H, W, 4), np.uint8); im = imgs[cur].copy(); im[..., 3] = (im[..., 3] * a).astype(np.uint8)
+        fr[top:top + 300] = im; p.stdin.write(fr.tobytes())
+    p.stdin.close(); p.wait()
+    prev = final.replace('1080x1920', '720p_preview')
+    subprocess.run([FFMPEG, '-hide_banner', '-loglevel', 'error', '-y', '-i', final, '-vf', 'scale=720:1280:flags=lanczos',
+                    '-c:v', 'libx264', '-preset', 'slow', '-b:v', '2800k', '-maxrate', '3500k', '-bufsize', '6000k',
+                    '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', prev], check=True)
+    for f in (final, prev): print(f'  {os.path.basename(f)}: {os.path.getsize(f) / 1e6:.1f} MB')
+    check(final)
