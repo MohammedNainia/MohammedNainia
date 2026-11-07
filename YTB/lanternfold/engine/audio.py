@@ -2,8 +2,9 @@
 import re, subprocess, numpy as np
 from .config import FFMPEG, SR
 
-def load(path, ch=1):
-    raw = subprocess.run([FFMPEG, '-v', 'error', '-i', path, '-f', 's16le', '-ac', str(ch), '-ar', str(SR), '-'],
+def load(path, ch=1, tempo=1.0):
+    af = ['-af', f'atempo={tempo}'] if tempo != 1.0 else []
+    raw = subprocess.run([FFMPEG, '-v', 'error', '-i', path, *af, '-f', 's16le', '-ac', str(ch), '-ar', str(SR), '-'],
                          capture_output=True, check=True).stdout
     return np.frombuffer(raw, np.int16).astype(np.float32) / 32768
 

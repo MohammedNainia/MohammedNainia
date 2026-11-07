@@ -21,7 +21,7 @@ def squeeze(x, maxgap):
 def run(reel):
     c = reel.cfg; lines = c['lines']; clips = []
     for i in range(len(lines)):
-        p = reel.path('voice', f'line{i + 1}.mp3'); check(p); clips.append(squeeze(load(p), c.get('max_pause', 0.75)))
+        p = reel.path('voice', f'line{i + 1}.mp3'); check(p); clips.append(squeeze(load(p, tempo=c.get('tempo', 1.0)), c.get('max_pause', 0.75)))
     placed, knots = [], [(0.0, 0.0)]
     for k, (ln, clip) in enumerate(zip(lines, clips)):
         lead = ln.get('lead', 0.5)
