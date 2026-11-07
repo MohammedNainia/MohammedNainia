@@ -1,0 +1,40 @@
+LIGHT FROM A DEAD STAR — Better Off Human
+Narration for ElevenLabs (Eleven v3). Target length: 50-54 s.
+
+== VOICE SETTINGS ==
+Model:            Eleven v3
+Voice:            calm, warm, slightly low voice (an older storyteller, not a trailer voice).
+                  Good library picks to try: a soft female narrator or a gentle grandfatherly male narrator.
+Stability:        Natural (around 0.50). Use "Creative" only if it sounds flat.
+Similarity:       0.75
+Style exaggeration: 0.0-0.15
+Speaker boost:    ON
+Output:           MP3 44.1 kHz 192 kbps (or higher)
+Tip: generate each block separately if one line comes out rushed, then send me
+     every take. I'll cut the gaps to fit the timeline.
+
+== SCRIPT (paste everything between the lines) ==
+----------------------------------------------------------------
+[softly] This star died four thousand years ago.
+
+[pause] [thoughtful] But she can still see it. [pause] Its light is still travelling... [whispers] still arriving.
+
+[pause] [softly] Everything you see in the sky... is a goodbye that hasn't finished being said.
+
+[long pause] [warmly] She didn't know it... but she was doing the same thing. [pause] Every kindness left her like light. [pause] [softly] Slowly. [pause] Quietly.
+
+[long pause] [sighs] [softly] One night... her light went out.
+
+[long pause] [thoughtful] But it didn't stop arriving. [pause] It's still reaching people... she never met.
+
+[pause] [softly] So maybe the question isn't how long you shine... [pause] [whispers] but how far your light travels after.
+----------------------------------------------------------------
+
+== TIMING MAP (for reference) ==
+0-4 s    "This star died four thousand years ago."
+4-10 s   "But she can still see it... still arriving."
+10-18 s  "Everything you see in the sky... being said."
+18-28 s  "She didn't know it... Slowly. Quietly."
+28-38 s  "One night, her light went out."   (+2 s silence after)
+38-50 s  "But it didn't stop arriving... she never met."
+50-55 s  "So maybe the question... travels after."
