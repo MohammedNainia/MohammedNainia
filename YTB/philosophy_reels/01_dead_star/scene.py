@@ -103,17 +103,15 @@ def paper_layer(img, m, col, grain, shadow=0.75, lit=None):
     img[:] = img * (1 - m) + c * m
 
 # ---------- light buffer ----------
-_kern = {}
 _REV = 1.0
 def glow(L, x, y, r, col, a):
-    r = max(1, int(r)); k = _kern.get(r)
-    if k is None:
-        g = np.arange(-3 * r, 3 * r + 1, dtype=np.float32); d = g[None] ** 2 + g[:, None] ** 2
-        k = _kern[r] = np.exp(-d / (2 * r * r))[..., None]
-    x, y = int(x), int(y); n = 3 * r
-    x0, x1, y0, y1 = max(0, x - n), min(W, x + n + 1), max(0, y - n), min(H, y + n + 1)
+    """additive gaussian light; separable and clipped to the screen, so no cache and no memory growth"""
+    r = max(1.0, float(r)); n = 3 * r
+    x0, x1, y0, y1 = max(0, int(x - n)), min(W, int(x + n) + 1), max(0, int(y - n)), min(H, int(y + n) + 1)
     if x0 >= x1 or y0 >= y1: return
-    L[y0:y1, x0:x1] += k[y0 - y + n:y1 - y + n, x0 - x + n:x1 - x + n] * (col * a)
+    gx = np.exp(-((np.arange(x0, x1, dtype=np.float32) - x) ** 2) / (2 * r * r))
+    gy = np.exp(-((np.arange(y0, y1, dtype=np.float32) - y) ** 2) / (2 * r * r))
+    L[y0:y1, x0:x1] += (gy[:, None] * gx[None, :])[..., None] * (np.asarray(col, np.float32) * a)
 
 # ---------- stars ----------
 NS = 230
