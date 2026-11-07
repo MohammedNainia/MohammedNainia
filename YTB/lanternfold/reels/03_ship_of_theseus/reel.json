@@ -1,0 +1,32 @@
+{
+ "title": "Is It Still You?",
+ "series": "Questions in Paper #3",
+ "question": "If every part of you changes, what is it that stays you?",
+ "env": "dusk_sea",
+ "voice": {"name": "Charmed", "model": "Eleven v3", "accent": "British", "stability": 0.5},
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.65,
+ "tail": 1.3,
+ "lines": [
+  {"say": "[softly] This ship had every plank replaced... one by one.",
+   "chunks": ["This ship had", "every plank replaced…", "one by one."], "beat": 0, "lead": 0.7, "hold_after": 0.3},
+  {"say": "[thoughtful] The sail. The mast. [pause] Until nothing original was left.",
+   "chunks": ["The sail.", "The mast.", "Until nothing original", "was left."], "beat": 5, "lead": 0.45, "hold_after": 0.3},
+  {"say": "[curious] But someone kept the old planks... and built them back into a ship. [pause] So which one is the real one?",
+   "chunks": ["But someone kept", "the old planks…", "and built them back", "into a ship.", "So which one", "is the real one?"], "beat": 14, "lead": 0.45, "hold_after": 0.3},
+  {"say": "[softly] Now look at her. [pause] Most of what she's made of... will be replaced.",
+   "chunks": ["Now look at her.", "Most of what", "she's made of…", "will be replaced."], "beat": 22, "lead": 0.45, "hold_after": 0.3},
+  {"say": "[thoughtful] Her beliefs will change. Her friends will change. [pause] Even her memories will quietly rewrite themselves.",
+   "chunks": ["Her beliefs will change.", "Her friends will change.", "Even her memories", "will quietly", "rewrite themselves."], "beat": 28, "lead": 0.45, "hold_after": 0.3},
+  {"say": "[softly] So is she still the girl who stood here first?",
+   "chunks": ["So is she still", "the girl who", "stood here first?"], "beat": 38, "lead": 0.45, "hold_after": 2.0},
+  {"say": "[whispers] If every part of you changes... [pause] what is it that stays you?",
+   "chunks": ["If every part", "of you changes…", "what is it", "that stays you?"], "beat": 48, "lead": 0.45, "hold_after": 0.3}
+ ],
+ "stillness": [[43.5, 47.5]],
+ "chimes": [[1.0, 86, 0.2], [6.0, 88, 0.08], [8.0, 90, 0.08], [10.0, 93, 0.08], [16.0, 81, 0.1], [22.5, 86, 0.1], [48.5, 86, 0.16]],
+ "wind": 0.07,
+ "music_volume": 0.5,
+ "music_prompt": "Soft solo piano with gentle sea ambience feel, slow, reflective and tender, light celesta accents, sparse notes with space, warm reverb, airy pad. Calm intro, a gently evolving theme that changes a little each time it repeats, a soft pause near the end, ending on an open chord. Instrumental."
+}
