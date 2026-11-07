@@ -5,11 +5,12 @@
   python make.py reels/<reel> render [workers] -> parallel, resumable master render
   python make.py reels/<reel> finalize         -> captions + mix + 1080x1920 + 720p preview
   python make.py reels/<reel> all              -> timing, ambience, render, finalize
+  python make.py reels/<reel> thumb            -> cover image from reel.json 'thumb' {t, text, size, y}
   python make.py envs                          -> preview every environment preset"""
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from engine.reel import Reel
-from engine import timing, ambience, render, finalize
+from engine import timing, ambience, render, finalize, thumbnail
 
 def env_preview():
     """python make.py envs -> environments_preview.png (every preset with a stand-in figure)"""
@@ -38,6 +39,7 @@ if __name__ == '__main__':
     elif step == 'ambience': ambience.run(reel)
     elif step == 'render': render.run(reel, int(args[0]) if args else None)
     elif step == 'finalize': finalize.run(reel)
+    elif step == 'thumb': thumbnail.run(reel)
     elif step == 'all':
         timing.run(reel); ambience.run(reel); render.run(reel, int(args[0]) if args else None); finalize.run(reel)
     else: sys.exit(__doc__)

@@ -32,7 +32,8 @@ YTB/lanternfold/
 7. **Build**: `python make.py reels/NN_slug all 4` (timing → ambience → render → finalize). Render is resumable; if a worker dies just re-run.
 8. **Check**: contact sheet of 6–8 frames of the final MP4 + first/last frame diff; then send the 1080x1920 file, 720p preview and captions.srt.
 9. **SEO**: title (hook + question), description, tags, pinned comment for YouTube/TikTok/Instagram.
-10. Commit + push the reel folder (MP4s are git-ignored).
+10. **Cover**: add `"thumb": {"t": <story sec of the most telling frame>, "text": ["short", "question?"], "size": 150, "y": 300}` to reel.json and run `python make.py reels/NN_slug thumb` → thumbnail_1080x1920.jpg (title in upper-middle band, clear of the platform UI). Send it with the reel.
+11. Commit + push the reel folder (MP4s are git-ignored).
 
 ## Gotchas
 - Lyria often rejects long/descriptive music prompts as a false content-safety violation (no credits charged). Keep prompts short and plain, e.g. "Calm solo piano, slow and gentle, soft celesta, warm reverb, light ambient pad, quiet intro and a soft ending. Instrumental." and retry once if blocked.

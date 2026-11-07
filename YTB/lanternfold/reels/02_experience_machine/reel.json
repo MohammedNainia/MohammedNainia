@@ -135,5 +135,14 @@
  "wind": 0.08,
  "music_volume": 0.5,
  "music_prompt": "Intimate solo felt piano, slow and contemplative, gentle and ambiguous, neither happy nor sad, a hint of music-box celesta like a dream. Sparse notes, lots of space, soft room reverb, airy pad underneath. Starts with one high note, two alternating themes: one warm and golden, one cooler and rainy, then a near-silent pause around 44-47 seconds, ending on an unresolved suspended chord that rings out. No drums, no vocals.",
- "tempo": 1.04
+ "tempo": 1.04,
+ "thumb": {
+  "t": 33.5,
+  "text": [
+   "Happy…",
+   "or true?"
+  ],
+  "size": 150,
+  "y": 290
+ }
 }
