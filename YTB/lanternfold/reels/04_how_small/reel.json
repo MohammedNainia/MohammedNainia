@@ -1,0 +1,144 @@
+{
+ "title": "How Small Are We?",
+ "series": "Questions in Paper #4",
+ "question": "Does being small make us matter less, or more?",
+ "env": "space_planet",
+ "voice": {
+  "name": "Charmed",
+  "model": "Eleven v3",
+  "accent": "British",
+  "stability": 0.5
+ },
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.65,
+ "tail": 1.3,
+ "lines": [
+  {
+   "say": "[softly] This tiny dot is Earth... seen from six billion kilometres away.",
+   "chunks": [
+    "This tiny dot",
+    "is Earth…",
+    "seen from six billion",
+    "kilometres away."
+   ],
+   "beat": 0,
+   "lead": 0.7,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Everyone you've ever loved. Every war. Every heartbreak. [pause] All of it... on a speck of dust.",
+   "chunks": [
+    "Everyone you've",
+    "ever loved.",
+    "Every war.",
+    "Every heartbreak.",
+    "All of it…",
+    "on a speck of dust."
+   ],
+   "beat": 5,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[softly] And here we are... worrying about a message we sent. A bad day. [pause] Someone who didn't call back.",
+   "chunks": [
+    "And here we are…",
+    "worrying about",
+    "a message we sent.",
+    "A bad day.",
+    "Someone who",
+    "didn't call back."
+   ],
+   "beat": 13,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[calm] From far enough away... none of it can be seen.",
+   "chunks": [
+    "From far enough away…",
+    "none of it",
+    "can be seen."
+   ],
+   "beat": 24,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] But up close... one small kindness can feel bigger than a galaxy.",
+   "chunks": [
+    "But up close…",
+    "one small kindness",
+    "can feel bigger",
+    "than a galaxy."
+   ],
+   "beat": 30,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Maybe being small makes our problems lighter... [pause] or maybe it makes every feeling rarer.",
+   "chunks": [
+    "Maybe being small",
+    "makes our problems lighter…",
+    "or maybe it makes",
+    "every feeling rarer."
+   ],
+   "beat": 37,
+   "lead": 0.45,
+   "hold_after": 2.0
+  },
+  {
+   "say": "[whispers] So does being small make us matter less... [pause] or more?",
+   "chunks": [
+    "So does being small",
+    "make us matter less…",
+    "or more?"
+   ],
+   "beat": 48,
+   "lead": 0.45,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   45.89,
+   48.31
+  ]
+ ],
+ "chimes": [
+  [
+   1.0,
+   88,
+   0.2
+  ],
+  [
+   24.5,
+   81,
+   0.1
+  ],
+  [
+   30.5,
+   86,
+   0.12
+  ],
+  [
+   48.5,
+   88,
+   0.16
+  ]
+ ],
+ "wind": 0.05,
+ "music_volume": 0.5,
+ "music_prompt": "Calm ambient piano, slow and spacious, soft synth pad, gentle celesta, warm reverb, quiet intro and a soft ending. Instrumental.",
+ "thumb": {
+  "t": 26.5,
+  "text": [
+   "How small",
+   "are we?"
+  ],
+  "size": 150,
+  "y": 300
+ }
+}
