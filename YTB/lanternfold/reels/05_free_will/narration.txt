@@ -1,0 +1,13 @@
+DID YOU CHOOSE THIS?: Lanternfold · Questions in Paper #5
+Setting: city rooftops at night
+Voice: Charmed (Eleven v3, British), stability 0.5. One generation per line.
+
+Line 1: [softly] You think you chose to watch this.
+Line 2: [thoughtful] But something made you stop scrolling. [pause] Something made you curious.
+Line 3: [softly] A notification. A tired day. A song you heard this morning.
+Line 4: [thoughtful] Every thought you have... was shaped by things you never chose. [pause] Your parents. Your language. The year you were born.
+Line 5: [calm] Even the way you'll answer this... was written long before tonight.
+Line 6: [warmly] And yet... right now... it feels like you're the one deciding.
+Line 7: [whispers] So if every choice has a cause... [pause] were any of them really yours?
+
+Question left open: If every choice has a cause, were any of them really yours?

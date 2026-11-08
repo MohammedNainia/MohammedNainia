@@ -46,7 +46,7 @@ def run(reel):
     dur = reel.timing['duration']; cs = cues(reel, speech_spans(voice)); srt(cs, reel.path('captions.srt'))
     imgs = {c: cue_img(c) for _, _, c in cs}
     dips = ''.join(f'*(1-0.9*between(t,{reel.video(a):.2f},{reel.video(b):.2f}))' for a, b in reel.cfg.get('stillness', []))
-    mv = reel.cfg.get('music_volume', 0.5)
+    mv = reel.cfg.get('music_volume', 0.32)
     env = f"volume='{mv}{dips}*min(1,t/1.5)*min(1,({dur}-t)/2.0)':eval=frame"
     af = (f'[2:a]aresample=44100,aformat=channel_layouts=stereo,apad,asplit[vk][vo];'
           f'[3:a]aresample=44100,{env}[sc];[4:a]volume=0.6[am];[sc][am]amix=inputs=2:normalize=0[bed];'

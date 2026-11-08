@@ -42,6 +42,8 @@ YTB/lanternfold/
 
 ## Gotchas
 - Lyria often rejects long/descriptive music prompts as a false content-safety violation (no credits charged). Keep prompts short and plain, e.g. "Calm solo piano, slow and gentle, soft celesta, warm reverb, light ambient pad, quiet intro and a soft ending. Instrumental." and retry once if blocked.
+- Music sits quietly under the voice: default music_volume 0.32 (the user asked for a soft piano). Don't raise it unless asked.
+- Default art type is `paper` (the channel's look); use other styles/kits only when the user asks.
 - Credits: voice ≈ 100, music 300 (Lyria 3 Pro 60 s). Quote with get_generation_cost if unsure.
 - If the voice runs long, timing prints a WARNING > 60 s: cut `hold_after`/`max_pause` or a phrase, regenerate that line only.
 - `glow()` must stay uncached (an earlier cached version leaked 10 GB and got OOM-killed).

@@ -1,0 +1,143 @@
+{
+ "title": "Did You Choose This?",
+ "series": "Questions in Paper #5",
+ "question": "If every choice has a cause, were any of them really yours?",
+ "env": "city_roofs",
+ "style": "paper",
+ "voice": {
+  "name": "Charmed",
+  "model": "Eleven v3",
+  "accent": "British",
+  "stability": 0.5
+ },
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.65,
+ "tail": 1.3,
+ "lines": [
+  {
+   "say": "[softly] You think you chose to watch this.",
+   "chunks": [
+    "You think you chose",
+    "to watch this."
+   ],
+   "beat": 0,
+   "lead": 0.7,
+   "hold_after": 0.4
+  },
+  {
+   "say": "[thoughtful] But something made you stop scrolling. [pause] Something made you curious.",
+   "chunks": [
+    "But something made you",
+    "stop scrolling.",
+    "Something made you",
+    "curious."
+   ],
+   "beat": 5,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[softly] A notification. A tired day. A song you heard this morning.",
+   "chunks": [
+    "A notification.",
+    "A tired day.",
+    "A song you heard",
+    "this morning."
+   ],
+   "beat": 10,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Every thought you have... was shaped by things you never chose. [pause] Your parents. Your language. The year you were born.",
+   "chunks": [
+    "Every thought you have…",
+    "was shaped by things",
+    "you never chose.",
+    "Your parents.",
+    "Your language.",
+    "The year you were born."
+   ],
+   "beat": 15,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[calm] Even the way you'll answer this... was written long before tonight.",
+   "chunks": [
+    "Even the way",
+    "you'll answer this…",
+    "was written long",
+    "before tonight."
+   ],
+   "beat": 25,
+   "lead": 0.45,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] And yet... right now... it feels like you're the one deciding.",
+   "chunks": [
+    "And yet…",
+    "right now…",
+    "it feels like you're",
+    "the one deciding."
+   ],
+   "beat": 32,
+   "lead": 0.45,
+   "hold_after": 2.0
+  },
+  {
+   "say": "[whispers] So if every choice has a cause... [pause] were any of them really yours?",
+   "chunks": [
+    "So if every choice",
+    "has a cause…",
+    "were any of them",
+    "really yours?"
+   ],
+   "beat": 45,
+   "lead": 0.45,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   42.13,
+   45.45
+  ]
+ ],
+ "chimes": [
+  [
+   1.0,
+   86,
+   0.2
+  ],
+  [
+   15.5,
+   81,
+   0.1
+  ],
+  [
+   32.5,
+   88,
+   0.1
+  ],
+  [
+   45.5,
+   86,
+   0.16
+  ]
+ ],
+ "wind": 0.05,
+ "music_volume": 0.32,
+ "music_prompt": "Calm night piano, slow and soft, light ambient pad, warm reverb, quiet intro and a soft ending. Instrumental.",
+ "thumb": {
+  "t": 21,
+  "text": [
+   "Did you",
+   "choose this?"
+  ],
+  "size": 150,
+  "y": 300
+ }
+}
