@@ -1,4 +1,4 @@
-# SEO: How Small Are We? (Lanternfold · Questions in Paper #4)
+# SEO: How Small Are We? (PaperLit · Questions in Paper #4)
 
 ## YouTube Shorts
 **Title:** Earth From 6 Billion km Away… Do Your Problems Still Matter? 🌍 #shorts
@@ -11,11 +11,11 @@ A tiny paper story inspired by the Pale Blue Dot, the famous photo Voyager 1 too
 
 Does being small make us matter less… or more?
 
-🏮 Lanternfold: tiny paper stories, big quiet questions. New question every week.
+✨ PaperLit: tiny paper stories, big quiet questions. New question every week.
 
-#palebluedot #philosophy #space #perspective #deepthoughts #shorts #universe #meaningoflife #lanternfold
+#palebluedot #philosophy #space #perspective #deepthoughts #shorts #universe #meaningoflife #paperlit
 
-**Tags:** pale blue dot, earth from space, how small are we, perspective, cosmic perspective, philosophy shorts, space philosophy, meaning of life, do my problems matter, existential questions, deep questions, universe facts, paper animation, lanternfold, questions in paper
+**Tags:** pale blue dot, earth from space, how small are we, perspective, cosmic perspective, philosophy shorts, space philosophy, meaning of life, do my problems matter, existential questions, deep questions, universe facts, paper animation, paperlit, questions in paper
 
 **Pinned comment:** Does feeling small make your worries lighter, or make every moment rarer? There's no wrong answer. 🌍
 
@@ -30,7 +30,7 @@ Does being small make us matter less… or more?
 
 Tell me what you think 👇
 .
-#palebluedot #space #philosophy #perspective #deepthoughts #animation #lanternfold
+#palebluedot #space #philosophy #perspective #deepthoughts #animation #paperlit
 
 ## Posting
 - Cover: thumbnail_1080x1920.jpg (her tiny world among the stars).

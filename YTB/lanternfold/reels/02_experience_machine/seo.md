@@ -1,4 +1,4 @@
-# SEO: The Machine That Makes You Happy (Lanternfold · Questions in Paper #2)
+# SEO: The Machine That Makes You Happy (PaperLit · Questions in Paper #2)
 
 ## YouTube Shorts
 **Title:** Would You Plug Into a Perfect Life That Isn't Real? 🤔 #philosophy #shorts
@@ -11,11 +11,11 @@ A tiny paper story about philosopher Robert Nozick's "Experience Machine" though
 
 Do you want to be happy… or do you want it to be true?
 
-🏮 Lanternfold: tiny paper stories about the light we leave behind. New question every week.
+✨ PaperLit: tiny paper stories, big quiet questions. New question every week.
 
-#philosophy #thoughtexperiment #experiencemachine #deepthoughts #shorts #happiness #meaningoflife #animation #lanternfold
+#philosophy #thoughtexperiment #experiencemachine #deepthoughts #shorts #happiness #meaningoflife #animation #paperlit
 
-**Tags:** experience machine, nozick experience machine, thought experiment, philosophy shorts, would you plug in, happiness vs truth, meaning of life, deep questions, philosophy explained, existential questions, simulation, paper animation, animated short, lanternfold, questions in paper
+**Tags:** experience machine, nozick experience machine, thought experiment, philosophy shorts, would you plug in, happiness vs truth, meaning of life, deep questions, philosophy explained, existential questions, simulation, paper animation, animated short, paperlit, questions in paper
 
 **Pinned comment:** Happy, or true? There's no wrong answer, but I'm curious which door you'd open. 🚪✨
 
@@ -30,7 +30,7 @@ Do you want to be happy… or do you want it to be true?
 
 Tell me which door you'd open 👇
 .
-#philosophy #thoughtexperiment #deepthoughts #experiencemachine #meaningoflife #animation #lanternfold
+#philosophy #thoughtexperiment #deepthoughts #experiencemachine #meaningoflife #animation #paperlit
 
 ## Posting
 - Cover frame: the two doors (~8 s) or the split screen (~22 s).

@@ -1,4 +1,4 @@
-# SEO: Is It Still You? (Lanternfold · Questions in Paper #3)
+# SEO: Is It Still You? (PaperLit · Questions in Paper #3)
 
 ## YouTube Shorts
 **Title:** If Every Part of You Changes… Are You Still You? 🚢 #shipoftheseus #shorts
@@ -11,11 +11,11 @@ A tiny paper story about the Ship of Theseus, one of philosophy's oldest puzzles
 
 If every part of you changes… what is it that stays you?
 
-🏮 Lanternfold: tiny paper stories, big quiet questions. New question every week.
+✨ PaperLit: tiny paper stories, big quiet questions. New question every week.
 
-#shipoftheseus #philosophy #identity #thoughtexperiment #deepthoughts #shorts #whoami #animation #lanternfold
+#shipoftheseus #philosophy #identity #thoughtexperiment #deepthoughts #shorts #whoami #animation #paperlit
 
-**Tags:** ship of theseus, ship of theseus paradox, identity paradox, philosophy shorts, thought experiment, who am I, personal identity, are you the same person, deep questions, existential questions, philosophy explained, paper animation, animated short, lanternfold, questions in paper
+**Tags:** ship of theseus, ship of theseus paradox, identity paradox, philosophy shorts, thought experiment, who am I, personal identity, are you the same person, deep questions, existential questions, philosophy explained, paper animation, animated short, paperlit, questions in paper
 
 **Pinned comment:** Which ship is the real one, and are you still the person you were 10 years ago? There's no wrong answer. 🌊
 
@@ -30,7 +30,7 @@ If every part of you changes… what is it that stays you?
 
 Tell me what you think stays 👇
 .
-#shipoftheseus #philosophy #identity #thoughtexperiment #deepthoughts #animation #lanternfold
+#shipoftheseus #philosophy #identity #thoughtexperiment #deepthoughts #animation #paperlit
 
 ## Posting
 - Cover frame: the two ships side by side (~24 s) or the old woman with her younger self (~44 s).

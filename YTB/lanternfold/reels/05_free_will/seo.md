@@ -1,4 +1,4 @@
-# SEO: Did You Choose This? (Lanternfold · Questions in Paper #5)
+# SEO: Did You Choose This? (PaperLit · Questions in Paper #5)
 
 ## YouTube Shorts
 **Title:** You Think You Chose to Watch This… Did You? 🤯 #freewill #shorts
@@ -11,11 +11,11 @@ A tiny paper story about free will and determinism, set on a rooftop above a sle
 
 If every choice has a cause… were any of them really yours?
 
-🏮 Lanternfold: tiny paper stories, big quiet questions. New question every week.
+✨ PaperLit: tiny paper stories, big quiet questions. New question every week.
 
-#freewill #determinism #philosophy #deepthoughts #shorts #mindblown #existential #animation #lanternfold
+#freewill #determinism #philosophy #deepthoughts #shorts #mindblown #existential #animation #paperlit
 
-**Tags:** free will, do we have free will, free will vs determinism, determinism explained, philosophy shorts, did you choose this, existential questions, deep questions, psychology of choice, mind blowing questions, paper animation, animated short, lanternfold, questions in paper
+**Tags:** free will, do we have free will, free will vs determinism, determinism explained, philosophy shorts, did you choose this, existential questions, deep questions, psychology of choice, mind blowing questions, paper animation, animated short, paperlit, questions in paper
 
 **Pinned comment:** Did you choose to watch this, or were you always going to? There's no wrong answer. 🌃
 
@@ -30,7 +30,7 @@ If every choice has a cause… were any of them really yours?
 
 Tell me what you think 👇
 .
-#freewill #philosophy #determinism #deepthoughts #animation #lanternfold
+#freewill #philosophy #determinism #deepthoughts #animation #paperlit
 
 ## Posting
 - Cover: thumbnail_1080x1920.jpg (memory windows above the city).
