@@ -3,6 +3,7 @@ import os, sys, subprocess, numpy as np
 from concurrent.futures import ProcessPoolExecutor
 from .config import FFMPEG, FFPROBE, FPS
 from .reel import Reel
+from .styles import stylize
 
 def frames_in(path):
     r = subprocess.run([FFPROBE, '-v', 'error', '-count_packets', '-select_streams', 'v', '-show_entries',
@@ -19,7 +20,9 @@ def work(args):
     p = subprocess.Popen([FFMPEG, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '1080x1920',
                           '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '12', '-pix_fmt', 'yuv420p', path],
                          stdin=subprocess.PIPE)
-    for f in range(a, b): p.stdin.write(sc.frame(reel.story(f / FPS)).tobytes())
+    st = reel.cfg.get('style', 'paper')
+    for f in range(a, b):
+        s_ = reel.story(f / FPS); p.stdin.write(stylize(sc.frame(s_), st, s_).tobytes())
     p.stdin.close(); p.wait(); return path
 
 def run(reel, workers=None):
