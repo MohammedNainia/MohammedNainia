@@ -17,5 +17,7 @@ class Reel:
     def video(self, s):            # story seconds -> video seconds
         KV, KS = zip(*self.timing['knots']); return float(np.interp(s, KS, KV))
     def scene(self):
+        if self.cfg.get('style') == 'flat':
+            from . import paper; paper.set_flat(True)
         spec = importlib.util.spec_from_file_location(f'scene_{self.slug}', self.path('scene.py'))
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m); return m

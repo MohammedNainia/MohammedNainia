@@ -207,3 +207,10 @@ def stars_layer(img, cam, t, vis, hero=None, hero_b=0.0):
     if hero is not None: hero_star(LS, cam, hero, hero_b, t)
     return 1 - (1 - np.clip(img, 0, 1)) * (1 - np.clip(LS, 0, 1))
 
+
+def set_flat(on=True):
+    """flat-vector look: no paper grain/fibres, lighter cut shadows (used by the 'flat' art style)"""
+    global SKY_GRAIN
+    if on:
+        for i in range(len(GRAINS)): GRAINS[i] = np.ones_like(GRAINS[i])
+        SKY_GRAIN = np.ones_like(SKY_GRAIN)
