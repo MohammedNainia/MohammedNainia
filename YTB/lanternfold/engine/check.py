@@ -73,6 +73,11 @@ def run(reel):
         f2 = ImageFont.truetype(FONT, 130); hw = max(d.textlength(t, font=f2) for t in cfg['hook']['text'])
         hb = ((1080 - hw) / 2, 260, (1080 + hw) / 2, 260 + 150 * len(cfg['hook']['text']))
         hits = safezone.blocked(hb); r.test(not hits, 'hook text clear of app UI', 'hook text under ' + '; '.join(hits))
+    # long dash: reads as AI-written (channel rule) - check every text we publish
+    texts = [reel.path(f) for f in ('seo.md', 'narration.txt', 'captions.srt') if os.path.exists(reel.path(f))]
+    bad = [os.path.basename(f) for f in texts if '—' in open(f, encoding='utf-8').read()]
+    bad += ['reel.json captions/hook'] if '—' in json.dumps(cfg, ensure_ascii=False) else []
+    r.test(not bad, 'no long dash "—" anywhere', 'long dash "—" found in: ' + ', '.join(bad) + ' (channel rule: never use it)', 'fail')
     # cover + title
     r.test(os.path.exists(reel.path('thumbnail_1080x1920.jpg')), 'cover image ready', 'no cover - run: python make.py <reel> thumb')
     t = seo_title(reel)

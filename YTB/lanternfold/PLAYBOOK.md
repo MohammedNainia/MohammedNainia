@@ -11,10 +11,11 @@ YTB/lanternfold/
 ```
 
 ## Channel rules (always)
+- **Never use the long dash "—"** anywhere (titles, descriptions, captions, comments, narration, covers). Viewers read it as AI-written. Use a period, comma or question mark instead.
 - Deep, philosophical, NEUTRAL: plant a question, show ≥2 answers with equal beauty, never moralise. End on a question + ~2 s stillness.
 - 9:16, 1080x1920, 30 fps, ≤60 s. Last frame == first frame (loop).
 - Captions 3–4 words, centred, top third (engine does this).
-- Check every audio file is not silent before use (engine `audio.check` does this — never bypass).
+- Check every audio file is not silent before use (engine `audio.check` does this, never bypass).
 - Keep tokens low: reuse engine helpers, render style frames at 360x640 contact sheets to inspect.
 
 ## Hook-first (from channel analytics: 94% of views come from the Shorts feed, so the first 1-2 s decide everything)

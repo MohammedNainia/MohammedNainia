@@ -1,7 +1,7 @@
 # SEO: Would You Want to Know the Day You Die? (PaperLit · Questions in Paper #6)
 
 ## YouTube Shorts
-**Title:** Someone Hands You an Envelope With the Day You Die Inside — Would You Open It? #philosophy #shorts
+**Title:** Someone Hands You an Envelope With the Day You Die Inside. Would You Open It? #philosophy #shorts
 (data model: beats 98% of 1,226 niche Shorts titles; old title beat 19%)
 
 **Tags:** life lessons, would you rather, philosophy, deep thoughts, meaning of life, paperlit
