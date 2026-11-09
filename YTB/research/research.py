@@ -8,6 +8,7 @@
   python research.py channel @paperlit                     stats + every video; appends a snapshot to history/ for tracking
   python research.py comments VIDEO_ID                     top comments (ideas, questions people ask)
   python research.py title "Would You Open It? 📩"           title score with tips (free, offline)
+  python research.py trends "free will" "death" "time"       Google Trends (YouTube searches): rising or fading, + rising related searches
 
 API key: in the cloud session the proxy adds it (network secret on www.googleapis.com, header X-Goog-Api-Key).
 On your PC: set the environment variable YT_API_KEY. Quota is free: 10,000 units/day (search = 100, others = 1).
@@ -128,7 +129,10 @@ def comments(vid):
         s = c['snippet']['topLevelComment']['snippet']; print(f"  [{s['likeCount']:>4} likes] {s['authorDisplayName']}: {s['textDisplay'][:200]}")
 
 def title(t):
-    """offline title score, tuned for curiosity/question Shorts"""
+    s, tips = title_score(t); print(f'title score {s}/100  ' + ('; '.join(tips) if tips else 'strong'))
+
+def title_score(t):
+    """offline title score, tuned for curiosity/question Shorts -> (score, tips)"""
     s, tips = 50, []
     n = len(t); s += 10 if 25 <= n <= 60 else -10; tips += [] if 25 <= n <= 60 else ['keep it 25-60 characters']
     if '?' in t: s += 12
@@ -140,11 +144,30 @@ def title(t):
     if re.search(r'[\U0001F300-\U0001FAFF]', t): s += 3
     if t.count('#') > 3: s -= 8; tips.append('max 2-3 hashtags in the title')
     if re.search(r'\b(paradox|explained|in \d+ seconds)\b', t, re.I): s -= 6; tips.append('avoid textbook words; make it personal')
-    print(f'title score {max(0, min(100, s))}/100  ' + ('; '.join(tips) if tips else 'strong'))
+    return max(0, min(100, s)), tips
+
+def trends(terms, geo=''):
+    """Google Trends for YouTube search, last 90 days: is each topic rising or fading right now?"""
+    from pytrends.request import TrendReq
+    pt = TrendReq(hl='en-US', tz=0, timeout=(10, 30))
+    for i in range(0, len(terms), 5):
+        grp = terms[i:i + 5]; pt.build_payload(grp, timeframe='today 3-m', geo=geo, gprop='youtube'); df = pt.interest_over_time()
+        if df.empty: print('  no Trends data for', ', '.join(grp)); continue
+        for t in grp:
+            s = df[t].astype(float); last, prev = s.iloc[-14:].mean(), s.iloc[-42:-14].mean()
+            ch = (last - prev) / max(prev, 1) * 100; arrow = 'RISING' if ch > 15 else 'fading' if ch < -15 else 'steady'
+            spark = ''.join(' ▁▂▃▄▅▆▇█'[min(8, int(v / 12.5))] for v in s.iloc[::max(1, len(s) // 26)])
+            print(f'  {t[:24]:24}  avg {s.mean():5.1f}  {arrow:6} {ch:+5.0f}%  {spark}')
+        try:
+            rel = pt.related_queries()
+            for t in grp:
+                r = (rel.get(t) or {}).get('rising')
+                if r is not None and not r.empty: print(f'    rising searches for "{t}":', ', '.join(r['query'].head(8)))
+        except Exception: pass
 
 if __name__ == '__main__':
     if len(sys.argv) < 2: sys.exit(__doc__)
     c, a = sys.argv[1], sys.argv[2:]
     {'suggest': lambda: suggest(' '.join(a)), 'keyword': lambda: keyword(' '.join(a)), 'outliers': lambda: outliers(a),
      'niche': lambda: niche(' '.join(a)), 'trending': lambda: trending(a[0] if a else 'US'), 'channel': lambda: channel(a[0]),
-     'comments': lambda: comments(a[0]), 'title': lambda: title(' '.join(a))}.get(c, lambda: sys.exit(__doc__))()
+     'comments': lambda: comments(a[0]), 'trends': lambda: trends(a), 'title': lambda: title(' '.join(a))}.get(c, lambda: sys.exit(__doc__))()

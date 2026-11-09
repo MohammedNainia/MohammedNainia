@@ -45,6 +45,13 @@ YTB/lanternfold/
 10. **Cover**: add `"thumb": {"t": <story sec of the most telling frame>, "text": ["short", "question?"], "size": 150, "y": 300}` to reel.json and run `python make.py reels/NN_slug thumb` → thumbnail_1080x1920.jpg (title in upper-middle band, clear of the platform UI). Send it with the reel.
 11. Commit + push the reel folder (MP4s are git-ignored).
 
+11. **Pre-upload check (always)**: `python make.py reels/NN_slug check` (also runs at the end of `all`). Fix every FAIL; read the WARNs (still first second, fast narration, captions under app buttons, weak title...). Then `python make.py reels/NN_slug safe` → safezones.png shows the reel under YouTube / Instagram / TikTok buttons.
+12. **Topic timing**: before picking a topic, `python ../research/research.py trends "topic a" "topic b"` (YouTube searches, last 90 days: RISING / steady / fading + rising related searches). Prefer rising topics; use rising searches as tags.
+
+### Word-timed captions + sound effects
+- Captions are timed to each spoken word by Whisper (faster-whisper base.en, CPU, cached in build/words.json) and the word being said turns gold (karaoke). `"captions": "plain"` in reel.json turns the highlight off. Falls back to estimated timing if Whisper is unavailable.
+- Sound effects: `"sfx": [[story_sec, "paper rustle", 0.4], [14, "whoosh", 0.5], ...]` in reel.json; finalize mixes them in (after the music ducking, before loudness). Freesound (CC0 only by default) when reachable - the cloud server is blocked by Freesound, so there it uses built-in paper sounds: whoosh, paper/rustle/page, thud/drop/heartbeat, tick/click/clock, chime/bell, twinkle/sparkle. `"synth:whoosh"` forces the built-in one. Put one on each big cut/reveal, volume 0.3-0.5; never under a spoken word. Browse: `python make.py sfx "paper whoosh"`.
+
 ## Gotchas
 - Lyria often rejects long/descriptive music prompts as a false content-safety violation (no credits charged). Keep prompts short and plain, e.g. "Calm solo piano, slow and gentle, soft celesta, warm reverb, light ambient pad, quiet intro and a soft ending. Instrumental." and retry once if blocked.
 - Music sits quietly under the voice: default music_volume 0.32 (the user asked for a soft piano). Don't raise it unless asked.

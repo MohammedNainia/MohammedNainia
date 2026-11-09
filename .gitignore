@@ -3,3 +3,4 @@ build/
 *.mp4
 YTB/lanternfold/reels/*/build/
 YTB/research/history/
+YTB/lanternfold/*.log
