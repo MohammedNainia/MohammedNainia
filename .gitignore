@@ -6,3 +6,4 @@ YTB/research/history/
 YTB/lanternfold/*.log
 YTB/publish/client_secret*.json
 YTB/publish/token.json
+YTB/lanternfold/reels/*/build_all.log

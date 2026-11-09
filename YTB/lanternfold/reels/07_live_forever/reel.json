@@ -1,0 +1,167 @@
+{
+ "title": "Would You Live Forever?",
+ "series": "Questions in Paper #7",
+ "question": "If you could never die, but everyone you love still would, would you choose forever?",
+ "env": "gothic_castle",
+ "style": "paper",
+ "hook": {
+  "text": [
+   "Would you",
+   "drink it?"
+  ],
+  "hold": 2.2,
+  "fade": 0.6,
+  "end": 1.2
+ },
+ "voice": {
+  "name": "Samara X",
+  "model": "Eleven v3",
+  "accent": "British"
+ },
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.6,
+ "tail": 1.4,
+ "lines": [
+  {
+   "say": "[low, intrigued] Drink this, and you will never die.",
+   "chunks": [
+    "Drink this,",
+    "and you will",
+    "never die."
+   ],
+   "beat": 0,
+   "lead": 0.3,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] He said yes. [pause] Five hundred years ago.",
+   "chunks": [
+    "He said yes.",
+    "Five hundred",
+    "years ago."
+   ],
+   "beat": 6,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] He has read every book. Seen every sunrise. Learned every language.",
+   "chunks": [
+    "He has read",
+    "every book.",
+    "Seen every sunrise.",
+    "Learned every language."
+   ],
+   "beat": 12,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[softly] But everyone he loved... grew old. [pause] One by one, their lights went out.",
+   "chunks": [
+    "But everyone he loved…",
+    "grew old.",
+    "One by one,",
+    "their lights went out."
+   ],
+   "beat": 21,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Maybe an ending is what makes each day count.",
+   "chunks": [
+    "Maybe an ending",
+    "is what makes",
+    "each day count."
+   ],
+   "beat": 30,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] Or maybe forever is just more time to love again.",
+   "chunks": [
+    "Or maybe forever",
+    "is just more time",
+    "to love again."
+   ],
+   "beat": 36,
+   "lead": 0.4,
+   "hold_after": 2.0
+  },
+  {
+   "say": "[whispers] So... would you drink it?",
+   "chunks": [
+    "So…",
+    "would you drink it?"
+   ],
+   "beat": 46,
+   "lead": 0.4,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   43.2,
+   46.6
+  ]
+ ],
+ "chimes": [
+  [
+   0.3,
+   86,
+   0.18
+  ],
+  [
+   12.3,
+   88,
+   0.1
+  ],
+  [
+   30.3,
+   81,
+   0.1
+  ],
+  [
+   46.3,
+   86,
+   0.16
+  ]
+ ],
+ "wind": 0.08,
+ "music_volume": 0.32,
+ "music_prompt": "Slow gothic waltz on soft piano and cello, gentle, music box, warm reverb, quiet intro and soft ending. Instrumental.",
+ "thumb": {
+  "t": 24,
+  "text": [
+   "Would you",
+   "drink it?"
+  ],
+  "size": 150,
+  "y": 300
+ },
+ "sfx": [
+  [
+   0.2,
+   "synth:chime",
+   0.3
+  ],
+  [
+   5.5,
+   "whoosh",
+   0.4
+  ],
+  [
+   21.0,
+   "synth:heartbeat",
+   0.35
+  ],
+  [
+   46.4,
+   "whoosh",
+   0.35
+  ]
+ ]
+}

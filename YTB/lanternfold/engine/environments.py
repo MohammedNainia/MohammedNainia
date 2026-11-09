@@ -5,7 +5,7 @@
     # then draw characters standing on ground(x) and call finish()
 
 An environment is plain data, so a new place = a new dict (copy the closest one and change colours/kinds).
-Layer kinds: hills, dunes, mountains, sea, city, forest, flat, stage (front mound/ledge where characters stand).
+Layer kinds: hills, dunes, mountains, sea, city, forest, flat, castle (crag + gothic castle at cx), stage (front mound/ledge where characters stand).
 """
 import math, numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -21,6 +21,8 @@ def shape(ly, t):
     k, by, a, s = ly['k'], ly['y'], ly.get('a', 60), ly.get('s', 1)
     ph = np.random.default_rng(s).random(3) * 6.28
     if k in ('hills', 'forest'): return lambda x: P.wave(x, by, a, s)
+    if k == 'castle':     # rocky crag the castle sits on
+        cx = ly.get('cx', 600); return lambda x: by - a * math.exp(-((x - cx) / 420) ** 2) - 18 * math.sin(x / 47 + ph[0]) * math.exp(-((x - cx) / 600) ** 2)
     if k == 'dunes': return lambda x: by - a * (.65 * math.sin(x / 330 + ph[0]) + .35 * math.sin(x / 170 + ph[1]))
     if k == 'mountains': return _peaks(s, by, a)
     if k == 'sea': return lambda x: by + 5 * math.sin(x / 38 + t * 1.6 + ph[0]) + 3 * math.sin(x / 17 - t * 2.1)
@@ -45,6 +47,13 @@ def props(ly, fn, T):
             else:
                 out.append([T(x - 2, y), T(x - h * .3, y - h * .25), T(x - h * .12, y - h * .3), T(x - h * .24, y - h * .6),
                             T(x, y - h), T(x + h * .24, y - h * .6), T(x + h * .12, y - h * .3), T(x + h * .3, y - h * .25), T(x + 2, y)])
+    if k == 'castle':
+        for tw in _castle(ly):
+            x0, w, h, roof = tw; y = fn(x0 + w / 2) + 30
+            out.append([T(x0, y), T(x0 + w, y), T(x0 + w, y - h), T(x0, y - h)])
+            if roof: out.append([T(x0 - w * .12, y - h), T(x0 + w / 2, y - h - w * 1.5), T(x0 + w * 1.12, y - h)])
+            else:
+                for bx in np.arange(x0, x0 + w - 5, 16): out.append([T(bx, y - h), T(bx + 9, y - h), T(bx + 9, y - h - 12), T(bx, y - h - 12)])
     if k == 'city':
         for x, w, h, spire in _buildings(ly):
             y = fn(x) + 4; out.append([T(x, y), T(x + w, y), T(x + w, y - h), T(x, y - h)])
@@ -60,6 +69,23 @@ def _buildings(ly):
     while x < 1800:
         w = r.uniform(60, 140); h = r.uniform(80, ly.get('a', 260)); out.append((x, w, h, r.random() < .3)); x += w + r.uniform(4, 20)
     return out
+
+def _castle(ly):
+    """(x0, width, height, pointed_roof) for a gothic castle silhouette centred on cx"""
+    cx, sc = ly.get('cx', 600), ly.get('scale', 1.0)
+    parts = [(-230, 300, 120, False), (-210, 46, 230, True), (-120, 60, 330, True), (-30, 80, 420, True), (70, 56, 300, True), (150, 44, 210, True), (-170, 340, 170, False)]
+    return [(cx + dx * sc, w * sc, h * sc, r) for dx, w, h, r in parts]
+
+def castle_windows(L, ly, fn, T, z, t, b=1.0):
+    """small warm arched windows that glow (some flicker)"""
+    r = np.random.default_rng(ly.get('s', 1) + 91)
+    for x0, w, h, roof in _castle(ly):
+        y = fn(x0 + w / 2) + 30
+        for wy in np.arange(y - h + 30, y - 25, 38):
+            for wx in np.arange(x0 + 12, x0 + w - 10, 26):
+                if r.random() < .22:
+                    fl = .75 + .25 * math.sin(t * (2 + r.random() * 3) + wx)
+                    sx, sy = T(wx, wy); glow(L, sx, sy, 3.2 * z, hexc('#ffc46b'), .9 * fl * b); glow(L, sx, sy, 14 * z, hexc('#ff9a4a'), .12 * fl * b)
 
 def city_windows(img, ly, fn, T, z, t):
     r = np.random.default_rng(ly.get('s', 1) + 77); m = Image.new('L', (W, H), 0); d = ImageDraw.Draw(m)
@@ -110,6 +136,7 @@ def draw_env(img, L, cam, t, env, reveal=1.0):
         pts = [T(x, fn(x)) for x in np.linspace(-900, 2000, 150)] + [(W + 50, H + 50), (-50, H + 50)]
         paper_layer(img, mask_poly(pts, props(ly, fn, T)), hexc(ly['c']) * reveal, GRAINS[i % 6])
         if ly['k'] == 'city': city_windows(img, ly, fn, T, z, t)
+        if ly['k'] == 'castle': castle_windows(L, ly, fn, T, z, t, reveal)
         if ly['k'] == 'sea':   # glints on the water
             for q in range(12):
                 gx = 80 + q * 85 + 20 * math.sin(t + q); sx, sy = T(gx, fn(gx) + 6); glow(L, sx, sy, 3, hexc(env.get('glint', '#ffe6b0')), .5 * (0.5 + 0.5 * math.sin(t * 2 + q)) * reveal)
@@ -149,6 +176,11 @@ ENVS = {
  'space_planet': {'sky': ('#04030f', '#1b1240'), 'stars': 1.4, 'moon': (720, 620, 230, '#b98ad6'), 'layers': [
     {'c': '#2b2350', 'k': 'mountains', 'y': 1350, 'a': 140, 's': 16, 'p': .6},
     {'c': '#3a2f63', 'k': 'stage', 'y': 1520, 'w': 520, 'p': 1}], 'weather': 'dust', 'weather_amt': .4},
+ 'gothic_castle': {'sky': ('#07041a', '#3b1636'), 'stars': .8, 'moon': (700, 470, 95, '#f1e3cf'), 'layers': [
+    {'c': '#1d1233', 'k': 'mountains', 'y': 1260, 'a': 230, 's': 19, 'p': .35},
+    {'c': '#130b24', 'k': 'castle', 'y': 1290, 'a': 120, 's': 20, 'p': .5, 'cx': 640},
+    {'c': '#1b1029', 'k': 'forest', 'y': 1420, 'a': 30, 's': 21, 'p': .75, 'th': 95, 'gap': 36},
+    {'c': '#2b1d33', 'k': 'stage', 'form': 'ledge', 'y': 1470, 'cx': 380, 'w': 640, 'p': 1}], 'weather': 'dust', 'weather_amt': .25},
  'firefly_meadow': {'sky': ('#0d1b2a', '#28465a'), 'stars': .8, 'layers': [
     {'c': '#16303d', 'k': 'forest', 'y': 1180, 'a': 40, 's': 17, 'p': .5, 'th': 140, 'gap': 34},
     {'c': '#1d3f45', 'k': 'hills', 'y': 1330, 'a': 60, 's': 18, 'p': .75},
