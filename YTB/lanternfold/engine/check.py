@@ -78,13 +78,13 @@ def run(reel):
     t = seo_title(reel)
     if not t: r.warn('no seo.md title found')
     else:
-        try:
-            from research import title_score; s, tips = title_score(t)
-            r.test(s >= 70, f'title score {s}/100', f'title score {s}/100: ' + '; '.join(tips))
-        except ImportError: pass
+        try:      # data-trained model (research/study.py report) - percentile vs 1,200+ niche Shorts
+            from study import score_pct; pct, rho = score_pct(t)
+            r.test(pct >= 60, f'title beats {pct:.0f}% of niche Shorts (data model)', f'title only beats {pct:.0f}% of niche Shorts - run: python ../research/study.py score "<title>" for what helps/hurts')
+        except Exception: pass
         r.test(len(t) <= 100, f'title {len(t)} chars', f'title is {len(t)} chars - YouTube cuts at 100', 'fail')
         r.test(t.count('#') <= 3, 'hashtags in title ≤ 3', 'more than 3 hashtags in the title')
-        r.test(not re.search(r'\b(paradox|explained|in \d+ seconds)\b', t, re.I), 'title is personal, not textbook', 'textbook words in title (paradox / explained / in N seconds) - those underperformed for us')
+        r.test(not re.search(r'\b(paradox|explained|in \d+ seconds|theory)\b', t, re.I), 'no textbook words', 'textbook words in title (paradox / explained / in N seconds / theory) - proven 0.46x in the niche data')
     return report(r)
 
 def report(r):

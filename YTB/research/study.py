@@ -153,10 +153,14 @@ def report(tz=None):
     print('  ' + ('useful signal' if rho > .1 and top > 1.3 else 'weak signal - treat title scores as a tie-breaker, not a rule'))
     m = fit(rows); json.dump(m | {'rho': rho, 'top': top, 'n': len(rows), 'pred': sorted(predict(m, r['f']) for r in rows)}, open(os.path.join(DATA, 'model.json'), 'w'))
 
+def score_pct(title, secs=None):
+    m = json.load(open(os.path.join(DATA, 'model.json'))); p = predict(m, feats(title, secs))
+    return 100 * np.searchsorted(m['pred'], p) / len(m['pred']), m['rho']
+
 def score(title, secs=None):
     m = json.load(open(os.path.join(DATA, 'model.json'))); f = feats(title, secs); p = predict(m, f)
     pct = 100 * np.searchsorted(m['pred'], p) / len(m['pred'])
-    print(f'"{title}": better than {pct:.0f}% of {m["n"]} niche Shorts titles  (expected {math.exp(p):.2f}x channel normal)')
+    print(f'"{title}": better than {pct:.0f}% of {m["n"]} niche Shorts titles')
     contrib = sorted(((wi * (f.get(k, 0) - mi), k) for k, wi, mi in zip(m['names'], m['w'], m['mu'])), reverse=True)
     print('  helps: ' + ', '.join(f'{k} ({math.exp(c):.2f}x)' for c, k in contrib[:3] if c > .02))
     print('  hurts: ' + ', '.join(f'{k} ({math.exp(c):.2f}x)' for c, k in contrib[::-1][:3] if c < -.02))
