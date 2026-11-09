@@ -19,8 +19,15 @@ Would you open it? Maybe you'd stop waiting and live every day on purpose. Or ma
 **Pinned comment:** Would you open it? Yes or no, and why? 📩
 
 ## TikTok
-someone hands you an envelope with the day you die inside… would you open it? 📩🌙 #wouldyou #philosophy #deepthoughts #fyp
-Cover text: "Would you open it?"
+**Caption:**
+Would you want to know the day you die? Someone hands you an envelope with the date inside. Would you open it, or would you rather never know? 📩 Tell me yes or no 👇
+
+#wouldyourather #deepquestions #philosophy #lifelessons #paperlit
+
+**Cover text:** Would you open it?
+**On-screen first second:** the hook "Would you open it?" (already in the video)
+**Sound:** keep the original sound (the voice is the story)
+**Post:** same 04:00 Morocco slot as YouTube; pin your own first comment: "Yes or no? I'll reply to every answer 📩"
 
 ## Instagram Reels
 Someone hands you an envelope. Inside is the day your life ends. 📩
