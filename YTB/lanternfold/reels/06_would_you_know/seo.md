@@ -1,8 +1,11 @@
 # SEO: Would You Want to Know the Day You Die? (PaperLit · Questions in Paper #6)
 
 ## YouTube Shorts
-**Title:** Would You Open It? 📩 (The Day You Die Is Inside) #shorts
-Alt: Would You Want to Know the Day You Die? 🌙 #shorts
+**Title:** Someone Hands You an Envelope With the Day You Die Inside — Would You Open It? #philosophy #shorts
+(data model: beats 98% of 1,226 niche Shorts titles; old title beat 19%)
+
+**Tags:** life lessons, would you rather, philosophy, deep thoughts, meaning of life, paperlit
+**Publish:** Friday ~04:00 Morocco time (data: Fri 1.5x, 03-06h 1.8x)
 
 **Description:**
 Imagine someone hands you an envelope. Inside is one date: the day your life ends.
@@ -26,7 +29,7 @@ Would you open it?
 
 Yes or no 👇
 .
-#wouldyourather #philosophy #deepthoughts #animation #paperlit
+#wouldyourather #philosophy #deepthoughts #lifelessons #animation #paperlit
 
 ## Posting
 - The hook ("Would you open it?") is on the very first frame, so the default first frame works as the cover too.
