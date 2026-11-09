@@ -5,14 +5,14 @@
 (data model: beats 98% of 1,226 niche Shorts titles; old title beat 19%)
 
 **Tags:** life lessons, would you rather, philosophy, deep thoughts, meaning of life, paperlit
-**Publish:** Friday ~04:00 Morocco time (data: Fri 1.5x, 03-06h 1.8x)
+**Publish:** Tuesday 10 Nov 2026, 04:00 Morocco time (data: 03-06h 1.8x)
 
 **Description:**
 Imagine someone hands you an envelope. Inside is one date: the day your life ends.
 
 Would you open it? Maybe you'd stop waiting and live every day on purpose. Or maybe not knowing is what lets you breathe.
 
-✨ PaperLit: tiny paper stories, big quiet questions. New question every week.
+✨ PaperLit: tiny paper stories, big quiet questions. New question every day.
 
 #wouldyourather #philosophy #deepthoughts #meaningoflife #shorts #animation #paperlit
 
