@@ -5,6 +5,8 @@
   python youtube_publish.py reel ..\\lanternfold\\reels\\07_x --now                     public right away
   python youtube_publish.py edit VIDEO_ID --title "..." [--desc-file d.txt] [--tags "a, b"] [--thumb cover.jpg] [--when "..."]
   python youtube_publish.py list                                                     your latest videos (incl. private / scheduled)
+  python youtube_publish.py comments                                                 comments you haven't answered yet (with their IDs)
+  python youtube_publish.py reply COMMENT_ID "Thank you so much!"                    reply as PaperLit (no vidIQ credits)
 
 Reads from the reel folder: <slug>_1080x1920.mp4, thumbnail_1080x1920.jpg and seo.md (**Title:**, **Tags:**, **Description:** ... **Pinned comment:**).
 It posts the pinned-comment text as a comment (YouTube's API cannot pin; tap "Pin" on it in the app).
@@ -110,12 +112,26 @@ def listing():
         st = v['status']; s = st['privacyStatus'] + (f" until {st['publishAt']}" if st.get('publishAt') else '')
         print(f"  {v['id']}  {s:34}  {v['snippet']['title'][:70]}")
 
+def comments():
+    y = yt(); ch = y.channels().list(part='id', mine=True).execute()['items'][0]['id']
+    r = y.commentThreads().list(part='snippet,replies', allThreadsRelatedToChannelId=ch, maxResults=50, textFormat='plainText', order='time').execute()
+    for c in r.get('items', []):
+        top = c['snippet']['topLevelComment']['snippet']; reps = c.get('replies', {}).get('comments', [])
+        if any(x['snippet'].get('authorChannelId', {}).get('value') == ch for x in reps): continue
+        print(f"\n{c['id']}  ({top['authorDisplayName']} on https://youtu.be/{c['snippet']['videoId']})\n  {top['textDisplay'][:300]}")
+
+def reply(cid, text):
+    if '—' in text: sys.exit('STOP: long dash "—" in the reply. Channel rule: never use it.')
+    y = yt(); y.comments().insert(part='snippet', body={'snippet': {'parentId': cid, 'textOriginal': text}}).execute(); print('  replied')
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter); sub = ap.add_subparsers(dest='cmd')
     r = sub.add_parser('reel'); r.add_argument('folder'); r.add_argument('--when'); r.add_argument('--now', action='store_true')
     e = sub.add_parser('edit'); e.add_argument('video'); e.add_argument('--title'); e.add_argument('--desc-file'); e.add_argument('--tags'); e.add_argument('--thumb'); e.add_argument('--when')
-    sub.add_parser('list'); a = ap.parse_args()
+    sub.add_parser('list'); sub.add_parser('comments'); rp = sub.add_parser('reply'); rp.add_argument('comment'); rp.add_argument('text'); a = ap.parse_args()
     if a.cmd == 'reel': reel(a.folder, a.when, a.now)
     elif a.cmd == 'edit': edit(a.video, a.title, a.desc_file, a.tags, a.thumb, a.when)
     elif a.cmd == 'list': listing()
+    elif a.cmd == 'comments': comments()
+    elif a.cmd == 'reply': reply(a.comment, a.text)
     else: ap.print_help()
