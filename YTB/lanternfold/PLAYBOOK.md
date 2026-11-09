@@ -17,6 +17,11 @@ YTB/lanternfold/
 - Check every audio file is not silent before use (engine `audio.check` does this — never bypass).
 - Keep tokens low: reuse engine helpers, render style frames at 360x640 contact sheets to inspect.
 
+## Hook-first (from channel analytics: 94% of views come from the Shorts feed, so the first 1-2 s decide everything)
+- NO black/slow intro. Frame 0 = the most striking shot, already moving. Add `"hook": {"text": ["Would you", "open it?"], "hold": 2.2}` to reel.json: the big question shows on frame 1 and returns at the end (seamless loop on the same frame).
+- Titles are personal questions ("Would you…", "Are you…"), not concept names. Bright warm/cool contrast in the first frame. Search terms/tags matter little for Shorts.
+- Shorter is fine (40-50 s) if it keeps people watching.
+
 ## Steps
 1. **Concept → reel.json + narration.txt.** Copy the latest reel folder as a template. Fill `lines` (`say` with ElevenLabs v3 tags, `chunks` for captions, `beat` = story second the line belongs to, `lead`, `hold_after` 2.2 on the line before the final question), `stillness`, `chimes`, `music_prompt`. Story time is 0–55 s; the engine maps it to the voice.
 2. **Environment (every reel gets a place that fits its idea, not always the navy hill).** Run `python make.py envs` to see the presets in `engine/environments.py` (night_hills, dusk_sea, desert_moon, snow_peaks, city_roofs, autumn_forest, space_planet, firefly_meadow). Pick the one whose mood matches the question; vary across consecutive reels. If none fits, add a new preset dict (copy the closest, change sky/sun/moon/layers/weather; layer kinds: hills, dunes, mountains, sea, city, forest, flat, stage with form mound|ledge). Store the choice as `"env"` in reel.json. A reel may switch environments mid-story (e.g. split worlds).

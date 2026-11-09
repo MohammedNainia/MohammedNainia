@@ -33,6 +33,16 @@ def cue_img(text, size=70):
     im = Image.alpha_composite(sh.filter(ImageFilter.GaussianBlur(7)), im)
     ImageDraw.Draw(im).text((x, y), text, font=f, fill=(255, 244, 224, 255), stroke_width=2, stroke_fill=(30, 26, 40, 255)); return np.asarray(im)
 
+def hook_img(lines, size=130):
+    """big hook question shown on frame 1 (and again at the loop point)"""
+    f = ImageFont.truetype(FONT, size); h = int(size * 1.15 * len(lines) + 80); im = Image.new('RGBA', (W, h), (0, 0, 0, 0))
+    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); d0 = ImageDraw.Draw(sh); d = ImageDraw.Draw(im)
+    for i, ln in enumerate(lines):
+        x = (W - d.textlength(ln, font=f)) / 2; y = 30 + i * size * 1.15
+        d0.text((x, y + 6), ln, font=f, fill=(5, 8, 25, 230), stroke_width=12, stroke_fill=(5, 8, 25, 230))
+        d.text((x, y), ln, font=f, fill=(255, 238, 208, 255), stroke_width=3, stroke_fill=(35, 28, 45, 255))
+    return np.asarray(Image.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10)), im))
+
 def srt(cs, path):
     ts = lambda s: f'{int(s // 3600):02}:{int(s % 3600 // 60):02}:{int(s % 60):02},{int(s % 1 * 1000):03}'
     with open(path, 'w', encoding='utf-8') as f:
@@ -59,13 +69,25 @@ def run(reel):
                           '-r', str(FPS), '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-profile:v', 'high', '-c:a', 'aac',
                           '-b:a', '192k', '-ar', '44100', '-movflags', '+faststart', final], stdin=subprocess.PIPE)
     blank = bytes(H * W * 4); top = 420
+    hk = reel.cfg.get('hook'); himg = hook_img(hk['text']) if hk else None
     for fi in range(int(dur * FPS)):
         t = fi / FPS; a, cur = 0.0, None
         for s, e, c in cs:
             if s - 0.15 <= t <= e + 0.15: a = min(1, (t - s + 0.15) / 0.3, (e + 0.15 - t) / 0.3); cur = c; break
-        if cur is None or a <= 0: p.stdin.write(blank); continue
-        fr = np.zeros((H, W, 4), np.uint8); im = imgs[cur].copy(); im[..., 3] = (im[..., 3] * a).astype(np.uint8)
-        fr[top:top + 300] = im; p.stdin.write(fr.tobytes())
+        ha = 0.0
+        if hk:   # hook: full at frame 1, fades out after `hold`, fades back in over the last `end` s (seamless loop)
+            ha = max(1 - max(0, t - hk.get('hold', 2.2)) / hk.get('fade', .6), (t - (dur - hk.get('end', 1.2))) / hk.get('end', 1.2), 0)
+            ha = min(1, ha); a = a * (1 - ha)          # captions give way to the hook
+        if (cur is None or a <= 0) and ha <= 0: p.stdin.write(blank); continue
+        fr = np.zeros((H, W, 4), np.uint8)
+        if cur is not None and a > 0:
+            im = imgs[cur].copy(); im[..., 3] = (im[..., 3] * a).astype(np.uint8); fr[top:top + 300] = im
+        if ha > 0:
+            hi = himg.copy(); hi[..., 3] = (hi[..., 3] * ha).astype(np.uint8); y0 = 230; hh = hi.shape[0]
+            base = fr[y0:y0 + hh].astype(np.float32); al = hi[..., 3:4].astype(np.float32) / 255
+            fr[y0:y0 + hh] = (hi.astype(np.float32) * al + base * (1 - al)).clip(0, 255).astype(np.uint8)
+            fr[y0:y0 + hh, :, 3] = np.maximum(fr[y0:y0 + hh, :, 3], hi[..., 3])
+        p.stdin.write(fr.tobytes())
     p.stdin.close(); p.wait()
     prev = final.replace('1080x1920', '720p_preview')
     subprocess.run([FFMPEG, '-hide_banner', '-loglevel', 'error', '-y', '-i', final, '-vf', 'scale=720:1280:flags=lanczos',

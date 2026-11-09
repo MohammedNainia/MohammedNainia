@@ -1,0 +1,145 @@
+{
+ "title": "Would You Want to Know the Day You Die?",
+ "series": "Questions in Paper #6",
+ "question": "If you could know the exact day your life ends, would you want to?",
+ "env": "desert_moon",
+ "style": "paper",
+ "hook": {
+  "text": [
+   "Would you",
+   "open it?"
+  ],
+  "hold": 2.2,
+  "fade": 0.6,
+  "end": 1.2
+ },
+ "voice": {
+  "name": "Charmed",
+  "model": "Eleven v3",
+  "accent": "British",
+  "stability": 0.5
+ },
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.6,
+ "tail": 1.4,
+ "lines": [
+  {
+   "say": "[softly] Imagine someone hands you an envelope.",
+   "chunks": [
+    "Imagine someone",
+    "hands you an envelope."
+   ],
+   "beat": 0,
+   "lead": 0.3,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Inside is one date. [pause] The day your life ends.",
+   "chunks": [
+    "Inside is one date.",
+    "The day",
+    "your life ends."
+   ],
+   "beat": 5,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] Maybe you'd stop waiting. [pause] Say the things. Live every day on purpose.",
+   "chunks": [
+    "Maybe you'd",
+    "stop waiting.",
+    "Say the things.",
+    "Live every day",
+    "on purpose."
+   ],
+   "beat": 14,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[softly] Or maybe... not knowing is what lets you breathe.",
+   "chunks": [
+    "Or maybe…",
+    "not knowing is what",
+    "lets you breathe."
+   ],
+   "beat": 22,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[calm] One life counts its days. [pause] The other never counts at all.",
+   "chunks": [
+    "One life",
+    "counts its days.",
+    "The other never",
+    "counts at all."
+   ],
+   "beat": 29,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Neither is wrong. [pause] Both take courage.",
+   "chunks": [
+    "Neither is wrong.",
+    "Both take courage."
+   ],
+   "beat": 37,
+   "lead": 0.4,
+   "hold_after": 2.0
+  },
+  {
+   "say": "[whispers] So... would you open it?",
+   "chunks": [
+    "So…",
+    "would you open it?"
+   ],
+   "beat": 46,
+   "lead": 0.4,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   43.15,
+   46.61
+  ]
+ ],
+ "chimes": [
+  [
+   0.3,
+   86,
+   0.18
+  ],
+  [
+   14.3,
+   88,
+   0.1
+  ],
+  [
+   22.3,
+   81,
+   0.1
+  ],
+  [
+   46.3,
+   86,
+   0.16
+  ]
+ ],
+ "wind": 0.08,
+ "music_volume": 0.32,
+ "music_prompt": "Calm desert night piano, slow and soft, light ambient pad, warm reverb, quiet intro and a soft ending. Instrumental.",
+ "thumb": {
+  "t": 20,
+  "text": [
+   "Would you",
+   "open it?"
+  ],
+  "size": 150,
+  "y": 300
+ }
+}
