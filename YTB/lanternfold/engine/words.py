@@ -11,7 +11,10 @@ def heard(reel):
     try:
         from faster_whisper import WhisperModel
         m = WhisperModel('base.en', device='cpu', compute_type='int8')
-        segs, _ = m.transcribe(voice, word_timestamps=True, initial_prompt=' '.join(' '.join(l['chunks']) for l in reel.cfg['lines']))
+        import subprocess, numpy as np; from .config import FFMPEG
+        raw = subprocess.run([FFMPEG, '-v', 'error', '-i', voice, '-f', 's16le', '-ac', '1', '-ar', '16000', '-'], capture_output=True, check=True).stdout
+        pcm = np.frombuffer(raw, np.int16).astype(np.float32) / 32768      # decode ourselves (avoids PyAV version clashes)
+        segs, _ = m.transcribe(pcm, word_timestamps=True, initial_prompt=' '.join(' '.join(l['chunks']) for l in reel.cfg['lines']))
         ws = [[round(w.start, 3), round(w.end, 3), w.word.strip()] for s in segs for w in s.words]
     except Exception as e:
         print(f'  (word timing unavailable: {str(e)[:80]} - using estimated timing)'); return None
