@@ -38,7 +38,7 @@ def seo(path):
     s = open(path, encoding='utf-8').read()
     title = re.search(r'\*\*Title:\*\*\s*(.+)', s).group(1).strip()
     tags = [t.strip() for t in re.search(r'\*\*Tags:\*\*\s*(.+)', s).group(1).split(',')] if '**Tags:**' in s else []
-    m = re.search(r'\*\*Description:\*\*\s*\n(.*?)\n\s*\*\*Pinned comment:\*\*\s*(.+)', s, re.S)
+    m = re.search(r'\*\*Description:\*\*\s*\n(.*?)\n\s*\*\*Pinned comment:\*\*[ \t]*([^\n]+)', s, re.S)
     desc, pin = (m.group(1).strip(), m.group(2).strip()) if m else (re.search(r'\*\*Description:\*\*\s*\n(.*?)(\n## |\Z)', s, re.S).group(1).strip(), None)
     return title, desc, tags, pin
 
