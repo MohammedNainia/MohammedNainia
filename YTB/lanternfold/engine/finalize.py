@@ -91,7 +91,7 @@ def run(reel):
     blank = bytes(H * W * 4); top = 420
     hk = reel.cfg.get('hook'); himg = hook_img(hk['text']) if hk else None
     for fi in range(int(dur * FPS)):
-        t = fi / FPS; a, cur, wi = 0.0, None, -1
+        t = fi / FPS; a, cur, wi = 0.0, None, -1; top = 420
         for s, e, c, wt in cs:
             if s - 0.15 <= t <= e + 0.15:
                 a = min(1, (t - s + 0.15) / 0.3, (e + 0.15 - t) / 0.3); cur = c
@@ -99,7 +99,9 @@ def run(reel):
         ha = 0.0
         if hk:   # hook: full at frame 1, fades out after `hold`, fades back in over the last `end` s (seamless loop)
             ha = max(1 - max(0, t - hk.get('hold', 2.2)) / hk.get('fade', .6), (t - (dur - hk.get('end', 1.2))) / hk.get('end', 1.2), 0)
-            ha = min(1, ha); a = a * (1 - ha)          # captions give way to the hook
+            ha = min(1, ha)
+            if t < dur / 2: top = int(420 + 150 * ha)   # opening: captions stay visible, just below the hook, then slide up
+            else: a = a * (1 - ha)                      # loop point: the closing question is the hook itself
         if (cur is None or a <= 0) and ha <= 0: p.stdin.write(blank); continue
         fr = np.zeros((H, W, 4), np.uint8)
         if cur is not None and a > 0:

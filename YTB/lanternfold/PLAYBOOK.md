@@ -19,7 +19,7 @@ YTB/lanternfold/
 - Keep tokens low: reuse engine helpers, render style frames at 360x640 contact sheets to inspect.
 
 ## Hook-first (from channel analytics: 94% of views come from the Shorts feed, so the first 1-2 s decide everything)
-- NO black/slow intro. Frame 0 = the most striking shot, already moving. Add `"hook": {"text": ["Would you", "open it?"], "hold": 2.2}` to reel.json: the big question shows on frame 1 and returns at the end (seamless loop on the same frame).
+- NO black/slow intro. Frame 0 = the most striking shot, already moving. Add `"hook": {"text": ["Would you", "open it?"], "hold": 2.2}` to reel.json: the big question shows on frame 1 and returns at the end (seamless loop on the same frame). The opening captions stay visible under it (they sit lower while the hook shows, then slide up), so the first spoken words are never hidden.
 - Titles are personal questions ("Would you…", "Are you…"), not concept names. Bright warm/cool contrast in the first frame. Search terms/tags matter little for Shorts.
 - Shorter is fine (40-50 s) if it keeps people watching.
 
