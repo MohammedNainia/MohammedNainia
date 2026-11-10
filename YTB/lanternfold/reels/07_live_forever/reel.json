@@ -9,8 +9,8 @@
    "Would you",
    "drink it?"
   ],
-  "hold": 2.2,
-  "fade": 0.6,
+  "hold": 0.1,
+  "fade": 0.3,
   "end": 1.2
  },
  "voice": {

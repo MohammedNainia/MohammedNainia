@@ -98,7 +98,7 @@ def run(reel):
                 wi = max([k for k, (ws_, _) in enumerate(wt) if ws_ - 0.05 <= t] or [0]); break
         ha = 0.0
         if hk:   # hook: full at frame 1, fades out after `hold`, fades back in over the last `end` s (seamless loop)
-            ha = max(1 - max(0, t - hk.get('hold', 2.2)) / hk.get('fade', .6), (t - (dur - hk.get('end', 1.2))) / hk.get('end', 1.2), 0)
+            ha = max(1 - max(0, t - hk.get('hold', 0.1)) / hk.get('fade', .3), (t - (dur - hk.get('end', 1.2))) / hk.get('end', 1.2), 0)
             ha = min(1, ha)
             if t < dur / 2: top = int(420 + 150 * ha)   # opening: captions stay visible, just below the hook, then slide up
             else: a = a * (1 - ha)                      # loop point: the closing question is the hook itself
