@@ -1,0 +1,163 @@
+{
+ "title": "Would You Undo Your Biggest Regret?",
+ "series": "Questions in Paper #8",
+ "question": "If you could erase your biggest regret, but also lose everything it taught you, would you?",
+ "env": "dusk_sea",
+ "style": "paper",
+ "hook": {
+  "text": [
+   "Would you",
+   "turn it?"
+  ],
+  "hold": 0.1,
+  "fade": 0.3,
+  "end": 1.2
+ },
+ "voice": {
+  "name": "Samara X",
+  "model": "Eleven v3",
+  "accent": "British"
+ },
+ "story_duration": 55,
+ "tempo": 1.0,
+ "max_pause": 0.6,
+ "tail": 1.4,
+ "lines": [
+  {
+   "say": "[softly] This old watch can turn back time.",
+   "chunks": [
+    "This old watch",
+    "can turn back time."
+   ],
+   "beat": 0,
+   "lead": 0.3,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] One turn... and your biggest regret never happened.",
+   "chunks": [
+    "One turn…",
+    "and your biggest regret",
+    "never happened."
+   ],
+   "beat": 5,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] The words you said. The chance you missed. Gone.",
+   "chunks": [
+    "The words you said.",
+    "The chance you missed.",
+    "Gone."
+   ],
+   "beat": 12,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[softly] But everything it taught you... would be gone too.",
+   "chunks": [
+    "But everything",
+    "it taught you…",
+    "would be gone too."
+   ],
+   "beat": 21,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[thoughtful] Maybe that pain is part of who you are now.",
+   "chunks": [
+    "Maybe that pain",
+    "is part of",
+    "who you are now."
+   ],
+   "beat": 30,
+   "lead": 0.4,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[warmly] Or maybe you deserve a life without it.",
+   "chunks": [
+    "Or maybe you deserve",
+    "a life without it."
+   ],
+   "beat": 36,
+   "lead": 0.4,
+   "hold_after": 2.0
+  },
+  {
+   "say": "[whispers] So... would you turn it?",
+   "chunks": [
+    "So…",
+    "would you turn it?"
+   ],
+   "beat": 46,
+   "lead": 0.4,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   43.2,
+   46.6
+  ]
+ ],
+ "chimes": [
+  [
+   0.3,
+   86,
+   0.16
+  ],
+  [
+   12.3,
+   88,
+   0.1
+  ],
+  [
+   30.3,
+   81,
+   0.1
+  ],
+  [
+   46.3,
+   86,
+   0.16
+  ]
+ ],
+ "wind": 0.08,
+ "music_volume": 0.32,
+ "music_prompt": "Gentle nostalgic piano with soft strings, slow, warm reverb, quiet intro and soft ending. Instrumental.",
+ "thumb": {
+  "t": 16,
+  "text": [
+   "Would you",
+   "turn it?"
+  ],
+  "size": 150,
+  "y": 300
+ },
+ "sfx": [
+  [
+   0.2,
+   "synth:tick",
+   0.35
+  ],
+  [
+   5.4,
+   "synth:tick",
+   0.35
+  ],
+  [
+   12.0,
+   "whoosh",
+   0.45
+  ],
+  [
+   46.4,
+   "synth:chime",
+   0.3
+  ]
+ ]
+}
