@@ -3,7 +3,7 @@
   python youtube_publish.py reel ..\\lanternfold\\reels\\06_would_you_know            upload + title/desc/tags/cover, scheduled next 04:00 Morocco
   python youtube_publish.py reel ..\\lanternfold\\reels\\07_x --when "2026-11-11 04:00"   pick the slot (Morocco time)
   python youtube_publish.py reel ..\\lanternfold\\reels\\07_x --now                     public right away
-  python youtube_publish.py edit VIDEO_ID --title "..." [--desc-file d.txt] [--tags "a, b"] [--thumb cover.jpg] [--when "..."]
+  python youtube_publish.py edit VIDEO_ID --title "..." [--desc-file d.txt] [--tags "a, b"] [--thumb cover.jpg] [--when "..." | --now]
   python youtube_publish.py list                                                     your latest videos (incl. private / scheduled)
   python youtube_publish.py comments                                                 comments you haven't answered yet (with their IDs)
   python youtube_publish.py reply COMMENT_ID "Thank you so much!"                    reply as PaperLit (no vidIQ credits)
@@ -56,7 +56,7 @@ def slot(when=None):
     if when: t = datetime.datetime.strptime(when, '%Y-%m-%d %H:%M').replace(tzinfo=TZ)
     else:
         now = datetime.datetime.now(TZ); t = now.replace(hour=4, minute=0, second=0, microsecond=0)
-        if t < now + datetime.timedelta(hours=1): t += datetime.timedelta(days=1)
+        if t < now + datetime.timedelta(minutes=10): t += datetime.timedelta(days=1)
     return t, t.astimezone(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 def set_thumb(y, vid, path):
@@ -85,13 +85,16 @@ def reel(folder, when=None, now=False):
     vid = resp['id']; print(f'  uploaded: https://youtu.be/{vid}')
     th = os.path.join(folder, 'thumbnail_1080x1920.jpg')
     if os.path.exists(th): set_thumb(y, vid, th)
-    if pin:
-        y.commentThreads().insert(part='snippet', body={'snippet': {'videoId': vid, 'topLevelComment': {'snippet': {'textOriginal': pin}}}}).execute()
-        print('  comment posted (open the video in the YouTube app and tap ⋮ > Pin on it)')
+    if pin and now:
+        try:
+            y.commentThreads().insert(part='snippet', body={'snippet': {'videoId': vid, 'topLevelComment': {'snippet': {'textOriginal': pin}}}}).execute()
+            print('  comment posted (open the video in the YouTube app and tap ⋮ > Pin on it)')
+        except Exception: print(f'  comment not posted yet. Once the video is live, comment and pin:  {pin}')
+    elif pin: print(f'  YouTube allows comments only after it goes live. Then comment and pin:  {pin}')
     json.dump({'videoId': vid, 'title': title, 'publishAt': status.get('publishAt')}, open(os.path.join(folder, 'youtube.json'), 'w'))
     print('done.')
 
-def edit(vid, title=None, desc_file=None, tags=None, thumb=None, when=None):
+def edit(vid, title=None, desc_file=None, tags=None, thumb=None, when=None, now=False):
     y = yt(); v = y.videos().list(part='snippet,status', id=vid).execute()['items'][0]; sn = v['snippet']
     if title: sn['title'] = title
     if desc_file: sn['description'] = open(desc_file, encoding='utf-8').read().strip()
@@ -101,6 +104,8 @@ def edit(vid, title=None, desc_file=None, tags=None, thumb=None, when=None):
     parts = 'snippet'
     if when:
         _, utc = slot(when); body['status'] = {'privacyStatus': 'private', 'publishAt': utc, 'selfDeclaredMadeForKids': False}; parts += ',status'
+    if now:
+        body['status'] = {'privacyStatus': 'public', 'selfDeclaredMadeForKids': False}; parts += ',status'
     y.videos().update(part=parts, body=body).execute(); print(f'  updated https://youtu.be/{vid}: {sn["title"]}')
     if thumb: set_thumb(y, vid, thumb)
 
@@ -127,10 +132,10 @@ def reply(cid, text):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter); sub = ap.add_subparsers(dest='cmd')
     r = sub.add_parser('reel'); r.add_argument('folder'); r.add_argument('--when'); r.add_argument('--now', action='store_true')
-    e = sub.add_parser('edit'); e.add_argument('video'); e.add_argument('--title'); e.add_argument('--desc-file'); e.add_argument('--tags'); e.add_argument('--thumb'); e.add_argument('--when')
+    e = sub.add_parser('edit'); e.add_argument('video'); e.add_argument('--title'); e.add_argument('--desc-file'); e.add_argument('--tags'); e.add_argument('--thumb'); e.add_argument('--when'); e.add_argument('--now', action='store_true')
     sub.add_parser('list'); sub.add_parser('comments'); rp = sub.add_parser('reply'); rp.add_argument('comment'); rp.add_argument('text'); a = ap.parse_args()
     if a.cmd == 'reel': reel(a.folder, a.when, a.now)
-    elif a.cmd == 'edit': edit(a.video, a.title, a.desc_file, a.tags, a.thumb, a.when)
+    elif a.cmd == 'edit': edit(a.video, a.title, a.desc_file, a.tags, a.thumb, a.when, a.now)
     elif a.cmd == 'list': listing()
     elif a.cmd == 'comments': comments()
     elif a.cmd == 'reply': reply(a.comment, a.text)
