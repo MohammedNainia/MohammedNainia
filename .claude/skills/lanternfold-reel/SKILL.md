@@ -16,6 +16,7 @@ YTB/lanternfold/
 ```
 
 ## Channel rules (always)
+- **Comments come from taking sides, not from yes/no.** Every reel gets: two named camps (e.g. "Team Need to Know 👂 or Team Never Know 🙈?"), a pinned comment that takes a soft stand people can push against ("I'd never listen. Change my mind."), and a final line that is an identity choice ("Some would... Some never could. Which one are you?"). The reel itself stays neutral. Reply to early comments with a follow-up question to start threads.
 - **Never use the long dash "—"** anywhere (titles, descriptions, captions, comments, narration, covers). Viewers read it as AI-written. Use a period, comma or question mark instead.
 - Deep, philosophical, NEUTRAL: plant a question, show ≥2 answers with equal beauty, never moralise. End on a question + ~2 s stillness.
 - 9:16, 1080x1920, 30 fps, ≤60 s. Last frame == first frame (loop).

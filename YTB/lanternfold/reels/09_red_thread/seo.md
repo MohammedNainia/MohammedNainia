@@ -20,7 +20,7 @@ Send this to someone. Would they follow it?
 
 #soulmate #redthread #wouldyourather #philosophy #lifelessons #shorts #animation #paperlit
 
-**Pinned comment:** Would you follow it, or take the long way? Tag the person at the end of your thread 🧵
+**Pinned comment:** Team Follow It 🧵 or Team Long Way 🌙? I'd take the long way. Tell me why I'm wrong.
 
 ## TikTok
 **Caption:**
@@ -30,7 +30,7 @@ They say a red thread ties you to your soulmate. Would you follow it today and s
 
 **Cover text:** Would you follow it?
 **Sound:** keep the original sound
-**First comment (pin it):** Follow it or take the long way? I'll reply to every answer 🧵
+**First comment (pin it):** Team Follow It 🧵 or Team Long Way 🌙? I'd take the long way. Tell me why I'm wrong.
 
 ## Instagram Reels
 A red thread runs from your finger to the one you're meant to meet. 🧵

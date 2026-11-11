@@ -18,7 +18,7 @@ Maybe that pain is part of who you are now. Or maybe you deserve a life without 
 
 #regret #wouldyourather #philosophy #deepthoughts #lifelessons #shorts #animation #paperlit
 
-**Pinned comment:** Would you turn it? Yes or no, and why? ⏳
+**Pinned comment:** Team Turn It ⏳ or Team Keep the Scar 🩹? I'd keep mine. Change my mind.
 
 ## TikTok
 **Caption:**
@@ -28,7 +28,7 @@ If you could undo your biggest regret, would you? One turn of this watch and it 
 
 **Cover text:** Would you turn it?
 **Sound:** keep the original sound
-**First comment (pin it):** Yes or no? I'll reply to every answer ⏳
+**First comment (pin it):** Team Turn It ⏳ or Team Keep the Scar 🩹? I'd keep mine. Change my mind.
 
 ## Instagram Reels
 This old watch can turn back time. ⏳
