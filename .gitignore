@@ -8,3 +8,4 @@ YTB/publish/client_secret*.json
 YTB/publish/token.json
 YTB/lanternfold/reels/*/build_all.log
 YTB/publish/stats_*.json
+YTB/animation_tests/.work/
