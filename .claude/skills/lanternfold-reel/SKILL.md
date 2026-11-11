@@ -28,6 +28,13 @@ YTB/lanternfold/
 - Titles are personal questions ("Would you…", "Are you…"), not concept names. Bright warm/cool contrast in the first frame. Search terms/tags matter little for Shorts.
 - Shorter is fine (40-50 s) if it keeps people watching.
 
+## Content skills (use on every reel)
+Bundled in `.claude/skills/` (from Ootto-AI/claude-content-skills, MIT):
+- **virality**: before writing narration, run its 8-point hook checklist on the first 3 seconds (frame 0 + line 1). Our Instagram data: ~46% skip in the first seconds, viewers leave at 10-13 s, so also plan a visual turn or "but..." line at 8-10 s.
+- **going-viral**: pick the goal per reel (shares > saves > follows for us: our reels get 0-2 shares) and the emotion that drives it; end captions with a share prompt ("Send this to someone who...").
+- **humanizer**: run on narration, captions, descriptions and comment replies before publishing (no AI tells; never the long dash).
+- **caption-and-hashtags**, **comment-mining**, **content-audit**: captions/first comment, mining comments for next topics, and a weekly audit with our own Instagram/YouTube numbers.
+
 ## Steps
 1. **Concept → reel.json + narration.txt.** Copy the latest reel folder as a template. Fill `lines` (`say` with ElevenLabs v3 tags, `chunks` for captions, `beat` = story second the line belongs to, `lead`, `hold_after` 2.2 on the line before the final question), `stillness`, `chimes`, `music_prompt`. Story time is 0–55 s; the engine maps it to the voice.
 2. **Environment (every reel gets a place that fits its idea, not always the navy hill).** Run `python make.py envs` to see the presets in `engine/environments.py` (night_hills, dusk_sea, desert_moon, snow_peaks, city_roofs, autumn_forest, space_planet, firefly_meadow). Pick the one whose mood matches the question; vary across consecutive reels. If none fits, add a new preset dict (copy the closest, change sky/sun/moon/layers/weather; layer kinds: hills, dunes, mountains, sea, city, forest, flat, stage with form mound|ledge). Store the choice as `"env"` in reel.json. A reel may switch environments mid-story (e.g. split worlds).
