@@ -7,6 +7,8 @@
   python youtube_publish.py list                                                     your latest videos (incl. private / scheduled)
   python youtube_publish.py comments                                                 comments you haven't answered yet (with their IDs)
   python youtube_publish.py reply COMMENT_ID "Thank you so much!"                    reply as PaperLit (no vidIQ credits)
+  python youtube_publish.py stats [days]                                             free YouTube Analytics: views, % watched, subs, shares per video (default 28 days)
+  python youtube_publish.py retention VIDEO_ID                                       where viewers leave (audience retention curve)
 
 Reads from the reel folder: <slug>_1080x1920.mp4, thumbnail_1080x1920.jpg and seo.md (**Title:**, **Tags:**, **Description:** ... **Pinned comment:**).
 It posts the pinned-comment text as a comment (YouTube's API cannot pin; tap "Pin" on it in the app).
@@ -17,7 +19,8 @@ import os, re, sys, glob, json, argparse, datetime
 from zoneinfo import ZoneInfo
 HERE = os.path.dirname(os.path.abspath(__file__))
 TZ = ZoneInfo('Africa/Casablanca')
-SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.force-ssl']
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.force-ssl',
+          'https://www.googleapis.com/auth/yt-analytics.readonly']
 CATEGORY = '27'          # Education (Film & Animation = '1')
 
 def yt():
@@ -129,14 +132,46 @@ def reply(cid, text):
     if '—' in text: sys.exit('STOP: long dash "—" in the reply. Channel rule: never use it.')
     y = yt(); y.comments().insert(part='snippet', body={'snippet': {'parentId': cid, 'textOriginal': text}}).execute(); print('  replied')
 
+def analytics():
+    from googleapiclient.discovery import build
+    yt(); from google.oauth2.credentials import Credentials
+    creds = Credentials.from_authorized_user_file(os.path.join(HERE, 'token.json'), SCOPES)
+    return build('youtubeAnalytics', 'v2', credentials=creds)
+
+def stats(days=28):
+    """free YouTube Analytics per video; also saved to stats_<date>.json (send that file to Claude)"""
+    a = analytics(); y = yt(); end = datetime.date.today(); start = end - datetime.timedelta(days=int(days))
+    m = 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,likes,shares,comments,subscribersGained'
+    r = a.reports().query(ids='channel==MINE', startDate=str(start), endDate=str(end), metrics=m, dimensions='video', sort='-views', maxResults=50).execute()
+    rows = r.get('rows', []); ids = [x[0] for x in rows]
+    titles = {v['id']: v['snippet']['title'] for v in y.videos().list(part='snippet', id=','.join(ids[:50])).execute().get('items', [])} if ids else {}
+    print(f'last {days} days   views   avg watched   avg %   subs  shares  likes  title')
+    out = []
+    for vid, views, mins, avd, avp, likes, shares, comments, subs in rows:
+        print(f'  {vid}  {views:6}   {avd:4.0f}s       {avp:5.1f}%  {subs:4}  {shares:5}  {likes:5}  {titles.get(vid, "")[:50]}')
+        out.append(dict(zip(['video', 'views', 'minutes', 'avg_view_s', 'avg_view_pct', 'likes', 'shares', 'comments', 'subs'], [vid, views, mins, avd, avp, likes, shares, comments, subs])) | {'title': titles.get(vid, '')})
+    t = a.reports().query(ids='channel==MINE', startDate=str(start), endDate=str(end), metrics='views', dimensions='insightTrafficSourceType', sort='-views').execute()
+    print('  traffic: ' + ', '.join(f'{k} {v}' for k, v in t.get('rows', [])))
+    f = os.path.join(HERE, f'stats_{end}.json'); json.dump({'videos': out, 'traffic': t.get('rows', [])}, open(f, 'w'), indent=1); print('  saved', os.path.basename(f))
+
+def retention(vid):
+    a = analytics(); end = datetime.date.today()
+    r = a.reports().query(ids='channel==MINE', startDate='2020-01-01', endDate=str(end), metrics='audienceWatchRatio,relativeRetentionPerformance',
+                          dimensions='elapsedVideoTimeRatio', filters=f'video=={vid}').execute()
+    print(f'{vid}: share of viewers still watching at each point of the video')
+    for ratio, watch, rel in r.get('rows', [])[::5]:
+        print(f'  {ratio * 100:5.0f}%  {"#" * int(min(watch, 1.5) * 40):60} {watch * 100:5.0f}%   (vs similar Shorts: {rel:.2f})')
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter); sub = ap.add_subparsers(dest='cmd')
     r = sub.add_parser('reel'); r.add_argument('folder'); r.add_argument('--when'); r.add_argument('--now', action='store_true')
     e = sub.add_parser('edit'); e.add_argument('video'); e.add_argument('--title'); e.add_argument('--desc-file'); e.add_argument('--tags'); e.add_argument('--thumb'); e.add_argument('--when'); e.add_argument('--now', action='store_true')
-    sub.add_parser('list'); sub.add_parser('comments'); rp = sub.add_parser('reply'); rp.add_argument('comment'); rp.add_argument('text'); a = ap.parse_args()
+    sub.add_parser('list'); sub.add_parser('comments'); st = sub.add_parser('stats'); st.add_argument('days', nargs='?', default=28); rt = sub.add_parser('retention'); rt.add_argument('video'); rp = sub.add_parser('reply'); rp.add_argument('comment'); rp.add_argument('text'); a = ap.parse_args()
     if a.cmd == 'reel': reel(a.folder, a.when, a.now)
     elif a.cmd == 'edit': edit(a.video, a.title, a.desc_file, a.tags, a.thumb, a.when, a.now)
     elif a.cmd == 'list': listing()
     elif a.cmd == 'comments': comments()
+    elif a.cmd == 'stats': stats(a.days)
+    elif a.cmd == 'retention': retention(a.video)
     elif a.cmd == 'reply': reply(a.comment, a.text)
     else: ap.print_help()
