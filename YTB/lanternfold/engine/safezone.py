@@ -10,6 +10,7 @@ ZONES = {
     'TikTok': [(0, 0, 1080, 190, 'Following / For You'), (930, 760, 1080, 1620, 'buttons'), (0, 1500, 930, 1920, 'caption + sound')],
 }
 SAFE = (60, 190, 930, 1500)       # area clear on all three apps
+IG_GRID = (0, 240, 1080, 1680)    # Instagram profile grid shows reels cropped to 3:4: keep the cover's text and subject inside this
 
 def blocked(box):
     """which app UI elements a box (x0, y0, x1, y1) overlaps"""
@@ -37,6 +38,7 @@ def run(reel, secs=None):
                 d.rectangle([x0, y0, x1, y1], fill=(220, 40, 60, 95), outline=(255, 80, 90, 255), width=4)
                 d.text((x0 + 14, y0 + 10), name, font=f, fill=(255, 255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0, 255))
             d.rectangle(SAFE, outline=(90, 230, 140, 255), width=3)
+            if app == 'Instagram Reels': d.rectangle(IG_GRID, outline=(255, 210, 90, 255), width=5); d.text((20, 250), 'profile grid crop (3:4)', font=f, fill=(255, 210, 90, 255), stroke_width=3, stroke_fill=(0, 0, 0, 255))
             im = Image.alpha_composite(im, ov).convert('RGB'); d = ImageDraw.Draw(im)
             d.text((W / 2, 1880), f'{app}  @ {sec:.1f}s', font=ImageFont.truetype(FONT, 46), anchor='mm', fill=(255, 255, 255), stroke_width=4, stroke_fill=(0, 0, 0))
             tiles.append(im.resize((360, 640)))

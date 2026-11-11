@@ -19,7 +19,7 @@ YTB/lanternfold/
 - Keep tokens low: reuse engine helpers, render style frames at 360x640 contact sheets to inspect.
 
 ## Hook-first (from channel analytics: 94% of views come from the Shorts feed, so the first 1-2 s decide everything)
-- NO black/slow intro. Frame 0 = the most striking shot, already moving. Add `"hook": {"text": ["Would you", "open it?"], "hold": 0.1, "fade": 0.3}` to reel.json: the big question shows on frame 1 only (it is the profile-grid cover; gone after ~0.4 s so it never covers the story) and returns at the end (seamless loop on the same frame). The opening captions stay visible under it (they sit lower while the hook shows, then slide up), so the first spoken words are never hidden.
+- NO black/slow intro. Frame 0 = the most striking shot, already moving. Add `"hook": {"text": ["Would you", "open it?"], "hold": 0.1, "fade": 0.3}` to reel.json: the big question shows on frame 1 only (it is the profile-grid cover; gone after ~0.4 s so it never covers the story; it sits at y 330+ so Instagram's 3:4 grid crop, which cuts 240 px top and bottom, never cuts it. Keep the subject of frame 0 between y 240 and 1680 too) and returns at the end (seamless loop on the same frame). The opening captions stay visible under it (they sit lower while the hook shows, then slide up), so the first spoken words are never hidden.
 - Titles are personal questions ("Would you…", "Are you…"), not concept names. Bright warm/cool contrast in the first frame. Search terms/tags matter little for Shorts.
 - Shorter is fine (40-50 s) if it keeps people watching.
 

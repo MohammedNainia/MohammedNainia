@@ -6,6 +6,7 @@ from .audio import check, speech_spans, load
 from .config import SR
 from . import words as WORDS
 W, H = 1080, 1920
+HOOK_Y = 330          # hook question band: inside Instagram's 3:4 profile-grid crop (y 240-1680) with margin
 
 def spread(words, spans):
     wt = np.array([len(w) + 2 for w in words], float); wt /= wt.sum()
@@ -100,14 +101,14 @@ def run(reel):
         if hk:   # hook: full at frame 1, fades out after `hold`, fades back in over the last `end` s (seamless loop)
             ha = max(1 - max(0, t - hk.get('hold', 0.1)) / hk.get('fade', .3), (t - (dur - hk.get('end', 1.2))) / hk.get('end', 1.2), 0)
             ha = min(1, ha)
-            if t < dur / 2: top = int(420 + 150 * ha)   # opening: captions stay visible, just below the hook, then slide up
+            if t < dur / 2: top = int(420 + 200 * ha)   # opening: captions stay visible, just below the hook, then slide up
             else: a = a * (1 - ha)                      # loop point: the closing question is the hook itself
         if (cur is None or a <= 0) and ha <= 0: p.stdin.write(blank); continue
         fr = np.zeros((H, W, 4), np.uint8)
         if cur is not None and a > 0:
             im = img(cur, wi).copy(); im[..., 3] = (im[..., 3] * a).astype(np.uint8); fr[top:top + 300] = im
         if ha > 0:
-            hi = himg.copy(); hi[..., 3] = (hi[..., 3] * ha).astype(np.uint8); y0 = 230; hh = hi.shape[0]
+            hi = himg.copy(); hi[..., 3] = (hi[..., 3] * ha).astype(np.uint8); y0 = HOOK_Y; hh = hi.shape[0]
             base = fr[y0:y0 + hh].astype(np.float32); al = hi[..., 3:4].astype(np.float32) / 255
             fr[y0:y0 + hh] = (hi.astype(np.float32) * al + base * (1 - al)).clip(0, 255).astype(np.uint8)
             fr[y0:y0 + hh, :, 3] = np.maximum(fr[y0:y0 + hh, :, 3], hi[..., 3])

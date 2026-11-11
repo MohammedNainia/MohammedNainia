@@ -71,8 +71,10 @@ def run(reel):
     hits = safezone.blocked(cap_box); r.test(not hits, 'captions clear of app buttons', 'captions under ' + '; '.join(hits))
     if cfg.get('hook'):
         f2 = ImageFont.truetype(FONT, 130); hw = max(d.textlength(t, font=f2) for t in cfg['hook']['text'])
-        hb = ((1080 - hw) / 2, 260, (1080 + hw) / 2, 260 + 150 * len(cfg['hook']['text']))
+        from .finalize import HOOK_Y
+        hb = ((1080 - hw) / 2, HOOK_Y + 30, (1080 + hw) / 2, HOOK_Y + 30 + 150 * len(cfg['hook']['text']))
         hits = safezone.blocked(hb); r.test(not hits, 'hook text clear of app UI', 'hook text under ' + '; '.join(hits))
+        r.test(hb[1] >= 240 + 40 and hb[3] <= 1680 - 40, 'hook inside Instagram 3:4 grid crop', 'hook text is cut on the Instagram profile grid (3:4 crop keeps y 240-1680)', 'fail')
     # long dash: reads as AI-written (channel rule) - check every text we publish
     texts = [reel.path(f) for f in ('seo.md', 'narration.txt', 'captions.srt') if os.path.exists(reel.path(f))]
     bad = [os.path.basename(f) for f in texts if '—' in open(f, encoding='utf-8').read()]
