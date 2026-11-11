@@ -1,0 +1,150 @@
+{
+ "title": "Would You Follow the Red Thread?",
+ "series": "Questions in Paper #9",
+ "question": "If you could go straight to the person you're meant to be with, would you skip the journey?",
+ "env": "firefly_meadow",
+ "style": "paper",
+ "hook": {
+  "text": [
+   "Would you",
+   "follow it?"
+  ],
+  "hold": 0.1,
+  "fade": 0.3,
+  "end": 1.2
+ },
+ "voice": {
+  "name": "Samara X",
+  "model": "Eleven v3",
+  "accent": "British"
+ },
+ "story_duration": 45,
+ "tempo": 1.0,
+ "max_pause": 1.2,
+ "tail": 1.8,
+ "lines": [
+  {
+   "say": "[softly] Your soulmate is at the end of this thread.",
+   "chunks": [
+    "Your soulmate",
+    "is at the end",
+    "of this thread."
+   ],
+   "beat": 0,
+   "lead": 0.2,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[intrigued] Follow it today... and you'll meet them tonight.",
+   "chunks": [
+    "Follow it today…",
+    "and you'll meet them",
+    "tonight."
+   ],
+   "beat": 4,
+   "lead": 0.3,
+   "hold_after": 0.5
+  },
+  {
+   "say": "[thoughtful] But you'd skip every wrong turn. Every almost. Every story on the way.",
+   "chunks": [
+    "But you'd skip",
+    "every wrong turn.",
+    "Every almost.",
+    "Every story on the way."
+   ],
+   "beat": 9,
+   "lead": 0.3,
+   "hold_after": 1.8
+  },
+  {
+   "say": "[warmly] Maybe those detours are what make you ready.",
+   "chunks": [
+    "Maybe those detours",
+    "are what make you",
+    "ready."
+   ],
+   "beat": 18,
+   "lead": 0.4,
+   "hold_after": 1.4
+  },
+  {
+   "say": "[softly] Or maybe waiting is just time you never get back.",
+   "chunks": [
+    "Or maybe waiting",
+    "is just time",
+    "you never get back."
+   ],
+   "beat": 25,
+   "lead": 0.4,
+   "hold_after": 2.6
+  },
+  {
+   "say": "[whispers] So... would you follow it?",
+   "chunks": [
+    "So…",
+    "would you follow it?"
+   ],
+   "beat": 35,
+   "lead": 0.4,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   32.5,
+   34.8
+  ]
+ ],
+ "chimes": [
+  [
+   0.3,
+   86,
+   0.14
+  ],
+  [
+   9.3,
+   88,
+   0.1
+  ],
+  [
+   25.3,
+   81,
+   0.1
+  ],
+  [
+   35.3,
+   86,
+   0.14
+  ]
+ ],
+ "wind": 0.08,
+ "music_volume": 0.32,
+ "music_prompt": "Tender romantic piano with soft strings and light celesta, slow, warm reverb, quiet intro and soft ending. Instrumental.",
+ "thumb": {
+  "t": 14,
+  "text": [
+   "Would you",
+   "follow it?"
+  ],
+  "size": 150,
+  "y": 330
+ },
+ "sfx": [
+  [
+   0.9,
+   "whoosh",
+   0.45
+  ],
+  [
+   9.0,
+   "synth:twinkle",
+   0.3
+  ],
+  [
+   35.2,
+   "synth:chime",
+   0.3
+  ]
+ ]
+}
