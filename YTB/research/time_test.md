@@ -10,7 +10,7 @@ Rule: compare slot medians only after each slot has 4+ reels; until then nothing
 |---|---|---|---|---|---|---|
 | 06 | Would you open it? | IG 07:47 (before test) | 901 | 47 | 25 | (posted manually) |
 | 07 | Would you live forever? | IG 23:10 (before test) | 313 (5 h) | 46 | 34 | (posted manually) |
-| 08 | Undo your regret | 04:00 | | | | |
+| 08 | Undo your regret | 04:00 (IG went out 04:45) | 195 (reach 166, 1 share) | 60 | 23 | n/a (TikTok counts not readable here) |
 | 09 | Red thread | 13:00 | | | | |
 | 10 | | 20:00 | | | | |
 | 11 | | 04:00 | | | | |
