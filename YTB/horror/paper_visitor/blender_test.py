@@ -336,10 +336,11 @@ if __name__ == '__main__':
     ed.render.resolution_x, ed.render.resolution_y = scene.render.resolution_x, scene.render.resolution_y
     seq = ed.sequence_editor_create()
     files = sorted(f for f in os.listdir(frames_dir) if f.startswith('f_') and f.endswith('.png'))
-    strips = getattr(seq, 'strips', None) or seq.sequences
+    strips = seq.strips if hasattr(seq, 'strips') else seq.sequences      # Blender 5 renamed 'sequences' to 'strips'
     img = strips.new_image('frames', os.path.join(frames_dir, files[0]), 1, 1)
     for f in files[1:]: img.elements.append(f)
     strips.new_sound('sound', wav, 2, 1)
+    if hasattr(ed.render.image_settings, 'media_type'): ed.render.image_settings.media_type = 'VIDEO'   # Blender 5
     ed.render.image_settings.file_format = 'FFMPEG'
     ed.render.ffmpeg.format = 'MPEG4'; ed.render.ffmpeg.codec = 'H264'; ed.render.ffmpeg.constant_rate_factor = 'HIGH'
     ed.render.ffmpeg.audio_codec = 'AAC'; ed.render.ffmpeg.audio_bitrate = 192
