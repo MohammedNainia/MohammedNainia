@@ -45,6 +45,7 @@ haru = human('Haru', dict(gender=1.0, age=0.42, muscle=0.3, weight=0.35, proport
              dict(african=0.0, asian=1.0, caucasian=0.0))
 skin = asset('young_asian_female.mhmat', 'skins')
 if skin: HumanService.set_character_skin(skin, haru, skin_type='ENHANCED_SSS')
+haru_rig = HumanService.add_builtin_rig(haru, 'default'); haru_rig.name = 'Haru_rig'   # rig first: clothes added after it get weights
 add(haru, 'high-poly.mhclo', 'eyes', 'Eyes'); add(haru, 'mindfront_eyebrows_03.mhclo', 'eyebrows', 'Eyebrows')
 add(haru, 'eyelashes01.mhclo', 'eyelashes', 'Eyelashes'); add(haru, 'teeth_base.mhclo', 'teeth', 'Teeth')
 add(haru, 'o4saken_long01.mhclo', 'hair', 'Hair') or add(haru, 'long01.mhclo', 'hair', 'Hair')
@@ -62,7 +63,12 @@ def dye(obj_name_part, rgb, fac=.85):
                 mix.inputs['Color2'].default_value = (*rgb, 1)
                 l.new(src, mix.inputs['Color1']); l.new(mix.outputs['Color'], b.inputs['Base Color'])
 dye('kimono', (.10, .12, .24), fac=1.0)                                   # pink -> dark indigo
-haru_rig = HumanService.add_builtin_rig(haru, 'default'); haru_rig.name = 'Haru_rig'
+for ob in [o for o in bpy.data.objects if o.parent == haru and o.type == 'MESH']:   # make sure every attachment follows the bones
+    if not any(m.type == 'ARMATURE' for m in ob.modifiers):
+        md = ob.modifiers.new('rig', 'ARMATURE'); md.object = haru_rig
+        bpy.context.view_layer.objects.active = ob
+        while ob.modifiers[0] != md: bpy.ops.object.modifier_move_up(modifier=md.name)
+    print('  ', ob.name, 'vertex groups:', len(ob.vertex_groups))
 
 # ---------------------------------------------------------------- THE VISITOR
 vis = human('Visitor', dict(gender=0.55, age=0.62, muscle=0.0, weight=0.0, proportions=0.0, height=0.78, cupsize=0.5, firmness=0.5),
