@@ -1,0 +1,1 @@
+Source: https://github.com/wuwangzhang1216/DirectorSKILL commit c65ae0d (MIT). Copied SKILL.md, references/, assets/.
