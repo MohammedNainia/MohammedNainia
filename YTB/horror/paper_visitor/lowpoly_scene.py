@@ -19,13 +19,57 @@ scene = bpy.context.scene; scene.render.fps = FPS; scene.frame_start = 1; scene.
 
 # ---------------------------------------------------------------- helpers
 MATS = {}
-def mat(name, rgb, rough=.8, emit=0.0, spec=.3):
+def mat(name, rgb, rough=.8, emit=0.0, spec=.3, tex='grain', ts=1.0):
+    """tex: surface detail so nothing looks like smooth plastic (kids-show look, not realistic):
+    grain | wood | fabric | quilt | plaster | skin | hair | paper | none.  ts scales the pattern."""
     if name in MATS: return MATS[name]
-    m = bpy.data.materials.new(name); b = m.node_tree.nodes['Principled BSDF']
+    m = bpy.data.materials.new(name); nt = m.node_tree; n = nt.nodes; l = nt.links; b = n['Principled BSDF']
     b.inputs['Base Color'].default_value = (*rgb, 1); b.inputs['Roughness'].default_value = rough
     b.inputs['Specular IOR Level'].default_value = spec
     if emit: b.inputs['Emission Color'].default_value = (*rgb, 1); b.inputs['Emission Strength'].default_value = emit
-    MATS[name] = m; return m
+    MATS[name] = m
+    if emit or tex == 'none': return m
+    co = n.new('ShaderNodeTexCoord').outputs['Object']
+    def noise(scale, detail=6, rough_=.6):
+        t = n.new('ShaderNodeTexNoise'); t.inputs['Scale'].default_value = scale * ts; t.inputs['Detail'].default_value = detail
+        t.inputs['Roughness'].default_value = rough_; l.new(co, t.inputs['Vector']); return t.outputs['Fac']
+    def wave(scale, distort, axis='X', kind='BANDS'):
+        t = n.new('ShaderNodeTexWave'); t.wave_type = kind; t.bands_direction = axis
+        t.inputs['Scale'].default_value = scale * ts; t.inputs['Distortion'].default_value = distort; t.inputs['Detail'].default_value = 4
+        l.new(co, t.inputs['Vector']); return t.outputs['Fac']
+    def tint(fac_socket, amount, dark=.55):          # darken the base colour where the pattern is low
+        mr = n.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value = 1 - amount; mr.inputs['To Max'].default_value = 1.0
+        l.new(fac_socket, mr.inputs['Value'])
+        mx = n.new('ShaderNodeMixRGB'); mx.blend_type = 'MULTIPLY'; mx.inputs['Fac'].default_value = 1.0
+        mx.inputs['Color1'].default_value = (*rgb, 1); l.new(mr.outputs['Result'], mx.inputs['Color2']); return mx.outputs['Color']
+    def bump(fac_socket, strength, dist=.004):
+        bp = n.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = strength; bp.inputs['Distance'].default_value = dist
+        l.new(fac_socket, bp.inputs['Height']); l.new(bp.outputs['Normal'], b.inputs['Normal']); return bp
+    def addf(a_, b_, f=.5):
+        mm = n.new('ShaderNodeMath'); mm.operation = 'MULTIPLY_ADD'; l.new(b_, mm.inputs[0]); mm.inputs[1].default_value = f; l.new(a_, mm.inputs[2]); return mm.outputs[0]
+    if tex == 'grain':
+        f = noise(25); l.new(tint(f, .3), b.inputs['Base Color']); bump(noise(160, 3), .12)
+    elif tex == 'wood':
+        g = wave(4, 9); l.new(tint(addf(noise(8), g, .7), .45), b.inputs['Base Color']); bump(addf(g, noise(220, 2), .3), .25)
+    elif tex == 'fabric':
+        weave = noise(420, 2, .9); l.new(tint(addf(noise(6), weave, .4), .32), b.inputs['Base Color']); bump(weave, .35, .002)
+    elif tex == 'quilt':
+        ch = n.new('ShaderNodeTexChecker'); ch.inputs['Scale'].default_value = 7 * ts; l.new(co, ch.inputs['Vector'])
+        weave = noise(420, 2, .9); l.new(tint(addf(addf(noise(6), weave, .3), ch.outputs['Fac'], .25), .4), b.inputs['Base Color'])
+        bump(addf(weave, ch.outputs['Fac'], 1.5), .4, .006)
+    elif tex == 'plaster':
+        stripes = wave(18, 1.5); l.new(tint(addf(noise(3, 4), stripes, .25), .35), b.inputs['Base Color']); bump(noise(90, 8, .7), .18)
+    elif tex == 'skin':
+        l.new(tint(noise(30, 3), .12), b.inputs['Base Color']); bump(noise(260, 2), .06, .001)
+        b.inputs['Subsurface Weight'].default_value = .15; b.inputs['Subsurface Radius'].default_value = (.02, .008, .005)
+    elif tex == 'hair':
+        strands = wave(60, 3, axis='X'); l.new(tint(addf(noise(10), strands, .8), .6), b.inputs['Base Color']); bump(strands, .5, .003)
+    elif tex == 'paper':
+        vor = n.new('ShaderNodeTexVoronoi'); vor.feature = 'DISTANCE_TO_EDGE'; vor.inputs['Scale'].default_value = 14 * ts; l.new(co, vor.inputs['Vector'])
+        crease = n.new('ShaderNodeMapRange'); crease.inputs['From Max'].default_value = .05; l.new(vor.outputs['Distance'], crease.inputs['Value'])
+        stain = noise(2.5, 5)
+        l.new(tint(addf(stain, crease.outputs['Result'], .4), .55), b.inputs['Base Color']); bump(addf(noise(200, 2), crease.outputs['Result'], 1.0), .6, .006)
+    return m
 def finish(ob, m, parent=None, jitter=0.0, seed=1):
     me = ob.data
     if jitter:                                                  # crumple: nudge every vertex a little (paper / faceted look)
@@ -47,7 +91,9 @@ def cyl(name, r1, r2, h, segs, loc, rot=(0, 0, 0), scale=(1, 1, 1), m=None, pare
         if base: bmesh.ops.translate(bm, verts=bm.verts, vec=(0, 0, h / 2))   # origin at the bottom
     ob = new_mesh(name, b); ob.location = loc; ob.rotation_euler = rot; ob.scale = scale; return finish(ob, m, parent, jitter, seed)
 def box(name, size, loc, m, parent=None, rot=(0, 0, 0), jitter=0.0, seed=1, bevel=0.0):
-    ob = new_mesh(name, lambda bm: bmesh.ops.create_cube(bm, size=1)); ob.scale = size; ob.location = loc; ob.rotation_euler = rot
+    def b_(bm):                                                    # size is baked into the mesh so textures and bevels are not stretched
+        bmesh.ops.create_cube(bm, size=1); bmesh.ops.scale(bm, vec=size, verts=bm.verts)
+    ob = new_mesh(name, b_); ob.location = loc; ob.rotation_euler = rot
     if bevel: md = ob.modifiers.new('b', 'BEVEL'); md.width = bevel; md.segments = 1
     return finish(ob, m, parent, jitter, seed)
 def pivot(name, loc, parent=None, rot=(0, 0, 0)):
@@ -59,16 +105,16 @@ def keys(ob, path, idx, pairs, scale=1.0):
 R = math.radians
 
 # ---------------------------------------------------------------- palette
-NAVY, NAVY2 = mat('navy_wall', (.030, .045, .085)), mat('navy_trim', (.05, .065, .11))
-FLOOR, WOOD, WOOD2 = mat('floor', (.10, .055, .035)), mat('wood', (.20, .10, .055)), mat('wood_dark', (.11, .055, .03))
-SHEET, QUILT = mat('sheet', (.55, .52, .47)), mat('quilt', (.26, .05, .045))
-SKIN, SKIN_D = mat('skin', (.92, .5, .3), rough=.7, spec=.2), mat('skin_dark', (.74, .42, .3))
-HAIR, VHAIR = mat('hair', (.05, .028, .02), rough=.55, spec=.35), mat('vhair', (.008, .008, .01), rough=.5, spec=.3)
-KIMONO, KIMONO_D, COLLAR = mat('hoodie', (.85, .55, .08), rough=.85), mat('hoodie_dark', (.62, .36, .04), rough=.85), mat('collar', (.70, .64, .55))
-EYEW, PUPIL, SHINE = mat('eye_white', (.6, .58, .54), rough=.45), mat('pupil', (.006, .005, .005), rough=.35, spec=.3), mat('shine', (1, 1, 1), emit=2)
-LIP, BROW = mat('lip', (.10, .035, .03)), mat('brow', (.02, .015, .015))
-PAPER = mat('paper', (.80, .76, .67), rough=.9, spec=.15)
-HOLE = mat('hole', (0, 0, 0), rough=1, spec=0)
+NAVY, NAVY2 = mat('navy_wall', (.030, .045, .085), tex='plaster'), mat('navy_trim', (.05, .065, .11))
+FLOOR, WOOD, WOOD2 = mat('floor', (.10, .055, .035), tex='wood', ts=.6), mat('wood', (.20, .10, .055), tex='wood'), mat('wood_dark', (.11, .055, .03), tex='wood')
+SHEET, QUILT = mat('sheet', (.55, .52, .47), tex='fabric'), mat('quilt', (.26, .05, .045), tex='quilt')
+SKIN, SKIN_D = mat('skin', (.92, .5, .3), rough=.7, spec=.2, tex='skin'), mat('skin_dark', (.74, .42, .3), tex='skin')
+HAIR, VHAIR = mat('hair', (.05, .028, .02), rough=.55, spec=.35, tex='hair'), mat('vhair', (.008, .008, .01), rough=.5, spec=.3, tex='hair')
+KIMONO, KIMONO_D, COLLAR = mat('hoodie', (.85, .55, .08), rough=.85, tex='fabric'), mat('hoodie_dark', (.62, .36, .04), rough=.85, tex='fabric'), mat('collar', (.70, .64, .55))
+EYEW, PUPIL, SHINE = mat('eye_white', (.6, .58, .54), rough=.45), mat('pupil', (.006, .005, .005), rough=.35, spec=.3, tex='none'), mat('shine', (1, 1, 1), emit=2)
+LIP, BROW = mat('lip', (.10, .035, .03), tex='none'), mat('brow', (.02, .015, .015))
+PAPER = mat('paper', (.80, .76, .67), rough=.9, spec=.15, tex='paper')
+HOLE = mat('hole', (0, 0, 0), rough=1, spec=0, tex='none')
 VOID, NIGHT, MOON = mat('void', (0, 0, 0), rough=1, spec=0), mat('night', (.01, .02, .05)), mat('moon', (.85, .9, 1), emit=8)
 LANTERN = mat('lantern_paper', (1.0, .55, .22), emit=6)
 
@@ -109,9 +155,9 @@ quilt = box('quilt', (2.02, 1.0, .22), (-.06, 1.825, .66), QUILT, bevel=.06, jit
 box('quilt_fold', (.16, 1.02, .06), (-1.0, 1.825, .78), SHEET, bevel=.02, jitter=.006)
 
 # ---------------------------------------------------------------- a lived-in bedroom
-CLOTH, CLOTH2 = mat('curtain', (.32, .28, .22), rough=.9), mat('rug', (.22, .07, .05), rough=.95)
+CLOTH, CLOTH2 = mat('curtain', (.32, .28, .22), rough=.9, tex='fabric'), mat('rug', (.22, .07, .05), rough=.95, tex='fabric')
 RUGB, BOOKS = mat('rug_border', (.40, .30, .18), rough=.95), [mat(f'book{i}', c) for i, c in enumerate(((.25, .06, .05), (.07, .12, .2), (.32, .26, .12), (.1, .16, .1), (.35, .33, .3)))]
-GLASS, PHOTO, PLUSH = mat('mirror', (.02, .025, .035), rough=.05, spec=1), mat('photo', (.42, .38, .32)), mat('plush', (.55, .45, .38), rough=.95)
+GLASS, PHOTO, PLUSH = mat('mirror', (.02, .025, .035), rough=.05, spec=1), mat('photo', (.42, .38, .32)), mat('plush', (.55, .45, .38), rough=.95, tex='fabric', ts=.5)
 # curtains, half drawn, a little crumpled
 for nm, x in (('l', -2.36), ('r', -1.04)):
     for k in range(3): box(f'curtain_{nm}{k}', (.09, .04, 1.55), (x + (k - 1) * .075, 2.42 - (k % 2) * .03, 1.53), CLOTH, jitter=.012, seed=50 + k)
@@ -192,7 +238,7 @@ haru.matrix_world = Matrix.Translation((-.7, 1.82, .69)) @ Matrix(((0, 0, -1), (
 
 # ---------------------------------------------------------------- THE VISITOR: tall, paper, never blinks
 vis = pivot('visitor_root', (1.2, 2.12, 0), rot=(0, 0, R(-24)))
-ROBE = mat('robe_paper', (.30, .28, .24), rough=.95, spec=.1)
+ROBE = mat('robe_paper', (.30, .28, .24), rough=.95, spec=.1, tex='paper', ts=.6)
 cyl('v_robe', .4, .17, 1.62, 7, (0, 0, 0), scale=(1, .7, 1), m=ROBE, parent=vis, base=True, jitter=.025, seed=12)
 cyl('v_chest', .17, .14, .2, 7, (0, 0, 1.6), scale=(1, .62, 1), m=ROBE, parent=vis, base=True, jitter=.01, seed=13)
 vneck = pivot('v_neck', (0, -.01, 1.78), vis, rot=(R(12), 0, 0))
@@ -218,7 +264,7 @@ keys(vhead, 'rotation_euler', 1, [(0, -6), (17.0, -6), (20.0, -20)], R(1))      
 # ---------------------------------------------------------------- Haru's animation
 # breathing (torso thickness), stops dead at the footstep
 br = [(i * 1.1, 1.0 + (.05 if i % 2 else 0)) for i in range(6)] + [(6.5, 1.0), (DUR, 1.0)]
-keys(torso, 'scale', 1, [(t, .62 * v) for t, v in br])
+keys(torso, 'scale', 1, [(t, .7 * v) for t, v in br])
 for eye, sx, shine, base in EYES:
     EYE_K = [(0, .12), (4.0, .12), (4.5, .5), (4.8, .2), (5.9, .95), (6.5, .95), (6.8, 1.0), (8.95, 1.0), (9.05, .12), (9.2, 1.0), (DUR, 1.0)]
     keys(eye, 'scale', 2, EYE_K)                                          # shut = a short dark line, like the reference blink
@@ -226,7 +272,7 @@ for eye, sx, shine, base in EYES:
     keys(eye, 'location', 0, [(0, base.x), (6.6, base.x), (6.9, base.x - .005), (13.2, base.x - .005), (13.6, base.x), (DUR, base.x)])   # both dots slide toward the door
     keys(eye, 'location', 2, [(0, base.z), (6.6, base.z), (6.9, base.z - .004), (10, base.z - .003), (13.2, base.z), (DUR, base.z)])
     for ax in (0, 1): keys(eye, 'scale', ax, [(0, 1), (6.6, 1), (6.9, .82), (DUR, .82)])                # fear: the dots shrink
-keys(mouth, 'scale', 2, [(0, .006), (6.5, .006), (6.8, .014), (DUR, .014)])                     # lips part
+keys(mouth, 'scale', 2, [(0, 1), (6.5, 1), (6.8, 2.3), (DUR, 2.3)])                     # lips part
 keys(neck, 'rotation_euler', 0, [(0, 14), (7.6, 14), (10.0, 38), (10.2, 38), (13.0, 2), (DUR, 2)], R(1))   # lifts her head to look at the door
 keys(head, 'rotation_euler', 2, [(0, 0), (7.6, 0), (10.0, -10), (13.0, 0), (DUR, 0)], R(1))
 keys(waist, 'rotation_euler', 0, [(0, 0), (10.2, 0), (11.0, 30), (11.6, 30), (13.0, 86), (DUR, 86)], R(1))   # sits up, a held breath halfway
@@ -236,25 +282,25 @@ keys(ELBOW_R, 'rotation_euler', 1, [(0, 0), (13.6, 0), (14.6, -40), (DUR, -40)],
 
 # ---------------------------------------------------------------- light
 world = bpy.data.worlds.new('night'); scene.world = world
-world.node_tree.nodes['Background'].inputs['Color'].default_value = (.003, .005, .012, 1)
+world.node_tree.nodes['Background'].inputs['Color'].default_value = (.0008, .0012, .003, 1)
 def light(name, kind, energy, color, loc, rot=(0, 0, 0), size=1.0, spot=None):
     L = bpy.data.lights.new(name, kind); L.energy = energy; L.color = color
     if kind == 'AREA': L.size = size
     if kind == 'POINT': L.shadow_soft_size = size
     if spot: L.spot_size = R(spot); L.spot_blend = .7
     o = bpy.data.objects.new(name, L); C.objects.link(o); o.location = loc; o.rotation_euler = [R(a) for a in rot]; return o
-light('moonlight', 'AREA', 260, (.45, .6, 1.0), (-1.7, 3.4, 2.5), (-48, 0, 12), size=1.0)
-lamp = light('lantern_glow', 'POINT', 70, (1.0, .52, .2), (-2.1, 2.1, .72), size=.12)          # the warm key, like a candle
+light('moonlight', 'AREA', 140, (.45, .6, 1.0), (-1.7, 3.4, 2.5), (-48, 0, 12), size=1.0)
+lamp = light('lantern_glow', 'POINT', 30, (1.0, .52, .2), (-2.1, 2.1, .72), size=.12)          # the warm key, like a candle
 fc = lamp.data.driver_add('energy'); fc.driver.expression = '38 + 3*noise.random()' if False else '38'
 lamp.data.keyframe_insert('energy', frame=1)
-for i in range(0, FRAMES, 4): lamp.data.energy = 70 * (1 + .06 * math.sin(i * .9) + .04 * math.sin(i * 2.3)); lamp.data.keyframe_insert('energy', frame=i + 1)
+for i in range(0, FRAMES, 4): lamp.data.energy = 30 * (1 + .06 * math.sin(i * .9) + .04 * math.sin(i * 2.3)); lamp.data.keyframe_insert('energy', frame=i + 1)
 lamp.data.driver_remove('energy')
-light('rim_warm', 'AREA', 45, (1.0, .5, .22), (-2.4, .8, 1.6), (0, -70, -40), size=1.2)
-fk = light('face_key', 'AREA', 26, (1.0, .6, .36), (-.25, 1.35, 1.65), size=.5)   # warm key that follows her face (the reference's screen glow)
+light('rim_warm', 'AREA', 10, (1.0, .5, .22), (-2.4, .8, 1.6), (0, -70, -40), size=1.2)
+fk = light('face_key', 'AREA', 11, (1.0, .6, .36), (-.25, 1.35, 1.65), size=.5)   # warm key that follows her face (the reference's screen glow)
 tk = fk.constraints.new('TRACK_TO'); tk.target = bpy.data.objects['head']; tk.track_axis = 'TRACK_NEGATIVE_Z'; tk.up_axis = 'UP_Y'        # warm edge on the left like the reference
-light('fill', 'AREA', 10, (.35, .45, .8), (0, -2.5, 2.4), (65, 0, 0), size=3)
-light('door_spill', 'AREA', 16, (.5, .6, .95), (.7, 1.75, 1.45), (0, 80, 0), size=.5)
-light('visitor_rim', 'SPOT', 4, (.5, .6, .95), (1.0, 3.4, 2.6), (-35, 0, 160), spot=30)
+light('fill', 'AREA', 1.5, (.35, .45, .8), (0, -2.5, 2.4), (65, 0, 0), size=3)
+light('door_spill', 'AREA', 6, (.5, .6, .95), (.7, 1.75, 1.45), (0, 80, 0), size=.5)
+light('visitor_rim', 'SPOT', 7, (.5, .6, .95), (1.0, 3.4, 2.6), (-35, 0, 160), spot=30)
 
 # ---------------------------------------------------------------- camera: close shots, hard cuts, slow pushes
 target = pivot('focus', (0, 0, 0))
@@ -313,7 +359,7 @@ if os.environ.get('PV_SMALL'): scene.render.resolution_x, scene.render.resolutio
 scene.render.use_motion_blur = True; scene.render.motion_blur_shutter = .3
 try: scene.view_settings.view_transform = 'AgX'; scene.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
-scene.view_settings.exposure = float(os.environ.get('PV_EXPOSURE', 0))
+scene.view_settings.exposure = float(os.environ.get('PV_EXPOSURE', -.3))
 frames_dir = os.path.join(HERE, 'lowpoly_frames_preview' if PREVIEW else 'lowpoly_frames'); os.makedirs(frames_dir, exist_ok=True)
 scene.render.filepath = os.path.join(frames_dir, 'f_'); scene.render.image_settings.file_format = 'PNG'
 scene.render.use_overwrite = False; scene.render.use_placeholder = True
