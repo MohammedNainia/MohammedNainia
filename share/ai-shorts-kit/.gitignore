@@ -1,0 +1,37 @@
+# secrets: never commit keys, tokens or OAuth files
+.env
+.env.*
+*.key
+*secret*.json
+client_secret*.json
+token*.json
+*token*.pickle
+credentials*.json
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# generated media and build output
+*.mp4
+*.mov
+*.wav
+!engine_reels/sfx_library/*.wav
+*.mp3
+build/
+frames/
+*_frames*/
+stills/
+voice/
+*.blend
+*.blend1
+styles_preview.png
+environments_preview.png
+safezones.png
+
+# OS
+.DS_Store
+Thumbs.db

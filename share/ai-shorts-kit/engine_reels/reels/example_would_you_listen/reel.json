@@ -1,0 +1,156 @@
+{
+ "title": "Would You Listen?",
+ "series": "Questions in Paper #10",
+ "question": "Would you want to hear exactly what the person you love thinks of you?",
+ "env": "autumn_forest",
+ "style": "paper",
+ "hook": {
+  "text": [
+   "Would you",
+   "listen?"
+  ],
+  "hold": 0.1,
+  "fade": 0.3,
+  "end": 1.2
+ },
+ "voice": {
+  "name": "Samara X",
+  "model": "Eleven v3",
+  "accent": "British"
+ },
+ "story_duration": 42,
+ "tempo": 1.0,
+ "max_pause": 1.2,
+ "tail": 1.8,
+ "lines": [
+  {
+   "say": "[softly] You can hear exactly what they think of you.",
+   "chunks": [
+    "You can hear",
+    "exactly what they",
+    "think of you."
+   ],
+   "beat": 0,
+   "lead": 0.2,
+   "hold_after": 0.3
+  },
+  {
+   "say": "[intrigued] Every thought. No filter. Just open it.",
+   "chunks": [
+    "Every thought.",
+    "No filter.",
+    "Just open it."
+   ],
+   "beat": 4,
+   "lead": 0.3,
+   "hold_after": 0.4
+  },
+  {
+   "say": "[thoughtful] But what if it's not what you hoped?",
+   "chunks": [
+    "But what if",
+    "it's not",
+    "what you hoped?"
+   ],
+   "beat": 8,
+   "lead": 0.3,
+   "hold_after": 1.4
+  },
+  {
+   "say": "[warmly] Knowing could make you closer than ever.",
+   "chunks": [
+    "Knowing could",
+    "make you",
+    "closer than ever."
+   ],
+   "beat": 14,
+   "lead": 0.4,
+   "hold_after": 1.4
+  },
+  {
+   "say": "[softly] Or break something you can never unhear.",
+   "chunks": [
+    "Or break something",
+    "you can never",
+    "unhear."
+   ],
+   "beat": 21,
+   "lead": 0.4,
+   "hold_after": 2.4
+  },
+  {
+   "say": "[thoughtful] Some would need to know. Some never could. [pause] Which one are you?",
+   "chunks": [
+    "Some would",
+    "need to know.",
+    "Some never could.",
+    "Which one are you?"
+   ],
+   "beat": 30,
+   "lead": 0.4,
+   "hold_after": 0.3
+  }
+ ],
+ "stillness": [
+  [
+   28.2,
+   30.2
+  ]
+ ],
+ "chimes": [
+  [
+   0.3,
+   86,
+   0.14
+  ],
+  [
+   8.3,
+   81,
+   0.1
+  ],
+  [
+   21.3,
+   81,
+   0.1
+  ],
+  [
+   30.3,
+   86,
+   0.14
+  ]
+ ],
+ "wind": 0.08,
+ "music_volume": 0.32,
+ "music_prompt": "Warm intimate acoustic guitar and soft piano, slow, gentle, autumn mood, warm reverb, quiet intro and soft ending. Instrumental.",
+ "thumb": {
+  "t": 12,
+  "text": [
+   "Would you",
+   "listen?"
+  ],
+  "size": 150,
+  "y": 330
+ },
+ "sfx": [
+  [
+   0.9,
+   "paper rustle",
+   0.4
+  ],
+  [
+   1.1,
+   "synth:twinkle",
+   0.3
+  ],
+  [
+   8.2,
+   "synth:thud",
+   0.3
+  ],
+  [
+   30.2,
+   "synth:chime",
+   0.3
+  ]
+ ]
+}
