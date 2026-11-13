@@ -3,3 +3,7 @@
 __pycache__/
 frames/
 frames_preview/
+*.blend
+*.blend1
+character_sheet.png
+vclose.png
