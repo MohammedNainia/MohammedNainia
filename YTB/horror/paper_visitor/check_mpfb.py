@@ -26,20 +26,20 @@ else:
             try: roots.append(getattr(ls, fn)())
             except Exception: pass
     except Exception as e: print('         (location service not reachable:', e, ')')
-    found = {}
+    cats = {}
     for r in [x for x in roots if x and os.path.isdir(x)]:
         for dp, dn, fn in os.walk(r):
+            parts = [x.lower() for x in os.path.normpath(dp).split(os.sep)]
             for f in fn:
-                ext = os.path.splitext(f)[1].lower()
-                if ext in ('.mhclo', '.mhskin', '.mhmat', '.mhpxy', '.mhtarget', '.target', '.gz'):
-                    k = os.path.basename(dp); found[k] = found.get(k, 0) + 1
+                if os.path.splitext(f)[1].lower() in ('.mhclo', '.mhskin', '.mhmat', '.mhpose', '.bvh', '.mhpxy', '.mheyebrows', '.mhmaterial'):
+                    for c in ('hair', 'skins', 'clothes', 'eyebrows', 'eyelashes', 'eyes', 'teeth', 'poses', 'proxymeshes'):
+                        if c in parts: cats[c] = cats.get(c, 0) + 1
     print('         data folders checked:', [x for x in roots if x])
-    if found:
-        print('OK       assets found:', ', '.join(f'{k} ({v})' for k, v in sorted(found.items())[:12]))
-        hair = any('hair' in k for k in found); skins = any('skin' in k for k in found); clothes = any('cloth' in k for k in found)
-        print(('OK' if hair else 'MISSING').ljust(9), 'hair assets'); print(('OK' if skins else 'MISSING').ljust(9), 'skin assets'); print(('OK' if clothes else 'MISSING').ljust(9), 'clothes assets')
-    else:
-        print('MISSING  no asset pack found: in Blender, open the MPFB panel (N key in the 3D view) > Apps/Assets > Load pack from zip, using the free "system assets" pack')
+    for r in [x for x in roots if x and os.path.isdir(x)]:
+        print('         top folders in', r, ':', sorted(os.listdir(r))[:20])
+    print('         assets by type:', cats or 'none')
+    for c, label in (('hair', 'hair'), ('skins', 'skin'), ('clothes', 'clothes'), ('eyebrows', 'eyebrows'), ('eyelashes', 'eyelashes')):
+        print(('OK' if cats.get(c) else 'MISSING').ljust(9), f'{label} assets ({cats.get(c, 0)} files)')
 try:
     prefs = bpy.context.preferences.addons['cycles'].preferences; prefs.compute_device_type = 'OPTIX'; prefs.get_devices()
     gpus = [d.name for d in prefs.devices if d.type == 'OPTIX']
