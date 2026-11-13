@@ -65,7 +65,7 @@ SHEET, QUILT = mat('sheet', (.55, .52, .47)), mat('quilt', (.26, .05, .045))
 SKIN, SKIN_D = mat('skin', (.62, .40, .30), rough=.6), mat('skin_dark', (.45, .26, .19))
 HAIR = mat('hair', (.012, .010, .012), rough=.45, spec=.6)
 KIMONO, COLLAR = mat('kimono', (.06, .07, .15)), mat('collar', (.70, .64, .55))
-EYEW, PUPIL, SHINE = mat('eye_white', (.75, .74, .70), rough=.3), mat('pupil', (.005, .005, .006), rough=.15, spec=.8), mat('shine', (1, 1, 1), emit=4)
+EYEW, PUPIL, SHINE = mat('eye_white', (.6, .58, .54), rough=.45), mat('pupil', (.004, .004, .005), rough=.6, spec=.15), mat('shine', (1, 1, 1), emit=2)
 LIP, BROW = mat('lip', (.40, .16, .14)), mat('brow', (.02, .015, .015))
 PAPER = mat('paper', (.66, .61, .50), rough=.95, spec=.15)
 HOLE = mat('hole', (0, 0, 0), rough=1, spec=0)
@@ -100,6 +100,51 @@ box('pillow', (.5, .62, .1), (-1.42, 1.82, .61), SHEET, bevel=.035, jitter=.006)
 quilt = box('quilt', (2.02, 1.0, .22), (-.06, 1.825, .66), QUILT, bevel=.06, jitter=.012, seed=4)
 box('quilt_fold', (.16, 1.02, .06), (-1.0, 1.825, .78), SHEET, bevel=.02, jitter=.006)
 
+# ---------------------------------------------------------------- a lived-in bedroom
+CLOTH, CLOTH2 = mat('curtain', (.32, .28, .22), rough=.9), mat('rug', (.22, .07, .05), rough=.95)
+RUGB, BOOKS = mat('rug_border', (.40, .30, .18), rough=.95), [mat(f'book{i}', c) for i, c in enumerate(((.25, .06, .05), (.07, .12, .2), (.32, .26, .12), (.1, .16, .1), (.35, .33, .3)))]
+GLASS, PHOTO, PLUSH = mat('mirror', (.02, .025, .035), rough=.05, spec=1), mat('photo', (.42, .38, .32)), mat('plush', (.55, .45, .38), rough=.95)
+# curtains, half drawn, a little crumpled
+for nm, x in (('l', -2.36), ('r', -1.04)):
+    for k in range(3): box(f'curtain_{nm}{k}', (.09, .04, 1.55), (x + (k - 1) * .075, 2.42 - (k % 2) * .03, 1.53), CLOTH, jitter=.012, seed=50 + k)
+box('curtain_rod', (1.7, .03, .03), (-1.7, 2.42, 2.33), WOOD2)
+# rug beside the bed, slippers on it
+box('rug', (1.7, .95, .012), (-.35, .82, .006), RUGB, bevel=.004); box('rug_in', (1.5, .78, .014), (-.35, .82, .007), CLOTH2)
+for k, dx in enumerate((-.06, .07)): box(f'slipper_{k}', (.24, .09, .05), (-.55 + dx * 2, 1.12 + dx * .3, .03), mat('slipper', (.45, .4, .33)), rot=(0, 0, R(8 + k * 14)), bevel=.02)
+# shelf over the bed with books, a photo frame and a small plush
+box('shelf', (1.2, .2, .03), (-.6, 2.4, 1.62), WOOD, bevel=.005)
+x = -1.15
+for i in range(9):
+    w = .035 + (i * 7 % 5) * .006; h = .16 + (i * 3 % 4) * .025
+    box(f'book_{i}', (w, .15, h), (x, 2.4, 1.635 + h / 2), BOOKS[i % 5], rot=(0, R(10) if i == 8 else 0, 0)); x += w + .006
+box('photo_frame', (.16, .02, .2), (-.35, 2.42, 1.74), WOOD2, rot=(R(-8), 0, 0)); box('photo', (.12, .022, .155), (-.35, 2.415, 1.74), PHOTO, rot=(R(-8), 0, 0))
+ico('plush_body', .055, 1, (-.12, 2.38, 1.69), scale=(1, .9, 1.1), m=PLUSH); ico('plush_head', .045, 1, (-.12, 2.37, 1.78), m=PLUSH)
+for sx in (1, -1): cyl(f'plush_ear_{sx}', .015, .008, .07, 5, (-.12 + .022 * sx, 2.37, 1.85), m=PLUSH, base=True)
+# a framed picture and a calendar on the back wall
+box('frame_big', (.5, .03, .38), (.35, 2.49, 1.55), WOOD2); box('picture', (.42, .032, .3), (.35, 2.485, 1.55), mat('picture', (.07, .09, .1)))
+box('calendar', (.24, .01, .32), (1.2, 2.495, 1.55), mat('calendar', (.6, .57, .5)))
+# desk and chair against the left wall, a school bag, a desk lamp that is off
+box('desk_top', (.6, 1.1, .04), (-2.27, .35, .74), WOOD, bevel=.008)
+for dx, dy in ((-.27, -.5), (-.27, .5), (.27, -.5), (.27, .5)): box(f'desk_leg_{dx}_{dy}', (.04, .04, .72), (-2.27 + dx, .35 + dy, .36), WOOD2)
+box('desk_drawer', (.5, .5, .16), (-2.27, .6, .62), WOOD2, bevel=.005)
+for k in range(3): box(f'desk_book_{k}', (.22, .3, .035), (-2.3, .1, .78 + k * .036), BOOKS[k], rot=(0, 0, R(k * 7)))
+cyl('lamp_base', .07, .07, .02, 8, (-2.38, .7, .77), m=WOOD2, base=True); cyl('lamp_arm', .012, .012, .35, 6, (-2.38, .7, .78), rot=(0, R(-15), 0), m=WOOD2, base=True)
+cyl('lamp_shade', .08, .03, .1, 8, (-2.29, .7, 1.1), rot=(0, R(-60), 0), m=mat('shade', (.35, .3, .25)))
+chair = pivot('chair', (-1.85, .35, 0), rot=(0, 0, R(-100)))
+box('chair_seat', (.42, .42, .04), (0, 0, .45), WOOD, parent=chair, bevel=.005)
+box('chair_back', (.42, .04, .45), (0, .2, .7), WOOD, parent=chair, bevel=.005)
+for dx, dy in ((-.18, -.18), (-.18, .18), (.18, -.18), (.18, .18)): box(f'chair_leg_{dx}_{dy}', (.035, .035, .45), (dx, dy, .225), WOOD2, parent=chair)
+box('jacket', (.4, .07, .38), (0, .23, .6), mat('jacket', (.12, .13, .16)), parent=chair, jitter=.015, seed=61)
+box('bag', (.3, .16, .34), (-1.6, -.05, .17), mat('bag', (.18, .1, .07)), rot=(0, 0, R(20)), bevel=.03, jitter=.01)
+# wardrobe and a dark mirror on the far right, past the door
+box('wardrobe', (.85, .6, 2.1), (3.05, 2.2, 1.05), WOOD, bevel=.01)
+box('wardrobe_split', (.01, .62, 2.0), (3.05, 2.2, 1.05), WOOD2)
+for sx in (1, -1): box(f'wardrobe_knob_{sx}', (.02, .03, .1), (3.05 + .04 * sx, 1.89, 1.05), WOOD2)
+box('mirror_frame', (.5, .04, .9), (2.4, -.2, 1.45), WOOD2, rot=(0, 0, R(90))); box('mirror', (.42, .045, .82), (2.4, -.2, 1.45), GLASS, rot=(0, 0, R(90)))
+box('wall_right', (.1, 6, 3.2), (2.6 + .05, .5, 1.6), NAVY) if False else None
+# clothes on the floor in the dark corner
+box('clothes_pile', (.4, .3, .1), (2.2, 1.0, .05), mat('clothes', (.2, .18, .22)), jitter=.03, seed=70)
+
 # ---------------------------------------------------------------- HARU (built standing, origin at the hips, facing -Y)
 haru = pivot('haru_root', (0, 0, 0))
 for sx in (1, -1): cyl(f'leg_{sx}', .07, .055, .85, 6, (.08 * sx, 0, -.85), m=KIMONO, parent=haru, base=True)
@@ -121,15 +166,15 @@ for sx in (1, -1): cyl(f'side_lock_{sx}', .018, .042, .44, 6, (.128 * sx, -.035,
 cyl('back_hair', .16, .135, .66, 7, (0, .045, -.4), scale=(1, .5, 1), m=HAIR, parent=head, base=True, jitter=.01, seed=7)
 EYES = []
 for sx in (1, -1):
-    box(f'lash_{sx}', (.058, .004, .006), (.052 * sx, -.118, .162), BROW, parent=head)   # hidden behind the open eye, shows when it closes
-    eye = pivot(f'eye_{sx}', (.052 * sx, -.12, .165), head)
+    eye = pivot(f'eye_{sx}', (.052 * sx, -.118, .165), head, rot=(0, 0, R(24 * sx)))   # turned to follow the curve of the face
+    lash = box(f'lash_{sx}', (.058, .005, .006), (.052 * sx, -.128, .163), BROW, parent=head, rot=(0, 0, R(24 * sx)))
     cyl(f'sclera_{sx}', .03, .03, .012, 10, (0, 0, 0), rot=(R(90), 0, 0), scale=(1, .72, 1), m=EYEW, parent=eye)
-    pup = pivot(f'pupil_{sx}', (0, -.007, 0), eye)
+    pup = pivot(f'pupil_{sx}', (0, -.0085, 0), eye)
     cyl(f'iris_{sx}', .017, .017, .006, 8, (0, 0, 0), rot=(R(90), 0, 0), m=PUPIL, parent=pup)
-    ico(f'shine_{sx}', .0045, 1, (.006, -.004, .006), m=SHINE, parent=pup)
+    shine = ico(f'shine_{sx}', .0045, 1, (.006, -.004, .006), m=SHINE, parent=pup)
     lid = eye                                                    # eyes close by squashing into a line, like the reference
     brow = box(f'brow_{sx}', (.05, .01, .009), (.055 * sx, -.135, .215), BROW, parent=head, rot=(0, R(-8 * sx), 0))
-    EYES.append((pup, lid, brow, sx))
+    EYES.append((pup, lid, brow, sx, lash, shine))
 cyl('nose', .016, 0, .03, 3, (0, -.148, .125), rot=(R(-80), 0, 0), m=SKIN_D, parent=head)
 mouth = box('mouth', (.034, .006, .007), (0, -.135, .068), LIP, parent=head)
 for sx in (1, -1):
@@ -171,10 +216,13 @@ keys(vhead, 'rotation_euler', 1, [(0, -6), (17.0, -6), (20.0, -20)], R(1))      
 # breathing (torso thickness), stops dead at the footstep
 br = [(i * 1.1, 1.0 + (.05 if i % 2 else 0)) for i in range(6)] + [(6.5, 1.0), (DUR, 1.0)]
 keys(torso, 'scale', 1, [(t, .62 * v) for t, v in br])
-for pup, lid, brow, sx in EYES:
-    keys(lid, 'scale', 2, [(0, .04), (4.0, .04), (4.5, .45), (4.8, .15), (5.9, .92), (6.5, .92), (6.8, 1.12), (8.95, 1.12), (9.05, .04), (9.2, 1.12), (DUR, 1.12)])
-    keys(pup, 'location', 0, [(0, 0), (6.6, 0), (6.9, -.006), (13.2, -.006), (13.6, 0), (DUR, 0)])     # eyes slide toward the door side
-    keys(pup, 'location', 2, [(0, 0), (6.6, 0), (6.9, -.007), (10, -.004), (13.2, 0), (DUR, 0)])
+for pup, lid, brow, sx, lash, shine in EYES:
+    EYE_K = [(0, .001), (4.0, .001), (4.5, .45), (4.8, .12), (5.9, .92), (6.5, .92), (6.8, 1.12), (8.95, 1.12), (9.05, .001), (9.2, 1.12), (DUR, 1.12)]
+    keys(lid, 'scale', 2, EYE_K)                                         # shut = fully gone, only the lash line shows
+    for ax in range(3): keys(shine, 'scale', ax, [(t, 1.0 if v > .3 else 0.0) for t, v in EYE_K])   # no glint on a closed eye
+    keys(lash, 'scale', 0, [(t, .06 if v > .3 else 1.0) for t, v in EYE_K], .058)
+    keys(pup, 'location', 0, [(0, 0), (6.6, 0), (6.9, -.0045), (13.2, -.0045), (13.6, 0), (DUR, 0)])     # eyes slide toward the door side
+    keys(pup, 'location', 2, [(0, 0), (6.6, 0), (6.9, -.0045), (10, -.003), (13.2, 0), (DUR, 0)])
     keys(brow, 'location', 2, [(0, .215), (6.6, .215), (6.9, .224), (DUR, .224)])
     keys(brow, 'rotation_euler', 1, [(0, -8 * sx), (6.6, -8 * sx), (6.9, 10 * sx), (DUR, 10 * sx)], R(1))   # inner ends up: fear
 keys(mouth, 'scale', 2, [(0, .007), (6.5, .007), (6.8, .018), (DUR, .018)])                     # lips part
