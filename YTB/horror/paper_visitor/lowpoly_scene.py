@@ -38,9 +38,9 @@ def finish(ob, m, parent=None, jitter=0.0, seed=1):
 def new_mesh(name, build):
     me = bpy.data.meshes.new(name); bm = bmesh.new(); build(bm); bm.to_mesh(me); bm.free()
     ob = bpy.data.objects.new(name, me); C.objects.link(ob); return ob
-def ico(name, r, sub, loc, scale=(1, 1, 1), m=None, parent=None, jitter=0.0, seed=1):
+def ico(name, r, sub, loc, scale=(1, 1, 1), m=None, parent=None, jitter=0.0, seed=1, rot=(0, 0, 0)):
     ob = new_mesh(name, lambda bm: bmesh.ops.create_icosphere(bm, subdivisions=sub, radius=r))
-    ob.location = loc; ob.scale = scale; return finish(ob, m, parent, jitter, seed)
+    ob.location = loc; ob.scale = scale; ob.rotation_euler = rot; return finish(ob, m, parent, jitter, seed)
 def cyl(name, r1, r2, h, segs, loc, rot=(0, 0, 0), scale=(1, 1, 1), m=None, parent=None, jitter=0.0, seed=1, base=False):
     def b(bm):
         bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=r1, radius2=r2, depth=h)
@@ -62,12 +62,12 @@ R = math.radians
 NAVY, NAVY2 = mat('navy_wall', (.030, .045, .085)), mat('navy_trim', (.05, .065, .11))
 FLOOR, WOOD, WOOD2 = mat('floor', (.10, .055, .035)), mat('wood', (.20, .10, .055)), mat('wood_dark', (.11, .055, .03))
 SHEET, QUILT = mat('sheet', (.55, .52, .47)), mat('quilt', (.26, .05, .045))
-SKIN, SKIN_D = mat('skin', (.62, .40, .30), rough=.6), mat('skin_dark', (.45, .26, .19))
-HAIR = mat('hair', (.012, .010, .012), rough=.45, spec=.6)
-KIMONO, COLLAR = mat('kimono', (.06, .07, .15)), mat('collar', (.70, .64, .55))
-EYEW, PUPIL, SHINE = mat('eye_white', (.6, .58, .54), rough=.45), mat('pupil', (.004, .004, .005), rough=.6, spec=.15), mat('shine', (1, 1, 1), emit=2)
-LIP, BROW = mat('lip', (.40, .16, .14)), mat('brow', (.02, .015, .015))
-PAPER = mat('paper', (.66, .61, .50), rough=.95, spec=.15)
+SKIN, SKIN_D = mat('skin', (.92, .5, .3), rough=.7, spec=.2), mat('skin_dark', (.74, .42, .3))
+HAIR, VHAIR = mat('hair', (.05, .028, .02), rough=.55, spec=.35), mat('vhair', (.008, .008, .01), rough=.5, spec=.3)
+KIMONO, KIMONO_D, COLLAR = mat('hoodie', (.85, .55, .08), rough=.85), mat('hoodie_dark', (.62, .36, .04), rough=.85), mat('collar', (.70, .64, .55))
+EYEW, PUPIL, SHINE = mat('eye_white', (.6, .58, .54), rough=.45), mat('pupil', (.006, .005, .005), rough=.35, spec=.3), mat('shine', (1, 1, 1), emit=2)
+LIP, BROW = mat('lip', (.10, .035, .03)), mat('brow', (.02, .015, .015))
+PAPER = mat('paper', (.80, .76, .67), rough=.9, spec=.15)
 HOLE = mat('hole', (0, 0, 0), rough=1, spec=0)
 VOID, NIGHT, MOON = mat('void', (0, 0, 0), rough=1, spec=0), mat('night', (.01, .02, .05)), mat('moon', (.85, .9, 1), emit=8)
 LANTERN = mat('lantern_paper', (1.0, .55, .22), emit=6)
@@ -83,8 +83,16 @@ box('sill', (1.25, .3, .06), (-1.7, 2.47, 1.13), WOOD, bevel=.01)
 for nm, sz, lc in (('fl', (.07, .06, 1.1), (-2.22, 2.53, 1.7)), ('fr', (.07, .06, 1.1), (-1.18, 2.53, 1.7)), ('ft', (1.1, .06, .07), (-1.7, 2.53, 2.24)),
                    ('fm', (.05, .06, 1.1), (-1.7, 2.53, 1.7)), ('fh', (1.1, .06, .05), (-1.7, 2.53, 1.7))):
     box('frame_' + nm, sz, lc, WOOD)
-box('night_sky', (4, .1, 4), (-1.5, 4.6, 2), NIGHT)
-ico('moon', .17, 2, (-1.45, 4.5, 2.05), m=MOON)
+box('night_sky', (30, .1, 16), (-1.5, 16, 6), NIGHT)
+ico('moon', .55, 2, (-3.0, 15.5, 7.5), m=MOON)
+rc = random.Random(9)
+for b_ in range(9):                                                   # dark towers with lit windows far outside
+    bx, by, bw, bh = -6.5 + b_ * 1.5 + rc.uniform(-.3, .3), 8 + rc.uniform(0, 5), rc.uniform(.8, 1.4), rc.uniform(3, 8)
+    box(f'tower_{b_}', (bw, .4, bh), (bx, by, bh / 2), mat('tower', (.012, .016, .03)))
+    for w_ in range(14):
+        if rc.random() < .55:
+            col = rc.choice([(1, .7, .35), (1, .8, .5), (.5, .8, 1), (1, .35, .25)])
+            box(f'win_{b_}_{w_}', (.16, .02, .2), (bx + rc.uniform(-bw / 2 + .15, bw / 2 - .15), by - .22, rc.uniform(1, bh - .3)), mat(f'winlight_{col}', col, emit=rc.choice([3, 5, 8])))
 box('hall', (1.3, 1.9, 2.3), (2.05, 3.55, 1.15), VOID)
 hinge = pivot('door_hinge', (1.55, 2.55, 0)); door = box('door', (.98, .05, 2.12), (.49, 0, 1.06), WOOD, parent=hinge, bevel=.01)
 box('door_knob', (.04, .06, .04), (.88, -.05, 1.0), WOOD2, parent=hinge)
@@ -146,46 +154,41 @@ box('wall_right', (.1, 6, 3.2), (2.6 + .05, .5, 1.6), NAVY) if False else None
 box('clothes_pile', (.4, .3, .1), (2.2, 1.0, .05), mat('clothes', (.2, .18, .22)), jitter=.03, seed=70)
 
 # ---------------------------------------------------------------- HARU (built standing, origin at the hips, facing -Y)
+# style from the reference: big round head, tiny black dot eyes with one highlight (no whites), small mouth, big smooth hair, chunky clothes
 haru = pivot('haru_root', (0, 0, 0))
-for sx in (1, -1): cyl(f'leg_{sx}', .07, .055, .85, 6, (.08 * sx, 0, -.85), m=KIMONO, parent=haru, base=True)
+for sx in (1, -1): cyl(f'leg_{sx}', .075, .06, .85, 10, (.085 * sx, 0, -.85), m=KIMONO, parent=haru, base=True)
 waist = pivot('waist', (0, 0, 0), haru)
-torso = cyl('torso', .15, .175, .5, 7, (0, 0, 0), scale=(1, .62, 1), m=KIMONO, parent=waist, base=True, jitter=.004)
-for sx in (1, -1): box(f'collar_{sx}', (.025, .012, .26), (.045 * sx, -.108, .38), COLLAR, parent=waist, rot=(0, R(-24 * sx), 0))
-box('obi', (.34, .23, .07), (0, 0, .14), mat('obi', (.22, .05, .05)), parent=waist)
+torso = cyl('torso', .17, .2, .5, 12, (0, 0, 0), scale=(1, .7, 1), m=KIMONO, parent=waist, base=True, jitter=.004)
+box('shirt', (.075, .02, .3), (0, -.132, .32), mat('shirt', (.03, .03, .035)), parent=waist)                 # dark top under the open hoodie
+for sx in (1, -1): box(f'zip_edge_{sx}', (.03, .03, .5), (.055 * sx, -.128, .24), KIMONO_D, parent=waist, rot=(0, R(-7 * sx), 0))
+cyl('collar_ring', .115, .12, .07, 12, (0, 0, .46), scale=(1, .8, 1), m=KIMONO_D, parent=waist, base=True)
 neck = pivot('neck', (0, 0, .5), waist, rot=(R(14), 0, 0))
-cyl('neck_mesh', .045, .042, .1, 6, (0, 0, -.02), m=SKIN, parent=neck, base=True)
-head = pivot('head', (0, 0, .07), neck)
-ico('head_mesh', .15, 3, (0, 0, .15), scale=(.95, .92, 1.12), m=SKIN, parent=head)
-def hair_cap(bm):                                               # a skull cap with the face cut out
-    bmesh.ops.create_icosphere(bm, subdivisions=3, radius=.163)
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y < -.03 and v.co.z < .06], context='VERTS')
-cap = new_mesh('hair_cap', hair_cap); cap.location = (0, .006, .158); cap.scale = (1.0, .97, 1.12); finish(cap, HAIR, head)
-for k, (x, ln) in enumerate(((-.075, .09), (-.035, .12), (.0, .07), (.04, .11), (.08, .085))):     # a few uneven strands over the forehead
-    cyl(f'fringe_{k}', .006, .02, ln, 5, (x, -.128 + abs(x) * .25, .292 - ln), rot=(R(-12), 0, 0), m=HAIR, parent=head, base=True, jitter=.002, seed=40 + k)
-for sx in (1, -1): cyl(f'side_lock_{sx}', .018, .042, .44, 6, (.128 * sx, -.035, -.17), scale=(1, .6, 1), m=HAIR, parent=head, rot=(0, R(-5 * sx), 0), base=True, jitter=.005, seed=2 + sx)
-cyl('back_hair', .16, .135, .66, 7, (0, .045, -.4), scale=(1, .5, 1), m=HAIR, parent=head, base=True, jitter=.01, seed=7)
+cyl('neck_mesh', .05, .048, .08, 10, (0, 0, -.02), m=SKIN, parent=neck, base=True)
+head = pivot('head', (0, 0, .06), neck)
+ico('head_mesh', .17, 4, (0, 0, .16), scale=(1.05, .98, .97), m=SKIN, parent=head)
+def hair_cap(bm):                                               # one smooth mass: round on top, falling long at the sides and back, open in front of the face
+    bmesh.ops.create_icosphere(bm, subdivisions=4, radius=.186)
+    for v in bm.verts:
+        if v.co.z < 0: v.co.z *= 3.2; v.co.x *= 1.0 + .25 * min(1, -v.co.z / .5)          # longer and a little wider toward the ends
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y < -.035 and v.co.z < .06 - .3 * max(0, -v.co.x)], context='VERTS')   # side part: hair dips over one eye-brow
+cap = new_mesh('hair_cap', hair_cap); cap.location = (0, .02, .17); cap.scale = (1.07, 1.0, 1.0); finish(cap, HAIR, head)
 EYES = []
 for sx in (1, -1):
-    eye = pivot(f'eye_{sx}', (.052 * sx, -.118, .165), head, rot=(0, 0, R(24 * sx)))   # turned to follow the curve of the face
-    lash = box(f'lash_{sx}', (.058, .005, .006), (.052 * sx, -.128, .163), BROW, parent=head, rot=(0, 0, R(24 * sx)))
-    cyl(f'sclera_{sx}', .03, .03, .012, 10, (0, 0, 0), rot=(R(90), 0, 0), scale=(1, .72, 1), m=EYEW, parent=eye)
-    pup = pivot(f'pupil_{sx}', (0, -.0085, 0), eye)
-    cyl(f'iris_{sx}', .017, .017, .006, 8, (0, 0, 0), rot=(R(90), 0, 0), m=PUPIL, parent=pup)
-    shine = ico(f'shine_{sx}', .0045, 1, (.006, -.004, .006), m=SHINE, parent=pup)
-    lid = eye                                                    # eyes close by squashing into a line, like the reference
-    brow = box(f'brow_{sx}', (.05, .01, .009), (.055 * sx, -.135, .215), BROW, parent=head, rot=(0, R(-8 * sx), 0))
-    EYES.append((pup, lid, brow, sx, lash, shine))
-cyl('nose', .016, 0, .03, 3, (0, -.148, .125), rot=(R(-80), 0, 0), m=SKIN_D, parent=head)
-mouth = box('mouth', (.034, .006, .007), (0, -.135, .068), LIP, parent=head)
+    eye = pivot(f'eye_{sx}', (.066 * sx, -.151, .132), head, rot=(0, 0, R(20 * sx)))
+    ico(f'eye_dot_{sx}', .014, 2, (0, 0, 0), scale=(.75, .45, 1.25), m=PUPIL, parent=eye)
+    shine = ico(f'shine_{sx}', .0036, 1, (.0035, -.0068, .0075), m=SHINE, parent=eye)
+    EYES.append((eye, sx, shine, eye.location.copy()))
+cyl('nose', .008, 0, .014, 3, (0, -.166, .108), rot=(R(-80), 0, 0), m=SKIN_D, parent=head)
+mouth = box('mouth', (.022, .006, .006), (0, -.158, .073), LIP, parent=head)
 for sx in (1, -1):
-    sh = pivot(f'shoulder_{sx}', (.175 * sx, 0, .45), waist, rot=(0, R(-6 * sx), 0))
-    cyl(f'upperarm_{sx}', .045, .04, .27, 6, (0, 0, -.27), m=KIMONO, parent=sh, base=True)
+    sh = pivot(f'shoulder_{sx}', (.2 * sx, 0, .44), waist, rot=(0, R(-6 * sx), 0))
+    cyl(f'upperarm_{sx}', .065, .06, .27, 10, (0, 0, -.27), m=KIMONO, parent=sh, base=True)
     el = pivot(f'elbow_{sx}', (0, 0, -.27), sh)
-    cyl(f'forearm_{sx}', .04, .05, .24, 6, (0, 0, -.24), m=KIMONO, parent=el, base=True)
-    ico(f'hand_{sx}', .038, 1, (0, -.005, -.275), scale=(.8, .55, 1.1), m=SKIN, parent=el)
+    cyl(f'forearm_{sx}', .058, .065, .23, 10, (0, 0, -.23), m=KIMONO, parent=el, base=True)
+    ico(f'hand_{sx}', .045, 2, (0, -.005, -.27), scale=(.85, .6, 1.05), m=SKIN, parent=el)
     if sx == -1: ELBOW_R, SHOULDER_R = el, sh
 # lay her down on her back, head to the headboard: local Z -> world -X, local -Y (her front) -> world +Z
-haru.matrix_world = Matrix.Translation((-.72, 1.82, .67)) @ Matrix(((0, 0, -1), (1, 0, 0), (0, -1, 0))).to_4x4()
+haru.matrix_world = Matrix.Translation((-.7, 1.82, .69)) @ Matrix(((0, 0, -1), (1, 0, 0), (0, -1, 0))).to_4x4()
 
 # ---------------------------------------------------------------- THE VISITOR: tall, paper, never blinks
 vis = pivot('visitor_root', (1.2, 2.12, 0), rot=(0, 0, R(-24)))
@@ -195,16 +198,16 @@ cyl('v_chest', .17, .14, .2, 7, (0, 0, 1.6), scale=(1, .62, 1), m=ROBE, parent=v
 vneck = pivot('v_neck', (0, -.01, 1.78), vis, rot=(R(12), 0, 0))
 cyl('v_neck_mesh', .035, .03, .3, 6, (0, 0, 0), m=PAPER, parent=vneck, base=True, jitter=.005, seed=14)
 vhead = pivot('v_head', (0, 0, .3), vneck, rot=(0, R(-6), 0))
-ico('v_head_mesh', .13, 2, (0, 0, .14), scale=(.86, .82, 1.3), m=PAPER, parent=vhead, jitter=.006, seed=15)
-ico('v_eye_L', .032, 2, (.044, -.092, .175), scale=(1, .45, 1.3), m=HOLE, parent=vhead)
-ico('v_eye_R', .032, 2, (-.046, -.089, .158), scale=(1, .45, 1.35), m=HOLE, parent=vhead)     # a little lower: wrong, not obviously
-box('v_mouth', (.115, .02, .012), (0, -.098, .055), HOLE, parent=vhead, rot=(0, R(3), 0))
-def veil(bm):                                                    # long black hair: cap + curtain down to the chest, face left open
-    bmesh.ops.create_icosphere(bm, subdivisions=2, radius=.146)
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y < -.02 and v.co.z < .07], context='VERTS')
-vh = new_mesh('v_hair_cap', veil); vh.location = (0, .01, .16); vh.scale = (.92, .9, 1.3); finish(vh, HAIR, vhead)
-for sx in (1, -1): box(f'v_hair_side_{sx}', (.05, .1, .62), (.1 * sx, -.02, -.12), HAIR, parent=vhead, jitter=.012, seed=30 + sx)
-box('v_hair_back', (.26, .08, .8), (0, .08, -.2), HAIR, parent=vhead, jitter=.015, seed=33)
+ico('v_head_mesh', .15, 4, (0, 0, .16), scale=(.9, .9, 1.22), m=PAPER, parent=vhead)
+ico('v_eye_L', .02, 2, (.07, -.122, .14), scale=(.8, .45, 1.45), rot=(0, 0, R(22)), m=HOLE, parent=vhead)     # the same dot eyes, but no light in them
+ico('v_eye_R', .02, 2, (-.072, -.12, .128), scale=(.8, .45, 1.5), rot=(0, 0, R(-22)), m=HOLE, parent=vhead)  # a little lower: wrong, not obviously
+box('v_mouth', (.06, .006, .004), (0, -.133, .06), HOLE, parent=vhead)
+def veil(bm):                                                    # long straight black hair, face left open
+    bmesh.ops.create_icosphere(bm, subdivisions=3, radius=.162)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.y < -.03 and v.co.z < .09], context='VERTS')
+vh = new_mesh('v_hair_cap', veil); vh.location = (0, .012, .17); vh.scale = (.93, .93, 1.22); finish(vh, VHAIR, vhead)
+for sx in (1, -1): cyl(f'v_hair_side_{sx}', .03, .06, .78, 8, (.13 * sx, -.03, -.55), scale=(1, .7, 1), m=VHAIR, parent=vhead, base=True)
+cyl('v_hair_back', .17, .16, .95, 12, (0, .06, -.72), scale=(1, .4, 1), m=VHAIR, parent=vhead, base=True)
 for sx in (1, -1):
     vsh = pivot(f'v_shoulder_{sx}', (.2 * sx, 0, 1.72), vis, rot=(R(-3), R(-4 * sx), 0))
     cyl(f'v_sleeve_{sx}', .07, .05, .45, 6, (0, 0, -.45), m=ROBE, parent=vsh, base=True, jitter=.01, seed=20 + sx)
@@ -216,16 +219,14 @@ keys(vhead, 'rotation_euler', 1, [(0, -6), (17.0, -6), (20.0, -20)], R(1))      
 # breathing (torso thickness), stops dead at the footstep
 br = [(i * 1.1, 1.0 + (.05 if i % 2 else 0)) for i in range(6)] + [(6.5, 1.0), (DUR, 1.0)]
 keys(torso, 'scale', 1, [(t, .62 * v) for t, v in br])
-for pup, lid, brow, sx, lash, shine in EYES:
-    EYE_K = [(0, .001), (4.0, .001), (4.5, .45), (4.8, .12), (5.9, .92), (6.5, .92), (6.8, 1.12), (8.95, 1.12), (9.05, .001), (9.2, 1.12), (DUR, 1.12)]
-    keys(lid, 'scale', 2, EYE_K)                                         # shut = fully gone, only the lash line shows
+for eye, sx, shine, base in EYES:
+    EYE_K = [(0, .12), (4.0, .12), (4.5, .5), (4.8, .2), (5.9, .95), (6.5, .95), (6.8, 1.0), (8.95, 1.0), (9.05, .12), (9.2, 1.0), (DUR, 1.0)]
+    keys(eye, 'scale', 2, EYE_K)                                          # shut = a short dark line, like the reference blink
     for ax in range(3): keys(shine, 'scale', ax, [(t, 1.0 if v > .3 else 0.0) for t, v in EYE_K])   # no glint on a closed eye
-    keys(lash, 'scale', 0, [(t, .06 if v > .3 else 1.0) for t, v in EYE_K], .058)
-    keys(pup, 'location', 0, [(0, 0), (6.6, 0), (6.9, -.0045), (13.2, -.0045), (13.6, 0), (DUR, 0)])     # eyes slide toward the door side
-    keys(pup, 'location', 2, [(0, 0), (6.6, 0), (6.9, -.0045), (10, -.003), (13.2, 0), (DUR, 0)])
-    keys(brow, 'location', 2, [(0, .215), (6.6, .215), (6.9, .224), (DUR, .224)])
-    keys(brow, 'rotation_euler', 1, [(0, -8 * sx), (6.6, -8 * sx), (6.9, 10 * sx), (DUR, 10 * sx)], R(1))   # inner ends up: fear
-keys(mouth, 'scale', 2, [(0, .007), (6.5, .007), (6.8, .018), (DUR, .018)])                     # lips part
+    keys(eye, 'location', 0, [(0, base.x), (6.6, base.x), (6.9, base.x - .005), (13.2, base.x - .005), (13.6, base.x), (DUR, base.x)])   # both dots slide toward the door
+    keys(eye, 'location', 2, [(0, base.z), (6.6, base.z), (6.9, base.z - .004), (10, base.z - .003), (13.2, base.z), (DUR, base.z)])
+    for ax in (0, 1): keys(eye, 'scale', ax, [(0, 1), (6.6, 1), (6.9, .82), (DUR, .82)])                # fear: the dots shrink
+keys(mouth, 'scale', 2, [(0, .006), (6.5, .006), (6.8, .014), (DUR, .014)])                     # lips part
 keys(neck, 'rotation_euler', 0, [(0, 14), (7.6, 14), (10.0, 38), (10.2, 38), (13.0, 2), (DUR, 2)], R(1))   # lifts her head to look at the door
 keys(head, 'rotation_euler', 2, [(0, 0), (7.6, 0), (10.0, -10), (13.0, 0), (DUR, 0)], R(1))
 keys(waist, 'rotation_euler', 0, [(0, 0), (10.2, 0), (11.0, 30), (11.6, 30), (13.0, 86), (DUR, 86)], R(1))   # sits up, a held breath halfway
@@ -243,13 +244,15 @@ def light(name, kind, energy, color, loc, rot=(0, 0, 0), size=1.0, spot=None):
     if spot: L.spot_size = R(spot); L.spot_blend = .7
     o = bpy.data.objects.new(name, L); C.objects.link(o); o.location = loc; o.rotation_euler = [R(a) for a in rot]; return o
 light('moonlight', 'AREA', 260, (.45, .6, 1.0), (-1.7, 3.4, 2.5), (-48, 0, 12), size=1.0)
-lamp = light('lantern_glow', 'POINT', 38, (1.0, .52, .2), (-2.1, 2.1, .72), size=.12)          # the warm key, like a candle
+lamp = light('lantern_glow', 'POINT', 70, (1.0, .52, .2), (-2.1, 2.1, .72), size=.12)          # the warm key, like a candle
 fc = lamp.data.driver_add('energy'); fc.driver.expression = '38 + 3*noise.random()' if False else '38'
 lamp.data.keyframe_insert('energy', frame=1)
-for i in range(0, FRAMES, 4): lamp.data.energy = 38 * (1 + .06 * math.sin(i * .9) + .04 * math.sin(i * 2.3)); lamp.data.keyframe_insert('energy', frame=i + 1)
+for i in range(0, FRAMES, 4): lamp.data.energy = 70 * (1 + .06 * math.sin(i * .9) + .04 * math.sin(i * 2.3)); lamp.data.keyframe_insert('energy', frame=i + 1)
 lamp.data.driver_remove('energy')
-light('rim_warm', 'AREA', 30, (1.0, .5, .25), (-2.4, .8, 1.6), (0, -70, -40), size=1.2)        # warm edge on the left like the reference
-light('fill', 'AREA', 6, (.35, .45, .8), (0, -2.5, 2.4), (65, 0, 0), size=3)
+light('rim_warm', 'AREA', 45, (1.0, .5, .22), (-2.4, .8, 1.6), (0, -70, -40), size=1.2)
+fk = light('face_key', 'AREA', 26, (1.0, .6, .36), (-.25, 1.35, 1.65), size=.5)   # warm key that follows her face (the reference's screen glow)
+tk = fk.constraints.new('TRACK_TO'); tk.target = bpy.data.objects['head']; tk.track_axis = 'TRACK_NEGATIVE_Z'; tk.up_axis = 'UP_Y'        # warm edge on the left like the reference
+light('fill', 'AREA', 10, (.35, .45, .8), (0, -2.5, 2.4), (65, 0, 0), size=3)
 light('door_spill', 'AREA', 16, (.5, .6, .95), (.7, 1.75, 1.45), (0, 80, 0), size=.5)
 light('visitor_rim', 'SPOT', 4, (.5, .6, .95), (1.0, 3.4, 2.6), (-35, 0, 160), spot=30)
 
@@ -257,10 +260,10 @@ light('visitor_rim', 'SPOT', 4, (.5, .6, .95), (1.0, 3.4, 2.6), (-35, 0, 160), s
 target = pivot('focus', (0, 0, 0))
 cd = bpy.data.cameras.new('cam'); cam = bpy.data.objects.new('cam', cd); C.objects.link(cam); scene.camera = cam
 tt = cam.constraints.new('TRACK_TO'); tt.target = target; tt.track_axis = 'TRACK_NEGATIVE_Z'; tt.up_axis = 'UP_Y'
-cd.dof.use_dof = True; cd.dof.focus_object = target; cd.dof.aperture_fstop = 2.0; cd.sensor_width = 36
+cd.dof.use_dof = True; cd.dof.focus_object = target; cd.dof.aperture_fstop = 1.4; cd.sensor_width = 36
 SHOTS = [  # start, end, camera from -> to, look from -> to, lens from -> to
-    (0, 6.5, (-1.0, 1.84, 1.34), (-1.06, 1.84, 1.28), (-1.47, 1.82, .78), (-1.47, 1.82, .78), 42, 50),        # her face, asleep, then waking
-    (6.5, 10.1, (-1.02, 1.8, 1.26), (-1.05, 1.8, 1.22), (-1.47, 1.82, .8), (-1.42, 1.82, .84), 62, 72),        # the footstep: tighter
+    (0, 6.5, (-1.0, 1.84, 1.34), (-1.06, 1.84, 1.28), (-1.47, 1.82, .8), (-1.47, 1.82, .8), 34, 40),        # her face, asleep, then waking
+    (6.5, 10.1, (-1.02, 1.8, 1.26), (-1.05, 1.8, 1.22), (-1.47, 1.82, .82), (-1.42, 1.82, .85), 44, 52),        # the footstep: tighter
     (10.1, 13.2, (-.45, -.55, 1.0), (-.48, -.5, 1.02), (-.75, 1.82, .95), (-.75, 1.82, 1.15), 32, 34),        # wide side: she sits up
     (13.2, 16.3, (.95, 1.62, 1.5), (.85, 1.64, 1.48), (-.74, 1.82, 1.36), (-.74, 1.82, 1.36), 50, 58),        # from the corner: we are where it stands
     (16.3, DUR, (.3, -1.5, 1.35), (.36, -1.25, 1.38), (.95, 2.05, 1.45), (.98, 2.07, 1.6), 30, 36),           # the reveal
