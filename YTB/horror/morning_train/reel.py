@@ -29,12 +29,12 @@ SHOTS = [
     (21.0, 26.4, 't5_woman_b.png', (1.00, 1.09), ((.5, .45), (.5, .40)), {'flicker': 1}),
     (26.4, 30.74, 'clip:w1_lipsync.mp4', (1.00, 1.04), ((.5, .45), (.5, .43)), {'flicker': 1}),
     (30.74, 37.9, 'mov:t7:0:120', (1.00, 1.06), ((.5, .5), (.48, .5)), {'flicker': 1}),      # the face peels further open
-    (37.9, 44.0, 'mov:t8:0:120', (1.00, 1.05), ((.5, .5), (.52, .46)), {}),
+    (37.9, 44.0, 'mov:t8:0:120:x49-60', (1.00, 1.05), ((.5, .5), (.52, .46)), {}),
     (44.0, 50.2, 'mov:t4:120:30', (1.05, 1.12), ((.5, .47), (.58, .5)), {'flicker': 1}),
-    (50.2, 52.4, 'mov:t2:96:120', (1.06, 1.10), ((.5, .42), (.5, .40)), {'dim': .6}),       # she shakes
+    (50.2, 52.4, 'mov:t2:96:120', (1.06, 1.10), ((.5, .42), (.5, .40)), {'night': 1}),     # she shakes, in the dark
     (52.4, 58.6, 'mov:t1:0:120', (1.00, 1.04), ((.5, .5), (.5, .5)), {'flash_in': 1}),
-    (58.6, 61.5, 'mov:t9:0:50', (1.00, 1.25), ((.5, .5), (.76, .42)), {}),     # push in on the tear in her cheek
-    (61.5, 67.3, 'mov:t9:50:120', (1.25, 1.28), ((.76, .42), (.76, .42)), {}),
+    (58.6, 61.5, 't9_end_tear.png', (1.00, 2.30), ((.5, .5), (.80, .42)), {}),  # push in on the tear in her cheek
+    (61.5, 67.3, 'mov:t9:20:120', (1.10, 1.14), ((.72, .45), (.70, .45)), {}),   # Haru stares at her
     (67.3, DUR, 'mov:t1:30:0', (1.03, 1.00), ((.51, .49), (.5, .5)), {}),     # plays back onto frame 0 (loop)
 ]
 
@@ -66,9 +66,12 @@ def mov(name):                                           # Artlist clip (480x864
         _c[k] = [(np.clip(f * gi, 0, 1) * 255 + .5).astype(np.uint8) for f, gi in zip(fr, g)]   # uint8 keeps memory low
     return _c[k]
 def mov_frame(spec, p):                                  # 'name:a:b' -> frames a..b stretched over the shot, blended between frames
-    name, a, b = spec.split(':'); a, b = int(a), int(b); fr = mov(name)
-    x = a + (b - a) * min(1, max(0, p)); i = int(math.floor(x)); f = x - i
-    i = min(max(i, 0), len(fr) - 1); j = min(i + 1, len(fr) - 1)
+    parts = spec.split(':'); name, a, b = parts[0], int(parts[1]), int(parts[2]); fr = mov(name)
+    idx = list(range(a, b + 1)) if b >= a else list(range(a, b - 1, -1))
+    for sk in parts[3:]:                                 # 'x49-60' drops a glitch from the clip
+        lo, hi = map(int, sk[1:].split('-')); idx = [k for k in idx if not lo <= k <= hi]
+    x = (len(idx) - 1) * min(1, max(0, p)); q = int(math.floor(x)); f = x - q
+    i = idx[q]; j = idx[min(q + 1, len(idx) - 1)]
     a = fr[i].astype(np.float32) / 255
     return a if f < 1e-3 else a * (1 - f) + fr[j].astype(np.float32) / 255 * f
 def sharpen(a): return a + .45 * (a - cv2.GaussianBlur(a, (0, 0), 1.4))
@@ -102,6 +105,7 @@ def shot(i, t):
     if 'lights_out' in fx and t >= fx['lights_out']:
         k = t - fx['lights_out']; out = out * (.15 if k < .12 else .9 if k < .2 else .05 if k < .5 else 0)
     if 'dim' in fx: out = out * fx['dim']
+    if 'night' in fx: out = out * np.float32([.42, .34, .26]) * flick(t)     # BGR: lights are out, cold
     if 'flash_in' in fx and t - t0 < .5: out = np.clip(out + (1 - (t - t0) / .5) * .6, 0, 1)
     return np.clip(out, 0, 1)
 
@@ -113,7 +117,8 @@ for name, start in LINES:
     i = 0
     while i < len(ws):
         n = min(3, len(ws) - i) if len(ws) - i != 4 else 2
-        while n > 1 and ws[i + n - 2][0][-1:] in ',.?': n -= 1
+        for k in range(n - 1):
+            if ws[i + k][0][-1:] in ',.?!': n = k + 1; break
         CHUNKS.append(ws[i:i + n]); i += n
 def overlay(fr, t):
     im = Image.fromarray(cv2.cvtColor((fr * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)); d = ImageDraw.Draw(im, 'RGBA')
@@ -163,9 +168,13 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(HERE, 'check'), exist_ok=True)
         for i in [int(x) for x in args[args.index('--frames') + 1].split(',')]: cv2.imwrite(os.path.join(HERE, 'check', f'f{i:04d}.png'), frame(i))
         sys.exit()
-    wav = os.path.join(HERE, 'mix.wav'); mix(wav); out = os.path.join(HERE, 'morning_train_1080x1920.mp4')
+    wav = os.path.join(HERE, 'mix.wav'); mix(wav)
+    meas = json.loads(subprocess.run(['ffmpeg', '-i', wav, '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'],
+                                     capture_output=True, text=True).stderr.split('[Parsed_loudnorm')[-1].split('\n', 1)[1])
+    LN = ('loudnorm=I=-14:TP=-1.5:LRA=11:linear=true:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s'
+          % (meas['input_i'], meas['input_tp'], meas['input_lra'], meas['input_thresh'], meas['target_offset'])); out = os.path.join(HERE, 'morning_train_1080x1920.mp4')
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-i', wav,
-                           '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11', '-c:v', 'libx264', '-crf', '17', '-preset', 'slow', '-pix_fmt', 'yuv420p',
+                           '-af', LN, '-c:v', 'libx264', '-crf', '17', '-preset', 'slow', '-pix_fmt', 'yuv420p',
                            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
     for i in range(N):
         ff.stdin.write(frame(i).tobytes())
