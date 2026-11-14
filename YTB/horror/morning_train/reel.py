@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ST = os.path.join(HERE, 'stil
 SFX = os.path.join(HERE, '..', '..', 'lanternfold', 'sfx_library')
 W, H, FPS = 1080, 1920, 30
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-CL = os.path.join(HERE, 'clips')
+CL = os.path.join(HERE, 'clips_kling')
 XF = .4                                                  # soft dissolve between shots
 HARD = {14.6, 16.4, 52.4}                                # cuts that stay hard: lights out, lights on, the flash
 HOOK = ['Is anyone', 'really there?']
@@ -21,21 +21,21 @@ WORDS = json.load(open(os.path.join(VO, 'words.json')))
 
 # (start, end, source, zoom from->to, centre from->to, effects). source: still png, 'clip:<mp4>' or 'black'
 SHOTS = [
-    (0.0, 4.9, 'mov:t1:0:96', (1.00, 1.04), ((.5, .5), (.51, .49)), {}),
-    (4.9, 10.4, 't2_haru_close.png', (1.00, 1.07), ((.5, .45), (.5, .42)), {}),
+    (0.0, 4.9, 'mov:t1:0:120', (1.00, 1.04), ((.5, .5), (.51, .49)), {}),
+    (4.9, 10.4, 'mov:t2:30:100', (1.00, 1.04), ((.5, .45), (.5, .43)), {}),
     (10.4, 14.6, 't3_tunnel_dark.png', (1.03, 1.06), ((.5, .5), (.5, .5)), {'lights_out': 13.6}),
     (14.6, 16.4, 'black', (1, 1), ((.5, .5), (.5, .5)), {}),
-    (16.4, 21.0, 'mov:t4:0:70', (1.00, 1.05), ((.5, .5), (.5, .47)), {'flicker_on': 1}),
+    (16.4, 21.0, 'mov:t4:0:120', (1.00, 1.05), ((.5, .5), (.5, .47)), {'flicker_on': 1}),
     (21.0, 26.4, 't5_woman_b.png', (1.00, 1.09), ((.5, .45), (.5, .40)), {'flicker': 1}),
     (26.4, 30.74, 'clip:w1_lipsync.mp4', (1.00, 1.04), ((.5, .45), (.5, .43)), {'flicker': 1}),
-    (30.74, 37.9, 'mov:t7:96:0', (1.00, 1.06), ((.5, .5), (.48, .5)), {'flicker': 1}),      # played backwards: the face peels open
-    (37.9, 44.0, 'mov:t8:0:68', (1.00, 1.05), ((.5, .5), (.52, .46)), {}),                  # cut before the clip's lights come on
-    (44.0, 50.2, 'mov:t4:70:96', (1.05, 1.12), ((.5, .47), (.58, .5)), {'flicker': 1}),
-    (50.2, 52.4, 't2_haru_close.png', (1.10, 1.14), ((.5, .42), (.5, .40)), {'dim': .55}),
-    (52.4, 58.6, 'mov:t1:20:96', (1.00, 1.04), ((.5, .5), (.5, .5)), {'flash_in': 1}),
-    (58.6, 61.5, 'mov:t9:0:36', (1.00, 1.25), ((.5, .5), (.76, .42)), {}),     # push in on the tear in her cheek
-    (61.5, 67.3, 'mov:t9:36:96', (1.25, 1.28), ((.76, .42), (.76, .42)), {}),
-    (67.3, DUR, 'mov:t1:14:0', (1.03, 1.00), ((.51, .49), (.5, .5)), {}),     # plays back onto frame 0 (loop)
+    (30.74, 37.9, 'mov:t7:0:120', (1.00, 1.06), ((.5, .5), (.48, .5)), {'flicker': 1}),      # the face peels further open
+    (37.9, 44.0, 'mov:t8:0:120', (1.00, 1.05), ((.5, .5), (.52, .46)), {}),
+    (44.0, 50.2, 'mov:t4:120:30', (1.05, 1.12), ((.5, .47), (.58, .5)), {'flicker': 1}),
+    (50.2, 52.4, 'mov:t2:96:120', (1.06, 1.10), ((.5, .42), (.5, .40)), {'dim': .6}),       # she shakes
+    (52.4, 58.6, 'mov:t1:0:120', (1.00, 1.04), ((.5, .5), (.5, .5)), {'flash_in': 1}),
+    (58.6, 61.5, 'mov:t9:0:50', (1.00, 1.25), ((.5, .5), (.76, .42)), {}),     # push in on the tear in her cheek
+    (61.5, 67.3, 'mov:t9:50:120', (1.25, 1.28), ((.76, .42), (.76, .42)), {}),
+    (67.3, DUR, 'mov:t1:30:0', (1.03, 1.00), ((.51, .49), (.5, .5)), {}),     # plays back onto frame 0 (loop)
 ]
 
 def ease(x): x = min(1, max(0, x)); return x * x * (3 - 2 * x)
@@ -63,14 +63,15 @@ def mov(name):                                           # Artlist clip (480x864
             fr.append(f.astype(np.float32) / 255)
         ref = fr[0].reshape(-1, 3).mean(0); g = np.array([ref / (f.reshape(-1, 3).mean(0) + 1e-4) for f in fr])
         g = cv2.GaussianBlur(g.astype(np.float32)[:, None, :], (1, 0), sigmaX=1, sigmaY=4)[:, 0]   # smooth the correction over time
-        _c[k] = [np.clip(f * gi, 0, 1) for f, gi in zip(fr, g)]
+        _c[k] = [(np.clip(f * gi, 0, 1) * 255 + .5).astype(np.uint8) for f, gi in zip(fr, g)]   # uint8 keeps memory low
     return _c[k]
 def mov_frame(spec, p):                                  # 'name:a:b' -> frames a..b stretched over the shot, blended between frames
     name, a, b = spec.split(':'); a, b = int(a), int(b); fr = mov(name)
     x = a + (b - a) * min(1, max(0, p)); i = int(math.floor(x)); f = x - i
     i = min(max(i, 0), len(fr) - 1); j = min(i + 1, len(fr) - 1)
-    return fr[i] if f < 1e-3 else fr[i] * (1 - f) + fr[j] * f
-def sharpen(a): return a + .7 * (a - cv2.GaussianBlur(a, (0, 0), 1.6))
+    a = fr[i].astype(np.float32) / 255
+    return a if f < 1e-3 else a * (1 - f) + fr[j].astype(np.float32) / 255 * f
+def sharpen(a): return a + .45 * (a - cv2.GaussianBlur(a, (0, 0), 1.4))
 def view(a, z, cx, cy):
     h, w = a.shape[:2]; s = max(W / (w / z), H / (h / z))                 # cover the frame
     hw, hh = W / (2 * s * w), H / (2 * s * h)

@@ -3,3 +3,4 @@ mix.wav
 *.mp4
 !stills/w1_lipsync.mp4
 !clips/*.mp4
+!clips_kling/*.mp4
