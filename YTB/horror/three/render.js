@@ -6,6 +6,7 @@
 //   node render.js --frames 0,60,130       only those frames, as PNGs in frames/
 //   node render.js --dur 8 --fps 30 --out test.mp4
 //   node render.js --landscape --scene keeper_p1 --dur 150 --out ..\keeper\part1\raw.mp4   (16:9)
+//   --start 75 --dur 75   render only seconds 75..150 (split long videos so each file fits GitHub)   --maxrate 10M
 // Needs: npm install (three + playwright), npx playwright install chromium, and ffmpeg on PATH (or set FFMPEG=C:\path\ffmpeg.exe).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), http = require('http'), os = require('os'), { spawn } = require('child_process');
@@ -13,7 +14,7 @@ const fs = require('fs'), path = require('path'), http = require('http'), os = r
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i < 0 ? d : argv[i + 1]; };
 const flag = k => argv.includes('--' + k);
-const FPS = +opt('fps', 30), DUR = +opt('dur', 8);
+const FPS = +opt('fps', 30), DUR = +opt('dur', 8), START = +opt('start', 0), MAXRATE = opt('maxrate', '14M');
 const [W, H] = flag('landscape') ? [1920, 1080] : [1080, 1920];   // --landscape for 16:9
 const OUT = path.resolve(__dirname, opt('out', 'test.mp4'));
 const ONLY = opt('frames', null) ? opt('frames').split(',').map(Number) : null;
@@ -59,20 +60,20 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
     await browser.close(); server.close(); return;
   }
 
-  const N = Math.round(FPS * DUR), tmp = path.join(__dirname, 'frames_tmp');
+  const N = Math.round(FPS * DUR), F0 = Math.round(FPS * START), tmp = path.join(__dirname, 'frames_tmp');
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp);
   const t0 = Date.now(); let done = 0;
   const pages = [probe]; for (let k = 1; k < WORKERS; k++) pages.push(await openPage(browser, port));
   await Promise.all(pages.map(async (page, k) => {              // each browser renders every WORKERS-th frame
     for (let i = k; i < N; i += WORKERS) {
-      fs.writeFileSync(path.join(tmp, `${String(i).padStart(5, '0')}.jpg`), await grab(page, i / FPS, 'image/jpeg'));
+      fs.writeFileSync(path.join(tmp, `${String(i).padStart(5, '0')}.jpg`), await grab(page, (F0 + i) / FPS, 'image/jpeg'));
       if (++done % 60 === 0) console.log(`  ${done}/${N} frames, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     }
   }));
   await browser.close(); server.close();
   console.log(`rendered ${N} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((Date.now() - t0) / N).toFixed(0)} ms/frame)`);
   await new Promise((res, rej) => spawn(FFMPEG, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(tmp, '%05d.jpg'),
-    '-vf', 'scale=out_range=tv,format=yuv420p', '-c:v', 'libx264', '-crf', '18', '-maxrate', '14M', '-bufsize', '28M',
+    '-vf', 'scale=out_range=tv,format=yuv420p', '-c:v', 'libx264', '-crf', '18', '-maxrate', MAXRATE, '-bufsize', String(parseInt(MAXRATE) * 2) + 'M',
     '-preset', 'medium', '-movflags', '+faststart', OUT], { stdio: 'inherit' })   // tv range + 14 Mb/s cap: fits GitHub's 100 MB
     .on('close', c => c ? rej(new Error('ffmpeg failed')) : res()));
   fs.rmSync(tmp, { recursive: true, force: true });
