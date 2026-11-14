@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ST = os.path.join(HERE, 'stil
 SFX = os.path.join(HERE, '..', '..', 'lanternfold', 'sfx_library')
 W, H, FPS = 1080, 1920, 30
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-CL = os.path.join(HERE, 'clips_kling')
+CL = os.path.join(HERE, 'clips_up')                     # Kling clips upscaled with 4x-UltraSharp
 XF = .4                                                  # soft dissolve between shots
 HARD = {14.6, 16.4, 52.4}                                # cuts that stay hard: lights out, lights on, the flash
 HOOK = ['Is anyone', 'really there?']
@@ -98,7 +98,7 @@ def shot(i, t):
     p = (t - t0) / (t1 - t0); e = ease(min(p, 1.0))
     a = clip_frame(src[5:], t - t0) if src.startswith('clip:') else mov_frame(src[4:], p) if src.startswith('mov:') else img(src)
     out = view(a, z[0] + (z[1] - z[0]) * e, c[0][0] + (c[1][0] - c[0][0]) * e, c[0][1] + (c[1][1] - c[0][1]) * e)
-    if src.startswith('mov:'): out = sharpen(out)
+    # clips are already UltraSharp-upscaled: no extra sharpening
     if 'flicker' in fx: out = out * flick(t)
     if 'flicker_on' in fx:                               # lights stutter back on
         k = t - t0; out = out * (0 if k < .25 else .8 if k < .4 else .1 if k < .55 else 1 if k < .7 else .3 if k < .8 else flick(t))
