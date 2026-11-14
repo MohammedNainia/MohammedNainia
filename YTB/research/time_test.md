@@ -11,9 +11,9 @@ Rule: compare slot medians only after each slot has 4+ reels; until then nothing
 | 06 | Would you open it? | IG 07:47 (before test) | 901 | 47 | 25 | (posted manually) |
 | 07 | Would you live forever? | IG 23:10 (before test) | 313 (5 h) | 46 | 34 | (posted manually) |
 | 08 | Undo your regret | 04:00 (IG went out 04:45) | 195 (reach 166, 1 share) | 60 | 23 | n/a (TikTok counts not readable here) |
-| 09 | Red thread | 13:00 | | | | |
-| 10 | | 20:00 | | | | |
-| 11 | Sleep paralysis: know it, or sleep? (AI-stills look) | posted now 23:43 on IG + TikTok + YouTube (off-slot, user choice) | | | | |
+| 09 | Red thread | 13:00 | 340 (read at ~55 h, not 24 h; 1 share, 5 saves) | 48 | 30 | n/a |
+| 10 | Would you listen? | 20:00 | 134 (0 shares, 1 save, 0 comments) | 76 | 11 | n/a |
+| 11 | Sleep paralysis: know it, or sleep? (AI-stills look) | posted now 23:43 on IG + TikTok + YouTube (off-slot, user choice) | 448 (read at ~20 h; 1 share) | 45 | 30 | n/a |
 | 12 | | 13:00 | | | | |
 | 13 | | 20:00 | | | | |
 | 14 | | 04:00 | | | | |
@@ -22,3 +22,5 @@ Rule: compare slot medians only after each slot has 4+ reels; until then nothing
 | 17 | | 04:00 | | | | |
 | 18 | | 13:00 | | | | |
 | 19 | | 20:00 | | | | |
+
+Note (Nov 14): Instagram and TikTok were dropped by the user; the slot test stops here (only 1 reel per slot, nothing proven). Reel 10's weak result tracks its 76 % skip rate (the hook), not the slot.
