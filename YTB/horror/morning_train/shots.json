@@ -1,0 +1,16 @@
+[
+  {"id": "t1", "image": "stills/t1_b.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. A commuter train gently sways as it moves. Sunlight stripes slide slowly across the floor and seats. Passengers scroll their phones with small natural movements, one turns a newspaper page. The girl in the yellow hoodie blinks and scrolls her phone. Static camera, calm, smooth, realistic subtle motion."},
+  {"id": "t2", "image": "stills/t2_haru_close.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. The girl in the yellow hoodie stands in a swaying morning train, bored, she blinks slowly and her long black hair moves slightly with the motion of the train. Warm sunlight flickers across her face as the train passes poles outside. Static camera, subtle smooth motion."},
+  {"id": "t3", "image": "stills/t3_tunnel_dark.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. A dark train stopped in a tunnel, lit only by a dim red emergency light. Nobody moves. The phone screens glow faintly. The red light pulses very slowly. Total stillness, static camera, eerie."},
+  {"id": "t4", "image": "stills/t4_all_d.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. In a dark train carriage under a flickering cold light, every passenger with a flat paper face sits perfectly still and stares at the camera. Their paper faces flutter very slightly as if breathing. The girl in the yellow hoodie trembles and slowly looks up, terrified. The ceiling light flickers. Static camera, slow, unsettling, no sudden movement."},
+  {"id": "t7", "image": "stills/t7_peel.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. A paper face slowly peels further away from the side of a head, curling outward like an old sticker, revealing more empty black hollow behind it. Cold flickering light. Very slow, smooth, silent, static camera."},
+  {"id": "t8", "image": "stills/t8_reflection_b.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. In the dark train window reflection the girl in the yellow hoodie sits alone and slowly turns her head to look at the empty seat beside her. In the foreground the beige sleeve and hand of the passenger next to her twitch slightly. Static camera, slow, eerie."},
+  {"id": "t9", "image": "stills/t9_end_tear.png", "seconds": 5,
+   "prompt": "Low-poly 3D animation. A sunny morning train moving gently, passengers back to normal looking at their phones. The woman in the beige coat calmly scrolls her phone, the small tear of paper on her cheek lifts slightly. The girl in the yellow hoodie stares at her, frozen, not blinking. Static camera, subtle smooth motion."}
+]
