@@ -7,7 +7,10 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__)); ST = os.path.join(HERE, 'stills'); VO = os.path.join(HERE, 'voice')
 SFX = os.path.join(HERE, '..', '..', 'lanternfold', 'sfx_library')
 W, H, FPS = 1080, 1920, 30
-FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'; GOLD = (255, 200, 95)
+FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+CL = os.path.join(HERE, 'clips')
+XF = .4                                                  # soft dissolve between shots
+HARD = {14.6, 16.4, 52.4}                                # cuts that stay hard: lights out, lights on, the flash
 HOOK = ['Is anyone', 'really there?']
 
 # voice: (name, start second). w1 lives inside the lip-sync clip (speech starts 0.7 s into it)
@@ -18,21 +21,21 @@ WORDS = json.load(open(os.path.join(VO, 'words.json')))
 
 # (start, end, source, zoom from->to, centre from->to, effects). source: still png, 'clip:<mp4>' or 'black'
 SHOTS = [
-    (0.0, 4.9, 't1_b.png', (1.00, 1.06), ((.5, .5), (.52, .48)), {}),
+    (0.0, 4.9, 'mov:t1:0:96', (1.00, 1.04), ((.5, .5), (.51, .49)), {}),
     (4.9, 10.4, 't2_haru_close.png', (1.00, 1.07), ((.5, .45), (.5, .42)), {}),
     (10.4, 14.6, 't3_tunnel_dark.png', (1.03, 1.06), ((.5, .5), (.5, .5)), {'lights_out': 13.6}),
     (14.6, 16.4, 'black', (1, 1), ((.5, .5), (.5, .5)), {}),
-    (16.4, 21.0, 't4_all_d.png', (1.00, 1.08), ((.5, .5), (.5, .46)), {'flicker_on': 1}),
+    (16.4, 21.0, 'mov:t4:0:70', (1.00, 1.05), ((.5, .5), (.5, .47)), {'flicker_on': 1}),
     (21.0, 26.4, 't5_woman_b.png', (1.00, 1.09), ((.5, .45), (.5, .40)), {'flicker': 1}),
     (26.4, 30.74, 'clip:w1_lipsync.mp4', (1.00, 1.04), ((.5, .45), (.5, .43)), {'flicker': 1}),
-    (30.74, 37.9, 't7_peel.png', (1.00, 1.10), ((.5, .5), (.47, .5)), {'flicker': 1}),
-    (37.9, 44.0, 't8_reflection_b.png', (1.00, 1.07), ((.5, .5), (.52, .45)), {}),
-    (44.0, 50.2, 't4_all_d.png', (1.08, 1.16), ((.5, .46), (.6, .5)), {'flicker': 1}),
+    (30.74, 37.9, 'mov:t7:96:0', (1.00, 1.06), ((.5, .5), (.48, .5)), {'flicker': 1}),      # played backwards: the face peels open
+    (37.9, 44.0, 'mov:t8:0:68', (1.00, 1.05), ((.5, .5), (.52, .46)), {}),                  # cut before the clip's lights come on
+    (44.0, 50.2, 'mov:t4:70:96', (1.05, 1.12), ((.5, .47), (.58, .5)), {'flicker': 1}),
     (50.2, 52.4, 't2_haru_close.png', (1.10, 1.14), ((.5, .42), (.5, .40)), {'dim': .55}),
-    (52.4, 58.6, 't1_b.png', (1.00, 1.04), ((.5, .5), (.5, .5)), {'flash_in': 1}),
-    (58.6, 61.5, 't9_end_tear.png', (1.00, 1.30), ((.5, .5), (.78, .40)), {}),     # push in on the tear in her cheek
-    (61.5, 67.3, 't9_end_tear.png', (1.30, 1.34), ((.78, .40), (.78, .40)), {}),
-    (67.3, DUR, 't1_b.png', (1.03, 1.00), ((.51, .49), (.5, .5)), {}),               # settles back onto frame 0 (loop)
+    (52.4, 58.6, 'mov:t1:20:96', (1.00, 1.04), ((.5, .5), (.5, .5)), {'flash_in': 1}),
+    (58.6, 61.5, 'mov:t9:0:36', (1.00, 1.25), ((.5, .5), (.76, .42)), {}),     # push in on the tear in her cheek
+    (61.5, 67.3, 'mov:t9:36:96', (1.25, 1.28), ((.76, .42), (.76, .42)), {}),
+    (67.3, DUR, 'mov:t1:14:0', (1.03, 1.00), ((.51, .49), (.5, .5)), {}),     # plays back onto frame 0 (loop)
 ]
 
 def ease(x): x = min(1, max(0, x)); return x * x * (3 - 2 * x)
@@ -50,6 +53,24 @@ def clip_frame(name, t):
             fr.append(f.astype(np.float32) / 255)
         _c[k] = (fr, cap.get(cv2.CAP_PROP_FPS) or 25)
     fr, fps = _c[k]; return fr[min(len(fr) - 1, int(t * fps))]
+def mov(name):                                           # Artlist clip (480x864): every frame matched to frame 0's colour level
+    k = 'mov:' + name
+    if k not in _c:
+        cap = cv2.VideoCapture(os.path.join(CL, name + '.mp4')); fr = []
+        while True:
+            ok, f = cap.read()
+            if not ok: break
+            fr.append(f.astype(np.float32) / 255)
+        ref = fr[0].reshape(-1, 3).mean(0); g = np.array([ref / (f.reshape(-1, 3).mean(0) + 1e-4) for f in fr])
+        g = cv2.GaussianBlur(g.astype(np.float32)[:, None, :], (1, 0), sigmaX=1, sigmaY=4)[:, 0]   # smooth the correction over time
+        _c[k] = [np.clip(f * gi, 0, 1) for f, gi in zip(fr, g)]
+    return _c[k]
+def mov_frame(spec, p):                                  # 'name:a:b' -> frames a..b stretched over the shot, blended between frames
+    name, a, b = spec.split(':'); a, b = int(a), int(b); fr = mov(name)
+    x = a + (b - a) * min(1, max(0, p)); i = int(math.floor(x)); f = x - i
+    i = min(max(i, 0), len(fr) - 1); j = min(i + 1, len(fr) - 1)
+    return fr[i] if f < 1e-3 else fr[i] * (1 - f) + fr[j] * f
+def sharpen(a): return a + .7 * (a - cv2.GaussianBlur(a, (0, 0), 1.6))
 def view(a, z, cx, cy):
     h, w = a.shape[:2]; s = max(W / (w / z), H / (h / z))                 # cover the frame
     hw, hh = W / (2 * s * w), H / (2 * s * h)
@@ -61,12 +82,19 @@ def flick(t):                                            # broken fluorescent tu
     return max(.55, v)
 
 def picture(t):
-    for t0, t1, src, z, c, fx in SHOTS:
-        if t0 <= t < t1: break
+    i = next(k for k, s in enumerate(SHOTS) if s[0] <= t < s[1]) if t < DUR else len(SHOTS) - 1
+    out = shot(i, t); t0 = SHOTS[i][0]
+    if i > 0 and t0 not in HARD and t - t0 < XF:        # dissolve from the previous shot (it keeps moving under the fade)
+        k = ease((t - t0) / XF); out = shot(i - 1, t) * (1 - k) + out * k
+    return out
+
+def shot(i, t):
+    t0, t1, src, z, c, fx = SHOTS[i]
     if src == 'black': return np.zeros((H, W, 3), np.float32)
-    p = (t - t0) / (t1 - t0); e = ease(p)
-    a = clip_frame(src[5:], t - t0) if src.startswith('clip:') else img(src)
+    p = (t - t0) / (t1 - t0); e = ease(min(p, 1.0))
+    a = clip_frame(src[5:], t - t0) if src.startswith('clip:') else mov_frame(src[4:], p) if src.startswith('mov:') else img(src)
     out = view(a, z[0] + (z[1] - z[0]) * e, c[0][0] + (c[1][0] - c[0][0]) * e, c[0][1] + (c[1][1] - c[0][1]) * e)
+    if src.startswith('mov:'): out = sharpen(out)
     if 'flicker' in fx: out = out * flick(t)
     if 'flicker_on' in fx:                               # lights stutter back on
         k = t - t0; out = out * (0 if k < .25 else .8 if k < .4 else .1 if k < .55 else 1 if k < .7 else .3 if k < .8 else flick(t))
@@ -97,8 +125,7 @@ def overlay(fr, t):
             sizes = [d.textlength(w + ' ', font=f_cap) for w, *_ in ch]; x = W / 2 - sum(sizes) / 2
             for k, ((w, s, e, whisper), sz) in enumerate(zip(ch, sizes)):
                 nxt = ch[k + 1][1] if k + 1 < len(ch) else e + .25
-                base = (205, 215, 225) if whisper else (255, 255, 255)
-                col = GOLD if s - .03 <= t < nxt - .03 else base
+                col = (255, 255, 255)                    # plain white captions
                 d.text((x, 1520), w, font=f_cap, fill=col, stroke_width=6, stroke_fill=(0, 0, 0, 230), anchor='lm'); x += sz
             break
     return cv2.cvtColor(np.asarray(im), cv2.COLOR_RGB2BGR)
