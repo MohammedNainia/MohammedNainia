@@ -70,7 +70,8 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
   await browser.close(); server.close();
   console.log(`rendered ${N} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((Date.now() - t0) / N).toFixed(0)} ms/frame)`);
   await new Promise((res, rej) => spawn(FFMPEG, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(tmp, '%05d.jpg'),
-    '-c:v', 'libx264', '-crf', '17', '-preset', 'medium', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', OUT], { stdio: 'inherit' })
+    '-vf', 'scale=out_range=tv,format=yuv420p', '-c:v', 'libx264', '-crf', '18', '-maxrate', '14M', '-bufsize', '28M',
+    '-preset', 'medium', '-movflags', '+faststart', OUT]   // tv range + bitrate cap: a 60 s reel stays under GitHub's 100 MB, { stdio: 'inherit' })
     .on('close', c => c ? rej(new Error('ffmpeg failed')) : res()));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('saved', OUT);
