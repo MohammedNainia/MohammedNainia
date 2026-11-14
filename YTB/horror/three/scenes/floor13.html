@@ -1,0 +1,254 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// FLOOR 13 (52.5 s). Timed to voice/narration.mp3 (see YTB/horror/floor13/voice/words.json).
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .5});
+const DUR = 52.5;
+scene.fog = new THREE.Fog(0x050608, 10, 40);
+renderer.setClearColor(0x000000);
+
+// ---------------------------------------------------------------- materials
+const metal = flat(0x7d838a, {metalness: .55, roughness: .45});
+const metalDark = flat(0x6d7278, {metalness: .6, roughness: .35});
+const doorMat = flat(0xb7bcc2, {metalness: .65, roughness: .3});
+const cabFloor = flat(0x3b3734);
+const hallWall = flat(0x6f7a62), hallFloor = flat(0x4a1f1f), hallCeil = flat(0x8d8f84), trim = flat(0x3a352e);
+
+// ---------------------------------------------------------------- floor display (counter above the doors)
+let shownText = '', shownCol = '';
+const disp = canvasTex(256, 128, (g, w, h, text = '', col = '#ff3b2f') => {
+  g.fillStyle = '#080404'; g.fillRect(0, 0, w, h);
+  g.fillStyle = col; g.font = 'bold 92px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 4);
+});
+function setDisplay(text, col = '#ff3b2f') { if (text !== shownText || col !== shownCol) { shownText = text; shownCol = col; disp.redraw(text, col); } }
+
+// ---------------------------------------------------------------- button panel
+const LABELS = ['11', '12', '9', '10', '7', '8', '5', '6', '3', '4', '1', '2', 'L', 'B', '<>', '><'];
+let panelState = '';
+const panelTex = canvasTex(256, 640, (g, w, h, lit = {}) => {
+  g.fillStyle = '#8e949a'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 18; i++) { g.fillStyle = `rgba(255,255,255,${.03 + (i % 3) * .01})`; g.fillRect(0, i * 36, w, 2); }
+  LABELS.forEach((lab, i) => {
+    const x = 70 + (i % 2) * 116, y = 70 + Math.floor(i / 2) * 72;
+    g.beginPath(); g.arc(x, y, 27, 0, 7); g.fillStyle = '#3b3f44'; g.fill();
+    g.beginPath(); g.arc(x, y, 22, 0, 7); g.fillStyle = lit[lab] ? '#ffd27a' : '#c9ced3'; g.fill();
+    if (lit[lab]) { g.shadowColor = '#ffb030'; g.shadowBlur = 25; g.fill(); g.shadowBlur = 0; }
+    g.fillStyle = lit[lab] ? '#5a3500' : '#2b2e33'; g.font = 'bold 24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(lab, x, y + 1);
+  });
+});
+function setPanel(lit) { const k = JSON.stringify(lit); if (k !== panelState) { panelState = k; panelTex.redraw(lit); } }
+const BTN = lab => { const i = LABELS.indexOf(lab); return {u: (70 + (i % 2) * 116) / 256, v: (70 + Math.floor(i / 2) * 72) / 640}; };
+
+// ---------------------------------------------------------------- the cab (built twice: real + mirror world)
+const CW = 1.2, CH = 2.4, PZ = .72;          // cab half-width, height, button panel z
+function buildCab(root, mirror) {
+  const r = {};
+  mesh(root, new THREE.BoxGeometry(CW * 2, .06, CW * 2), cabFloor, 0, -.03, 0);
+  mesh(root, new THREE.BoxGeometry(CW * 2, .06, CW * 2), metalDark, 0, CH + .03, 0);
+  const lamp = mesh(root, new THREE.BoxGeometry(1.2, .03, 1.2), new THREE.MeshBasicMaterial({color: 0xfff3e0}), 0, CH - .01, 0, false);
+  r.lamp = lamp;
+  for (const sx of [-1, 1]) {                                        // side walls with brushed panels + handrail
+    mesh(root, new THREE.BoxGeometry(.06, CH, CW * 2), metal, sx * (CW + .03), CH / 2, 0);
+    for (let k = -1; k <= 1; k++) mesh(root, new THREE.BoxGeometry(.01, CH - .3, .7), metalDark, sx * (CW - .005), CH / 2, k * .78);
+    mesh(root, new THREE.CylinderGeometry(.018, .018, 2.0, 6), flat(0xd9d9d9, {metalness: .8, roughness: .2}), sx * (CW - .06), .95, 0).rotation.x = Math.PI / 2;
+  }
+  if (!mirror) {                                                     // back wall: frame around the mirror
+    const bz = -CW - .03;
+    mesh(root, new THREE.BoxGeometry(CW * 2, .95, .06), metal, 0, .475, bz);
+    mesh(root, new THREE.BoxGeometry(CW * 2, .3, .06), metal, 0, CH - .15, bz);
+    for (const sx of [-1, 1]) mesh(root, new THREE.BoxGeometry(.23, 1.15, .06), metal, sx * (CW - .115), 1.525, bz);
+    const glass = mesh(root, new THREE.PlaneGeometry(CW * 2 - .46, 1.15), new THREE.MeshBasicMaterial({color: 0x9fb4c8, transparent: true, opacity: .08, depthWrite: false}), 0, 1.525, -CW + .001, false);
+  }
+  // front wall with the door opening (x -0.5..0.5, y 0..2.05)
+  const fz = CW + .03;
+  for (const sx of [-1, 1]) mesh(root, new THREE.BoxGeometry(CW - .5, CH, .06), metal, sx * (.5 + (CW - .5) / 2), CH / 2, fz);
+  mesh(root, new THREE.BoxGeometry(1.0, CH - 2.05, .06), metal, 0, 2.05 + (CH - 2.05) / 2, fz);
+  r.doors = [-1, 1].map(sx => mesh(root, new THREE.BoxGeometry(.52, 2.05, .04), doorMat, sx * .25, 1.025, CW - .01));
+  const d = mesh(root, new THREE.PlaneGeometry(.34, .17), new THREE.MeshBasicMaterial({map: disp}), 0, 2.2, CW - .005, false);
+  d.rotation.y = Math.PI;
+  const panel = mesh(root, new THREE.PlaneGeometry(.2, .5), new THREE.MeshStandardMaterial({map: panelTex, metalness: .3, roughness: .5}), CW - .02, 1.2, PZ, false);
+  panel.rotation.y = -Math.PI / 2;
+  return r;
+}
+const cab = buildCab(scene, false);
+const mirrorWorld = new THREE.Group(); mirrorWorld.position.z = -2 * CW; mirrorWorld.scale.z = -1; scene.add(mirrorWorld);
+const cabM = buildCab(mirrorWorld, true);
+
+// ---------------------------------------------------------------- the hallway beyond the doors
+const HW = 1.1, HL = 22, HZ0 = CW + .06;
+const hall = new THREE.Group(); scene.add(hall);
+mesh(hall, new THREE.BoxGeometry(HW * 2, .05, HL), hallFloor, 0, -.025, HZ0 + HL / 2);
+mesh(hall, new THREE.BoxGeometry(HW * 2, .05, HL), hallCeil, 0, 2.6, HZ0 + HL / 2);
+for (const sx of [-1, 1]) {
+  mesh(hall, new THREE.BoxGeometry(.06, 2.6, HL), hallWall, sx * HW, 1.3, HZ0 + HL / 2);
+  mesh(hall, new THREE.BoxGeometry(.04, .12, HL), trim, sx * (HW - .03), .06, HZ0 + HL / 2);
+  for (let z = HZ0 + 2.2; z < HZ0 + HL - 1; z += 3.3) {               // apartment doors
+    mesh(hall, new THREE.BoxGeometry(.05, 2.05, .95), flat(0x5a3f2c), sx * (HW - .03), 1.025, z);
+    mesh(hall, new THREE.SphereGeometry(.03, 6, 4), flat(0xb8a46a, {metalness: .7}), sx * (HW - .07), 1.0, z + .33);
+  }
+}
+mesh(hall, new THREE.BoxGeometry(HW * 2, 2.6, .06), flat(0x2c2f2a), 0, 1.3, HZ0 + HL);      // far end wall
+for (const sx of [-1, 1]) mesh(hall, new THREE.BoxGeometry(HW - .5, 2.6, .06), hallWall, sx * (.5 + (HW - .5) / 2), 1.3, HZ0 + .02); // around the elevator door
+const hallLamps = [], hallLights = [];
+for (let i = 0; i < 5; i++) {
+  const z = HZ0 + 2 + i * 4.3;
+  hallLamps.push(mesh(hall, new THREE.BoxGeometry(.5, .03, .9), new THREE.MeshBasicMaterial({color: 0xdfe8c8}), 0, 2.57, z, false));
+  const l = new THREE.PointLight(0xcfdcb4, 3.2, 7, 1.6); l.position.set(0, 2.3, z); hall.add(l); hallLights.push(l);
+}
+
+// ---------------------------------------------------------------- people
+const greys = [0x50545a, 0x3f4450, 0x5b5248, 0x46514a, 0x55505e, 0x4b4b4b];
+const wallers = [];
+[[3.0, -1], [4.6, 1], [6.4, -1], [8.1, 1], [9.9, -1], [11.6, 1], [13.4, -1], [15.2, 1]].forEach(([z, side], i) => {
+  const p = person(hall, {x: side * (HW - .42), z: HZ0 + z, face: side * Math.PI / 2, coat: greys[i % 6], hair: 0x1b1714, mask: true, seed: 100 + i * 7});
+  wallers.push(p);
+});
+const stalker = person(hall, {x: 0, z: HZ0 + 19.5, face: 0, coat: 0x3a3d44, mask: true, seed: 211, headScale: 1.5});
+const haru = person(scene, {x: -.12, z: -.15, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+const haruM = person(mirrorWorld, {x: -.12, z: -.15, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+const ghost = person(mirrorWorld, {x: .22, z: -.85, face: Math.PI, coat: 0x34363c, mask: true, seed: 333, headScale: 1.5});
+ghost.g.visible = false;
+
+// the hand for the button close-ups (sleeve + hand + finger)
+const hand = new THREE.Group(); scene.add(hand);
+mesh(hand, jitterGeo(new THREE.CylinderGeometry(.06, .07, .4, 6), .01, 4), flat(0xe2a92b), 0, 0, -.2).rotation.x = Math.PI / 2;
+mesh(hand, jitterGeo(new THREE.IcosahedronGeometry(.055, 1), .01, 9), flat(0xf1c9a5), 0, 0, .03).scale.set(1, .8, 1.2);
+mesh(hand, new THREE.BoxGeometry(.025, .025, .09), flat(0xf1c9a5), 0, .01, .1);
+hand.visible = false; hand.scale.setScalar(1.5);
+
+// ---------------------------------------------------------------- lights
+const hemi = new THREE.HemisphereLight(0xffeedd, 0x2a2622, .55); scene.add(hemi);
+const cabLight = new THREE.PointLight(0xfff0dc, 1.8, 6, 1.3); cabLight.position.set(0, 2.25, 0); scene.add(cabLight);
+const cabLightM = new THREE.PointLight(0xfff0dc, 1.8, 6, 1.3); cabLightM.position.set(0, 2.25, 0); mirrorWorld.add(cabLightM);
+const spot = new THREE.SpotLight(0xd8e4ff, 0, 6, .35, .6, 1.2); spot.position.set(0, 2.5, HZ0 + 17.3); scene.add(spot, spot.target);
+const red = new THREE.PointLight(0xff2a1a, 0, 1.6, 2); red.position.set(0, 2.15, CW - .15); scene.add(red);
+
+// ---------------------------------------------------------------- the story, in seconds (from the narration's word timings)
+const T = {press12: 2.3, stop: 4.74, thirteen: 6.84, doorsOpen: 10.9, turn: 28.68, shut: 36.5, down: 40.9, lobby: 44.48, mirror: 49.35, black: 51.25, loop: 51.9};
+const flicks = [[32.85, 33.15], [33.95, 34.25], [34.85, 35.12]];
+const stalkPos = [19.5, 13.0, 7.6, 2.7];                             // z (from the hallway start) after each blackout
+function doorOpen(t) {
+  if (t < T.doorsOpen) return 0;
+  if (t < T.shut) return ease((t - T.doorsOpen) / 1.3);
+  if (t < 40.6) return 1 - ease((t - T.shut) / .3);
+  return 0;
+}
+function displayFor(t) {
+  if (t < 4.0) return ['9', '#ff3b2f'];
+  if (t < T.stop) return [t < 4.4 ? '10' : '11', '#ff3b2f'];
+  if (t < T.thirteen) return [Math.floor(t * 9) % 3 === 0 ? '' : '12', '#ff3b2f'];       // it stutters
+  if (t < T.down) return ['13', '#ff3b2f'];
+  if (t < T.lobby) { const n = Math.max(1, 12 - Math.floor((t - T.down) / ((T.lobby - T.down) / 12))); return [String(n), '#ff3b2f']; }
+  if (t < 45.4) return ['L', '#ff3b2f'];
+  const k = Math.floor(Math.pow((t - 45.4) * 2.2, 1.6)) + 1;            // and keeps going down, faster and faster
+  return ['B' + Math.min(k, 99), '#ff2010'];
+}
+
+function poseHaru(h, t) {
+  const fr = clamp01((t - T.thirteen) / .4);                         // frozen after 13: tiny tremble
+  h.g.position.set(-.2, 0, -.25); h.body.rotation.set(0, 0, 0); h.headPivot.rotation.set(0, 0, 0);
+  if (t < T.thirteen) h.headPivot.rotation.x = .2 + Math.sin(t * .8) * .03;     // looking at her phone/feet, bored
+  else h.headPivot.rotation.x = lerp(.2, -.08, fr);
+  const scared = t > T.doorsOpen ? .6 : t > T.thirteen ? .25 : 0;
+  h.body.rotation.z = Math.sin(t * 47) * .01 * scared; h.headPivot.rotation.y = Math.sin(t * 39) * .012 * scared;
+  if (t >= 19.9 && t < 24) h.body.rotation.y = -.4;                  // turned to the panel
+  if (t >= T.shut + .3 && t < T.mirror + 3) {                      // she backs into the rear wall, breathing hard
+    const k = ease((t - T.shut - .3) / 1.2);
+    h.g.position.set(lerp(-.2, -.35, k), 0, lerp(-.25, -.75, k));
+    h.body.rotation.x = -.08 * k; h.body.position.y = .82 + Math.sin(t * 6) * .012 * k;
+    h.headPivot.rotation.x = t > T.down ? lerp(-.08, -.35, ease((t - T.down) / 1.5)) : -.08 + Math.sin(t * 6) * .03;
+  }
+  if (t >= 47.1) { h.g.position.set(-.55, 0, -.6); h.headPivot.rotation.set(-.05, 0, 0); h.body.rotation.set(0, 0, Math.sin(t * 45) * .008); }
+  h.arms.forEach((a, i) => { a.sh.rotation.set(t > T.shut ? -.25 : 0, 0, (i ? 1 : -1) * -.1); });
+}
+
+function shot(t) {                                                   // camera for every shot: [pos, look, fov]
+  const P = (x, y, z) => new THREE.Vector3(x, y, z);
+  if (t < 3.6 || t >= T.loop) { const k = t >= T.loop ? 0 : ease(t / 3.6); return [P(CW - .62, 1.42, PZ - .42), P(CW, 1.2, PZ + .03), 40 - 6 * k]; }  // the panel
+  if (t < 7.6) { const k = ease((t - 3.6) / 4); return [P(.95, 1.85, -1.05), P(-.3, 1.55 + .25 * k, .7), 66 - 6 * k]; }   // wide in the cab, counter above the doors
+  if (t < 10.6) { const k = ease((t - 7.6) / 3); return [P(-.1, 1.72, 1.0 - .15 * k), P(-.2, 1.66, -.25), 48]; }     // her face
+  if (t < 13.0) return [P(.45, 1.85, -1.0), P(-.05, 1.4, 3), 52];                                                        // over her shoulder: doors open
+  if (t < 19.9) { const k = ease((t - 13) / 6.9); return [P(0, 1.52, CW + .1 + 2.0 * k), P(0, 1.35, 12), 48]; }       // down the hallway
+  if (t < 24.0) return [P(CW - .58, 1.35, PZ - .4), P(CW, 1.1, PZ + .03), 40];                                                // hammering close
+  if (t < 26.3) { const k = ease((t - 24) / 2.3); return [P(.2, 1.6, 3.4 - .5 * k), P(-.2, 1.65, -.25), 40]; }          // from the hallway, looking in
+  if (t < 31.4) { const k = ease((t - 26.3) / 5); return [P(.1, 1.5, CW + .3), P(0, 1.65, HZ0 + 19.5), 18 - 6 * k]; } // long lens on the end figure
+  if (t < 36.3) return [P(.5, 1.75, -.85), P(-.05, 1.4, 6), 52];                                                          // behind her: it comes closer
+  if (t < 38.7) return [P(.35, 1.3, -.7), P(0, 1.4, 2.5), 58];                                                            // doors slam
+  if (t < 40.6) { const k = ease((t - 38.7) / 1.9); return [P(.15, 1.5, .9 - .15 * k), P(-.35, 1.55, -.75), 44]; }      // she slumps back
+  if (t < 43.6) { const k = ease((t - 40.6) / 3); return [P(0, 1.95, .45), P(0, 2.2, CW), 34 - 6 * k]; }                // the counter
+  if (t < 47.1) { const k = ease((t - 43.6) / 3.5); return [P(.2, .95, .55), P(-.3, 1.95, -.6), 56 - 4 * k]; }          // low, her looking up
+  const k = ease((t - 47.1) / 4); return [P(.1, 1.52, 1.0 - .25 * k), P(-.2, 1.5, -CW), 56 - 6 * k];                 // the mirror
+}
+
+let hallLvG = 1;
+function renderAt(t) {
+  const black = t >= T.black && t < T.loop;
+  // doors
+  const o = doorOpen(t); cab.doors.forEach((d, i) => d.position.x = (i ? 1 : -1) * (.25 + .52 * o));
+  cabM.doors.forEach((d, i) => d.position.x = (i ? 1 : -1) * .25);
+  // display + panel
+  const [txt, col] = displayFor(t); setDisplay(txt, col);
+  const lit = {};
+  if (t > T.press12 && t < T.doorsOpen) lit['12'] = 1;
+  if (t >= 19.9 && t < 24 && Math.sin((t - 19.9) * 9.5) > .2) lit['><'] = 1;
+  setPanel(lit);
+  red.intensity = (t > T.thirteen && t < T.down + .5) || t > 45.4 ? .5 : 0;
+  // hand close-ups
+  hand.visible = (t < 3.6 || (t >= 19.9 && t < 24)) && t < T.loop;
+  if (hand.visible) {
+    const b = t < 3.6 ? BTN('12') : BTN('><');
+    const tgt = new THREE.Vector3(CW - .025, 1.2 + (.5 - b.v) * .5, PZ + (b.u - .5) * .2);
+    let push;                                                         // 0 = finger on the button, 1 = pulled back
+    if (t < 3.6) push = t < .8 ? 1 : t < T.press12 ? 1 - ease((t - .8) / (T.press12 - .8)) : ease((t - T.press12) / .6) * .5;
+    else push = .35 + .35 * Math.sin((t - 19.9) * 9.5 + 1.6);
+    hand.position.set(tgt.x - .22 - .3 * push, tgt.y - .015, tgt.z);
+    hand.rotation.set(0, Math.PI / 2, 0);
+  }
+  // people
+  poseHaru(haru, t); poseHaru(haruM, t);
+  wallers.forEach((p, i) => { p.body.position.y = .82; p.headPivot.rotation.set(.06, 0, 0); });
+  let sz = stalkPos[0];
+  hallLvG = 1;
+  flicks.forEach(([a, b], i) => { if (t >= b) sz = stalkPos[i + 1]; });
+  if (t < 31.4) {                                                   // against the wall, then the head turns around
+    stalker.g.position.set(0, 0, HZ0 + 19.5); stalker.g.rotation.y = 0;         // facing the end wall
+    const k = clamp01((t - T.turn) / 1.6), j = Math.floor(k * 6) / 6;   // the head turns all the way round, in jerks
+    stalker.headPivot.rotation.set(0, Math.PI * (k < 1 ? j + (k - j) * .3 : 1), 0);
+  } else {
+    stalker.g.position.set(-.05, 0, HZ0 + (t >= T.shut + .1 ? 1.3 : sz)); stalker.g.rotation.y = Math.PI;
+    stalker.headPivot.rotation.set(0, 0, t > 35 ? .25 : .12);
+  }
+  spot.target.position.copy(stalker.g.position); spot.intensity = t >= 26.3 && t < 31.4 ? 6 * (hallLvG) : 0;
+  ghost.g.visible = t >= T.mirror;
+  ghost.headPivot.rotation.set(0, 0, .18);
+  // lights: cab hum flicker, hallway flicker, the blackouts
+  let cabLv = 1 - .06 * (Math.sin(t * 23) > .96);
+  if (t > T.stop && t < T.stop + .25) cabLv = .4;
+  if (t > 45.4) cabLv = .55 + .45 * (Math.sin(t * 17) > -.2) * (Math.sin(t * 5.3) > -.6);
+  let hallLv = .75 - .2 * (Math.sin(t * 13 + 1) > .9);
+  flicks.forEach(([a, b]) => { if (t >= a && t < b) { hallLv = 0; cabLv = .05; } });
+  cabLight.intensity = 1.8 * cabLv; cabLightM.intensity = 1.8 * cabLv; hemi.intensity = .55 * cabLv;
+  cab.lamp.material.color.setScalar(.75 * cabLv); cabM.lamp.material.color.setScalar(.75 * cabLv);
+  hallLights.forEach((l, i) => l.intensity = 3.2 * hallLv * (i === 3 ? 1.5 : 1));
+  hallLamps.forEach(l => l.material.color.setScalar(hallLv));
+  // camera
+  const [pos, look, fov] = shot(t);
+  cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
+  let shake = 0;
+  if (t > T.stop && t < T.stop + .35) shake = .012;
+  if (t >= 19.9 && t < 24) shake = .004;
+  if (t > T.shut && t < T.shut + .4) shake = .015;
+  if (t > 45.4 && t < T.black) shake = .004;
+  if (shake) cam.position.add(new THREE.Vector3(Math.sin(t * 91) * shake, Math.sin(t * 77) * shake, 0));
+  renderer.toneMappingExposure = black ? 0 : 1;
+  grain.uniforms.vig.value = t > 26 ? .7 : .55;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>

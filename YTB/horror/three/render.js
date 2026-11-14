@@ -1,4 +1,5 @@
 // Render scene.html to video, frame by frame, with headless Chromium.
+//   node render.js --scene floor13 --dur 52.5 --out floor13.mp4   (scenes/<name>.html; default train_test)
 //   node render.js                         full video -> test.mp4 (auto: GPU on Windows/Mac, CPU here)
 //   node render.js --gpu                   force the graphics card (opens a Chromium window while it renders)
 //   node render.js --cpu --workers 4       software rendering, 4 parallel browsers (cloud)
@@ -17,6 +18,7 @@ const ONLY = opt('frames', null) ? opt('frames').split(',').map(Number) : null;
 const GPU = flag('gpu') || (!flag('cpu') && process.platform !== 'linux');
 const WORKERS = +opt('workers', GPU ? 2 : Math.max(1, os.cpus().length));
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const SCENE = opt('scene', 'train_test');
 
 // tiny static server for this folder (ES modules need http://, not file://)
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
@@ -29,7 +31,7 @@ const server = http.createServer((req, res) => {
 async function openPage(browser, port) {
   const page = await browser.newPage({ viewport: { width: W, height: H } });
   page.on('pageerror', e => console.error('page error:', e.message));
-  await page.goto(`http://127.0.0.1:${port}/scene.html`);
+  await page.goto(`http://127.0.0.1:${port}/scenes/${SCENE}.html`);
   await page.waitForFunction('window.ready === true', null, { timeout: 120000 });
   return page;
 }
