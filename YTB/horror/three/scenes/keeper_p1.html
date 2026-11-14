@@ -1,0 +1,288 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE KEEPER'S RULES, Part 1: "The Rules" (16:9, 150 s). Timed to YTB/horror/keeper/part1/voice/narration.mp3.
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .7, w: 1920, h: 1080});
+const DUR = 150;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+let rs = 11; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+
+// ---------------------------------------------------------------- sky (dusk or night), stars, fog
+const skyTex = canvasTex(8, 256, (g, w, h, mode = 'night') => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  if (mode === 'dusk') { gr.addColorStop(0, '#1c2140'); gr.addColorStop(.42, '#5b3f63'); gr.addColorStop(.5, '#e0805a'); gr.addColorStop(.56, '#2b2a3a'); gr.addColorStop(1, '#0d0f18'); }
+  else { gr.addColorStop(0, '#02030a'); gr.addColorStop(.45, '#0b1424'); gr.addColorStop(.5, '#122036'); gr.addColorStop(.56, '#070a12'); gr.addColorStop(1, '#020306'); }
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+let skyMode = '';
+const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.MeshBasicMaterial({map: skyTex, side: THREE.BackSide, fog: false}));
+scene.add(sky);
+const starGeo = new THREE.BufferGeometry(), sp = [];
+for (let i = 0; i < 900; i++) { const a = rnd() * 6.283, e = .05 + rnd() * 1.4; sp.push(Math.cos(a) * Math.cos(e) * 380, Math.sin(e) * 380, Math.sin(a) * Math.cos(e) * 380); }
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xcfd8ff, size: 1.2, sizeAttenuation: false, fog: false}));
+scene.add(stars);
+scene.fog = new THREE.Fog(0x0b1424, 30, 160);
+const moon = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshBasicMaterial({color: 0xdfe6ff, fog: false}));
+moon.position.set(-180, 120, -260); scene.add(moon);
+
+// ---------------------------------------------------------------- sea (faceted, animated)
+const seaGeo = new THREE.PlaneGeometry(420, 420, 110, 110); seaGeo.rotateX(-Math.PI / 2);
+const seaBase = seaGeo.attributes.position.array.slice();
+const sea = new THREE.Mesh(seaGeo, flat(0x2b4155, {roughness: .3, metalness: .25})); sea.receiveShadow = true; scene.add(sea);
+function waves(t) {
+  const p = seaGeo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const x = seaBase[i], z = seaBase[i + 2];
+    p[i + 1] = .45 * Math.sin(x * .09 + t * .9) + .35 * Math.sin(z * .12 - t * 1.1) + .2 * Math.sin((x + z) * .21 + t * 1.7);
+  }
+  seaGeo.attributes.position.needsUpdate = true; seaGeo.computeVertexNormals();
+}
+
+// ---------------------------------------------------------------- island rocks
+const rockM = [flat(0x3d3a38), flat(0x48443f), flat(0x34312f)];
+function rock(x, z, s, h = .6, seed = 1) {
+  const r = mesh(scene, jitterGeo(new THREE.DodecahedronGeometry(s, 0), s * .35, seed), rockM[seed % 3], x, h * s * .3, z);
+  r.scale.y = h; r.rotation.y = seed; return r;
+}
+for (let i = 0; i < 46; i++) { const a = rnd() * 6.283, d = 4 + rnd() * 9; rock(Math.cos(a) * d, Math.sin(a) * d, 1.4 + rnd() * 2.4, .45 + rnd() * .5, i + 3); }
+mesh(scene, jitterGeo(new THREE.CylinderGeometry(7, 10, 2.2, 9), .6, 77), rockM[1], 0, -.2, 0);        // the island top
+// the dock (dusk arrival)
+const dock = new THREE.Group(); scene.add(dock); dock.position.set(-9, 0, 9); dock.rotation.y = .7;
+for (let k = 0; k < 9; k++) mesh(dock, new THREE.BoxGeometry(2.2, .12, .5), flat(0x5a4632), 0, 1.0, k * .55);
+for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) mesh(dock, new THREE.CylinderGeometry(.09, .09, 2.4, 5), flat(0x3f3122), sx * 1.0, .1, k * 2.1);
+
+// the people on the rocks: where each one stands when it is counted (towards the camera side, +z), closer each time
+const RSPOT = [[ -6, 31], [6, 27], [-3, 24], [4.5, 21], [-6.5, 18.5], [2, 16.5], [-2.5, 14.2], [5.2, 12.6]];
+RSPOT.forEach(([x, z], i) => rock(x, z, 1.3, .45, 200 + i));
+const pale = 0xc9cdc6;
+const drowned = RSPOT.map(([x, z], i) => {
+  const p = person(scene, {x, z, face: Math.atan2(-x, -z), coat: [0x6f7469, 0x5c6158, 0x7a7c74][i % 3], skin: pale, hair: 0x1c1f1d, long: i % 2 === 0, pants: 0x4b4f49, seed: 300 + i * 11});
+  p.g.position.y = .55; p.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); p.mouth.visible = false;
+  p.arms.forEach(a => { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); });
+  p.g.visible = false; return p;
+});
+
+// ---------------------------------------------------------------- the lighthouse
+const TOWER_H = 14, LR = 1.7;
+const tower = new THREE.Group(); scene.add(tower);
+for (let k = 0; k < 7; k++) {                                       // red and white bands, tapering
+  const y0 = k * 2, r0 = 2.2 - k * .1, r1 = 2.2 - (k + 1) * .1;
+  mesh(tower, jitterGeo(new THREE.CylinderGeometry(r1, r0, 2, 12, 1, true), .03, 400 + k), flat(k % 2 ? 0xb3342b : 0xe6e1d6), 0, y0 + 1, 0);
+}
+mesh(tower, new THREE.BoxGeometry(.9, 1.8, .25), flat(0x3a2a1e), 0, .9 + .9, 2.18);                        // front door
+for (const y of [5, 9]) mesh(tower, new THREE.BoxGeometry(.35, .5, .2), new THREE.MeshBasicMaterial({color: 0x2a2a20}), 0, y, 2.1 - y * .05);
+mesh(tower, new THREE.CylinderGeometry(2.25, 2.25, .2, 16), flat(0x2c2c2c), 0, TOWER_H, 0);                // gallery deck
+for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283; mesh(tower, new THREE.BoxGeometry(.04, .9, .04), flat(0x1f1f1f), Math.cos(a) * 2.15, TOWER_H + .55, Math.sin(a) * 2.15); }
+mesh(tower, new THREE.TorusGeometry(2.15, .03, 4, 24), flat(0x1f1f1f), 0, TOWER_H + 1.0, 0).rotation.x = Math.PI / 2;
+// lantern room: low wall ring, glass, roof
+const lwall = mesh(tower, new THREE.CylinderGeometry(LR, LR, .9, 16, 1, true), flat(0xa8322a, {side: THREE.DoubleSide}), 0, TOWER_H + .55, 0);
+const glass = mesh(tower, new THREE.CylinderGeometry(LR, LR, 1.9, 16, 1, true), new THREE.MeshBasicMaterial({color: 0x9fb6c9, transparent: true, opacity: .07, side: THREE.DoubleSide, depthWrite: false}), 0, TOWER_H + 1.95, 0, false);
+for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; mesh(tower, new THREE.BoxGeometry(.06, 1.9, .06), flat(0x202020), Math.cos(a) * LR, TOWER_H + 1.95, Math.sin(a) * LR); }
+mesh(tower, jitterGeo(new THREE.ConeGeometry(2.0, 1.4, 12), .02, 9), flat(0x2a2a2a), 0, TOWER_H + 3.6, 0);
+mesh(tower, new THREE.SphereGeometry(.18, 8, 6), flat(0x2a2a2a), 0, TOWER_H + 4.35, 0);
+mesh(tower, new THREE.CylinderGeometry(LR - .02, LR - .02, .06, 16), flat(0x50463d), 0, TOWER_H + .12, 0);   // lantern room floor
+// the lamp: a faceted lens on a stand, glowing
+const lampStand = mesh(tower, new THREE.CylinderGeometry(.18, .3, .9, 8), flat(0x2a2a2a, {metalness: .6}), 0, TOWER_H + .6, 0);
+const lens = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 1), new THREE.MeshBasicMaterial({color: 0xfff2c4}));
+lens.position.set(0, TOWER_H + 1.45, 0); tower.add(lens);
+const lensCage = mesh(tower, new THREE.IcosahedronGeometry(.56, 1), new THREE.MeshStandardMaterial({color: 0xc9a24a, wireframe: true, metalness: .8}), 0, TOWER_H + 1.45, 0, false);
+// the note pinned to the wall (inside), and the door out to the gallery
+const RULES = ['Rule 1.  Keep the light turning, all night.', 'Rule 2.  Never count the people on the rocks.', "Rule 3.  If someone knocks, don't answer.", "            They don't knock."];
+let noteState = '';
+const noteTex = canvasTex(512, 640, (g, w, h, hi = -1) => {
+  g.fillStyle = '#e9e0c8'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(110,90,60,${rnd() * .06})`; g.fillRect(rnd() * w, rnd() * h, 3, 3); }
+  g.fillStyle = 'rgba(90,70,40,.25)'; g.fillRect(0, 0, w, 14);
+  g.font = 'italic bold 30px serif'; g.fillStyle = '#2b2118'; g.fillText('To the next keeper,', 36, 80);
+  RULES.forEach((r, i) => {
+    g.globalAlpha = hi < 0 || hi === i || (hi === 3 && i === 2) ? 1 : .28;
+    g.font = (i === 3 ? 'italic bold 30px serif' : 'bold 27px serif'); wrap(g, r, 36, 160 + i * 115, w - 70, 34);
+  });
+  g.globalAlpha = 1; g.font = 'italic 24px serif'; g.fillText('- E.', w - 110, h - 40);
+});
+function wrap(g, text, x, y, mw, lh) { let line = ''; for (const wd of text.split(' ')) { const t = line + wd + ' '; if (g.measureText(t).width > mw && line) { g.fillText(line, x, y); line = wd + ' '; y += lh; } else line = t; } g.fillText(line, x, y); }
+const NA = 2.5;                                                     // the note is on the wall at this angle
+const note = mesh(tower, new THREE.PlaneGeometry(.42, .52), new THREE.MeshStandardMaterial({map: noteTex, roughness: 1}), Math.cos(NA) * (LR - .05), TOWER_H + 1.1, Math.sin(NA) * (LR - .05), false);
+note.lookAt(0, TOWER_H + 1.1, 0);
+const DA = -.6;                                                      // the gallery door
+const doorG = new THREE.Group(); doorG.position.set(Math.cos(DA) * (LR - .02), TOWER_H + .12, Math.sin(DA) * (LR - .02)); doorG.lookAt(0, TOWER_H + .12, 0); tower.add(doorG);
+mesh(doorG, new THREE.BoxGeometry(.9, 2.0, .08), flat(0x4a3324), 0, 1.0, 0);
+const doorWin = mesh(doorG, new THREE.CircleGeometry(.14, 10), new THREE.MeshBasicMaterial({color: 0x101820}), 0, 1.5, .05, false);
+mesh(doorG, new THREE.SphereGeometry(.04, 6, 4), flat(0xb8a46a, {metalness: .7}), .32, .95, .06);
+const faceInWindow = mesh(doorG, new THREE.CircleGeometry(.12, 10), new THREE.MeshBasicMaterial({color: 0xbfc4bd}), 0, 1.5, .056, false);
+faceInWindow.visible = false;    // seen through the round window, from inside
+const fwEyes = [-.04, .04].map(x => { const e = mesh(doorG, new THREE.CircleGeometry(.018, 8), new THREE.MeshBasicMaterial({color: 0x050505}), x, 1.52, .058, false); e.visible = false; return e; });
+const stool = mesh(tower, new THREE.BoxGeometry(.4, .45, .4), flat(0x5a4632), Math.cos(1.6) * .95, TOWER_H + .35, Math.sin(1.6) * .95);
+
+// Haru: the keeper
+const haru = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+const SITTING = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3, pose: 'sit'});
+const bag = mesh(scene, new THREE.BoxGeometry(.5, .35, .3), flat(0x3d5a73), 0, 0, 0);
+
+// ---------------------------------------------------------------- inside the tower: the spiral stairs
+const stairs = new THREE.Group(); scene.add(stairs); stairs.position.set(0, 0, 0);
+mesh(stairs, new THREE.CylinderGeometry(1.45, 2.05, TOWER_H - .2, 14, 1, true), flat(0x6d6a62, {side: THREE.BackSide}), 0, (TOWER_H - .2) / 2, 0);
+for (let k = 0; k < 64; k++) { const a = k * .42, y = k * (TOWER_H - .6) / 64; const s = mesh(stairs, new THREE.BoxGeometry(.8, .08, .5), flat(0x58534c), Math.cos(a) * 1.0, y + .3, Math.sin(a) * 1.0); s.rotation.y = -a; }   // open well in the middle
+mesh(stairs, new THREE.CylinderGeometry(1.9, 1.9, .1, 14), flat(0x2f2d2a), 0, .02, 0);
+const stairLight = new THREE.PointLight(0xffd9a0, 0, 7, 1.6); stairLight.position.set(0, 2.2, 0); scene.add(stairLight);
+const ninth = person(scene, {x: .8, z: .2, face: Math.PI, coat: 0x5c6158, skin: pale, hair: 0x1c1f1d, long: true, seed: 999});
+ninth.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); ninth.mouth.visible = false; ninth.g.visible = false;
+
+// ---------------------------------------------------------------- boat (dusk)
+const boat = new THREE.Group(); scene.add(boat);
+mesh(boat, jitterGeo(new THREE.BoxGeometry(2.2, .9, 5.5), .12, 5), flat(0x6b2f2a), 0, .2, 0);
+mesh(boat, new THREE.BoxGeometry(1.4, 1.0, 1.6), flat(0xd9d2c3), 0, 1.1, -.6);
+const boatLight = mesh(boat, new THREE.SphereGeometry(.1, 6, 4), new THREE.MeshBasicMaterial({color: 0xffe2a0}), 0, 1.8, -.6, false);
+
+// ---------------------------------------------------------------- lights
+const hemi = new THREE.HemisphereLight(0x8fa3c8, 0x0b0d12, .35); scene.add(hemi);
+const moonLight = new THREE.DirectionalLight(0x9db0d8, 1.1); moonLight.position.set(-60, 80, -40); scene.add(moonLight);
+const sunset = new THREE.DirectionalLight(0xff9b6a, 0); sunset.position.set(80, 20, -120); scene.add(sunset);
+const lampGlow = new THREE.PointLight(0xffe2a0, 2.5, 6, 1.4); lampGlow.position.set(0, TOWER_H + 1.45, 0); scene.add(lampGlow);
+const beam = new THREE.SpotLight(0xfff0c8, 0, 120, .1, .35, 0); beam.position.set(0, TOWER_H + 1.45, 0); scene.add(beam, beam.target);
+const beamGeo = new THREE.ConeGeometry(6, 90, 20, 1, true); beamGeo.translate(0, -45, 0); beamGeo.rotateX(-Math.PI / 2);
+const beamMat = new THREE.MeshBasicMaterial({color: 0xfff0c8, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide});
+const beamMesh = new THREE.Mesh(beamGeo, beamMat); beamMesh.position.copy(beam.position); scene.add(beamMesh);
+const beam2 = beamMesh.clone(); scene.add(beam2);
+const keyLight = new THREE.PointLight(0xc8d4ff, 0, 3, 1.5); scene.add(keyLight);       // soft face light for the lantern-room shots
+const torch = new THREE.SpotLight(0xf2f6ff, 0, 14, .5, .5, 1); scene.add(torch, torch.target);   // phone torch (Part 2 flash)
+const spill = new THREE.SpotLight(0xfff0c8, 0, 70, .42, .55, 0); spill.position.copy(beam.position); scene.add(spill, spill.target);                    // the lens throws two beams, back to back
+
+// ---------------------------------------------------------------- story timing (from the narration's word timings)
+const COUNT = [55.9, 65.9, 71.8, 72.8, 80.0, 81.2, 82.5, 83.7];    // "someone", two, three ... eight
+const T = {ninth: 85.1, shut: 95.8, open: 108.3, knock: 121.9, name: 136.6, stop: 139.2, black: 141.3, card: 142.2, flash: 146.0, end: 150};
+const ROCK_A = Math.PI / 2;                                          // beam angle that points at the rocks (+z)
+// beam angle: free rotation, but every count lands exactly on the rocks; before 53 s it just turns
+function beamAngle(t) {
+  if (t >= 3.4 && t < 7.6) return ROCK_A - .5 + (t - 3.4) * .24;
+  const SPEED = 2 * Math.PI / 7;
+  if (t < COUNT[0] - 3.5) return ROCK_A + (t - (COUNT[0] - 3.5)) * SPEED - 3.5 * SPEED;
+  const pts = [[COUNT[0] - 3.5, ROCK_A - 3.5 * SPEED]];
+  COUNT.forEach((c, i) => pts.push([c, ROCK_A + 2 * Math.PI * (i + 1)]));
+  pts.push([T.stop, ROCK_A + 2 * Math.PI * 9 + SPEED * (T.stop - COUNT[7]) * .5]);
+  if (t >= T.stop) return pts[pts.length - 1][1];
+  for (let i = 1; i < pts.length; i++) if (t < pts[i][0]) { const [t0, a0] = pts[i - 1], [t1, a1] = pts[i]; return a0 + (a1 - a0) * (t - t0) / (t1 - t0); }
+  return pts[pts.length - 1][1];
+}
+function countAt(t) { let n = 0; COUNT.forEach(c => { if (t >= c - .15) n++; }); return n; }
+
+// ---------------------------------------------------------------- shots: [pos, look, fov, mode]
+const TOP = TOWER_H;
+const HEAD_SIT = () => V(Math.cos(1.6) * .95, TOWER_H + 1.45, Math.sin(1.6) * .95);
+const around = (ang, r, y) => V(Math.cos(ang) * r, TOWER_H + y, Math.sin(ang) * r);
+function shot(t) {
+  if (t < 3.4) { const k = ease(t / 3.4); return [V(-38 + 6 * k, 9, 46 - 5 * k), V(0, 9, 0), 40, 'night']; }                                          // hook: the lighthouse at night
+  if (t < 7.6) { const k = ease((t - 3.4) / 4.2); return [V(2.2, TOP + 1.2, 2.6), V(-1 + 2 * k, .8, 22), 24, 'tease']; }                               // tease: the rocks full of them
+  if (t < 16.6) { const k = ease((t - 7.6) / 9); return [V(-30 + 4 * k, 3.2, 34 - 2 * k), V(-6, 4, 4), 42, 'dusk']; }                                  // dusk: the boat leaves
+  if (t < 19.6) return [V(Math.cos(NA - .7) * 1.2, TOP + 1.55, Math.sin(NA - .7) * 1.2), V(Math.cos(NA) * LR, TOP + 1.2, Math.sin(NA) * LR), 50, 'night'];     // she finds the note
+  if (t < 36.6) { const k = ease((t - 19.6) / 17); const d = .95 - .3 * k; return [V(Math.cos(NA) * (LR - d), TOP + 1.12, Math.sin(NA) * (LR - d)), V(Math.cos(NA) * LR, TOP + 1.1, Math.sin(NA) * LR), 34, 'night']; }  // the rules
+  if (t < 44.5) { const k = ease((t - 36.6) / 8); return [around(2.0, 2.15 - .1 * k, 1.75), around(2.0, .75, 1.8), 46, 'night']; }  // she laughs it off
+  if (t < 53.0) { const k = ease((t - 44.5) / 8.5); return [V(-26, 16 + 4 * k, 28), V(0, 10, 0), 44, 'night']; }                                      // the light goes round
+  if (t < 73.4) return [V(1.6, TOP + 1.3, 1.9), V(-.5, .8, 22), 26, 'night'];                                                                            // from the gallery: the rocks
+  if (t < 78.4) return [V(.8, TOP + 1.25, 2.3), V(0, .8, 19), 30, 'night'];
+  if (t < 80.0) return [around(2.2, 1.35, 1.5), HEAD_SIT(), 44, 'night'];      // her face: closer
+  if (t < 85.0) return [V(1.2, TOP + 1.0, 2.4), V(0, .8, 15), 34, 'night'];                                                                               // 5 6 7 8, right below
+  if (t < 89.5) { const k = ease((t - 85) / 4.5); return [V(.05, TOWER_H - .8, .05), V(0, 0, 0), 46 - 14 * k, 'stairs']; }      // straight down the well                    // the ninth, at the bottom of the stairs
+  if (t < 107.5) { const k = ease((t - 89.5) / 18); return [around(2.3, 1.4 - .25 * k, 1.55), HEAD_SIT(), 46 - 8 * k, 'night']; }  // eyes shut
+  if (t < 115.0) return [V(1.6, TOP + 1.3, 1.9), V(-.5, .8, 22), 26, 'night'];                                                                          // empty rocks
+  if (t < 120.5) { const k = ease((t - 115) / 5.5); return [around(.8, 1.4, 1.7), HEAD_SIT().add(V(0, -.3, 0)), 56 - 6 * k, 'night']; }   // relief
+  if (t < 123.8) return [around(DA + 1.3, 1.35, 1.4), around(DA, LR, 1.1), 50, 'night'];   // the door
+  if (t < 132.8) { const k = ease((t - 123.8) / 9); return [around(2.1, 1.35 - .2 * k, 1.5), HEAD_SIT(), 42 - 8 * k, 'night']; }   // her, frozen
+  if (t < 137.7) { const k = ease((t - 132.8) / 4.9); return [around(DA + .9, 1.05 - .25 * k, 1.55), around(DA, LR, 1.52), 40, 'night']; }  // the window in the door
+  if (t < T.black) { const k = ease((t - 137.7) / 3.6); return [V(-24, 12, 30 - 4 * k), V(0, TOP, 0), 40, 'night']; }                                     // the light stops
+  if (t >= T.flash && t < T.flash + 1.0) return [V(Math.cos(9.24 + 2.2) * .9, 8.2, Math.sin(9.24 + 2.2) * .9), V(Math.cos(9.24) * 1.0, 5.6, Math.sin(9.24) * 1.0), 62, 'flash'];                                                                  // Part 2 flash: stairs in the dark
+  return [V(0, -50, 0), V(0, -60, 0), 40, 'black'];
+}
+
+// ---------------------------------------------------------------- render one frame
+function renderAt(t) {
+  const [pos, look, fov, mode] = shot(t);
+  const dusk = mode === 'dusk', black = mode === 'black' || (t >= T.black && mode !== 'flash');
+  if (skyMode !== (dusk ? 'dusk' : 'night')) { skyMode = dusk ? 'dusk' : 'night'; skyTex.redraw(skyMode); }
+  stars.visible = !dusk; moon.visible = !dusk;
+  scene.fog.color.set(dusk ? 0x2b2a3a : 0x0b1424); renderer.setClearColor(scene.fog.color);
+  hemi.intensity = dusk ? .9 : .5; hemi.color.set(dusk ? 0xffc6a8 : 0x8fa3c8); sunset.intensity = dusk ? 1.6 : 0; moonLight.intensity = dusk ? 0 : 1.1;
+  waves(t);
+  // beam
+  const lit = !dusk && t < T.black;
+  const a = beamAngle(t), dir = V(Math.cos(a), -.06, Math.sin(a));
+  beam.target.position.copy(beam.position).add(dir.clone().multiplyScalar(40)); beam.intensity = lit ? 9 : 0;
+  spill.target.position.set(Math.cos(a) * 19, .5, Math.sin(a) * 19); spill.intensity = lit ? 7 : 0;
+  beamMesh.lookAt(beamMesh.position.clone().add(dir)); beam2.lookAt(beam2.position.clone().sub(dir));
+  beamMesh.visible = beam2.visible = lit && mode !== 'stairs';
+  beamMat.opacity = .09;
+  const near = pos.distanceTo(lens.position) < 2.6;
+  lens.material.color.set(dusk ? 0x6b6455 : near ? 0x9c8a58 : 0xfff2c4); lampGlow.intensity = dusk ? .4 : near ? 1.4 : 2.5;
+  if (t >= T.stop && t < T.black) { lens.material.color.set(0xfff8e0); }                                 // stopped: it stares
+  lensCage.rotation.y = a;
+  // the people on the rocks: visible once counted, only really lit when the beam is on them
+  const n = mode === 'tease' ? 8 : (t >= T.open - .3 ? 0 : countAt(t));
+  drowned.forEach((p, i) => {
+    p.g.visible = i < n && t < T.shut + 1.5 || (mode === 'tease');
+    p.body.rotation.z = Math.sin(t * .7 + i) * .02;
+    p.headPivot.rotation.set(-.15, 0, Math.sin(i * 3) * .15);
+  });
+  if (t >= T.shut + 1.5 && t < T.open - .3) drowned.forEach(p => p.g.visible = false);
+  // the ninth, at the foot of the stairs, looking up
+  ninth.g.visible = mode === 'stairs' || mode === 'flash';
+  const FA = 22 * .42, FY = 22 * (TOWER_H - .6) / 64 + .34;
+  ninth.g.position.set(mode === 'flash' ? Math.cos(FA) * 1.0 : 0, mode === 'flash' ? FY : 0, mode === 'flash' ? Math.sin(FA) * 1.0 : 0);
+  ninth.headPivot.rotation.set(-.75, 0, .1);
+  stairLight.intensity = mode === 'stairs' ? 1.2 : mode === 'flash' ? 0 : 0;
+  // phone torch for the Part 2 flash
+  // Haru
+  const inside = (t >= 16.6 && t < 44.5) || (t >= 78.4 && t < 80) || (t >= 89.5 && t < 107.5) || (t >= 115 && t < 137.7);
+  const seated = t >= 78.4 && t < 137.7;
+  haru.g.visible = (inside && !seated) || dusk; SITTING.g.visible = seated && inside;
+  bag.visible = dusk;
+  if (dusk) {                                                       // on the dock with her bag, watching the boat go
+    const dp = dock.localToWorld(V(0, 1.06, 3.2)); haru.g.position.copy(dp); haru.g.rotation.y = dock.rotation.y + Math.PI;
+    bag.position.copy(dock.localToWorld(V(.5, 1.25, 3.3)));
+    haru.headPivot.rotation.set(.05, .3, 0);
+  } else if (t < 36.6) {                                            // reading the note
+    haru.g.position.set(Math.cos(NA) * .75, TOP + .15, Math.sin(NA) * .75); haru.g.rotation.y = Math.atan2(Math.cos(NA), Math.sin(NA));
+    haru.headPivot.rotation.set(.12, 0, 0);
+  } else {                                                          // laughing it off, at the glass
+    haru.g.position.set(Math.cos(2.0) * .75, TOP + .15, Math.sin(2.0) * .75); haru.g.rotation.y = Math.atan2(Math.cos(2.0), Math.sin(2.0));
+    haru.headPivot.rotation.set(-.05, 0, Math.sin(t * 5) * .03);
+  }
+  SITTING.g.position.set(Math.cos(1.6) * .95, TOP + .15 - .12, Math.sin(1.6) * .95); SITTING.g.rotation.y = 1.6 + Math.PI / 2 + .9;
+  const hands = t >= T.shut - .2 && t < T.open;                     // hands over her eyes
+  SITTING.arms.forEach((ar, i) => {
+    if (hands) { ar.sh.rotation.set(-2.1, 0, (i ? 1 : -1) * -.25); ar.el.rotation.set(-1.9, 0, (i ? 1 : -1) * -.5); }
+    else { ar.sh.rotation.set(-.35, 0, (i ? 1 : -1) * -.12); ar.el.rotation.set(-1.2, 0, (i ? 1 : -1) * .35); }
+  });
+  const fear = t > T.knock ? 1 : t > COUNT[1] ? .6 : 0;
+  SITTING.body.rotation.z = Math.sin(t * 43) * .012 * fear; SITTING.headPivot.rotation.set(hands ? .35 : -.05 + (t > T.knock ? -.1 : 0), t > T.knock ? -.5 : 0, Math.sin(t * 37) * .015 * fear);
+  // the knock: the door jolts; the face in the window on "my name"
+  const kn = [121.9, 122.35, 122.8, 126.1, 126.5];
+  let jolt = 0; kn.forEach(k => { if (t > k && t < k + .12) jolt = 1; });
+  doorG.children[0].position.z = jolt * .02;
+  const face = t >= T.name - .1 && t < T.black;
+  faceInWindow.visible = face; fwEyes.forEach(e => e.visible = face);
+  // boat leaving (dusk)
+  boat.visible = t < 16.6;
+  const bk = clamp01((t - 7.6) / 9);
+  boat.position.set(-14 - 30 * bk, .1 + Math.sin(t * 1.3) * .08, 16 + 25 * bk); boat.rotation.y = .9;
+  keyLight.intensity = near && !dusk ? .9 : 0; keyLight.position.copy(pos).add(V(0, .25, 0));
+  torch.intensity = mode === 'flash' ? 12 : 0; torch.position.copy(pos); torch.target.position.copy(look);
+  // camera
+  cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
+  let shake = 0;
+  if (t >= COUNT[4] && t < 85) shake = .006;
+  if (t >= T.knock && t < 123.8) shake = .01;
+  if (t >= T.name && t < T.black) shake = .008;
+  if (shake) cam.position.add(V(Math.sin(t * 91) * shake, Math.sin(t * 77) * shake, 0));
+  renderer.toneMappingExposure = black ? 0 : mode === 'flash' ? .9 : 1;
+  stairLight.intensity = mode === 'flash' ? .35 : stairLight.intensity;
+  grain.uniforms.vig.value = .6;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>

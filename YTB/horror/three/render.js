@@ -5,6 +5,7 @@
 //   node render.js --cpu --workers 4       software rendering, 4 parallel browsers (cloud)
 //   node render.js --frames 0,60,130       only those frames, as PNGs in frames/
 //   node render.js --dur 8 --fps 30 --out test.mp4
+//   node render.js --landscape --scene keeper_p1 --dur 150 --out ..\keeper\part1\raw.mp4   (16:9)
 // Needs: npm install (three + playwright), npx playwright install chromium, and ffmpeg on PATH (or set FFMPEG=C:\path\ffmpeg.exe).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), http = require('http'), os = require('os'), { spawn } = require('child_process');
@@ -12,7 +13,8 @@ const fs = require('fs'), path = require('path'), http = require('http'), os = r
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf('--' + k); return i < 0 ? d : argv[i + 1]; };
 const flag = k => argv.includes('--' + k);
-const FPS = +opt('fps', 30), DUR = +opt('dur', 8), W = 1080, H = 1920;
+const FPS = +opt('fps', 30), DUR = +opt('dur', 8);
+const [W, H] = flag('landscape') ? [1920, 1080] : [1080, 1920];   // --landscape for 16:9
 const OUT = path.resolve(__dirname, opt('out', 'test.mp4'));
 const ONLY = opt('frames', null) ? opt('frames').split(',').map(Number) : null;
 const GPU = flag('gpu') || (!flag('cpu') && process.platform !== 'linux');
@@ -71,7 +73,7 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
   console.log(`rendered ${N} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((Date.now() - t0) / N).toFixed(0)} ms/frame)`);
   await new Promise((res, rej) => spawn(FFMPEG, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(tmp, '%05d.jpg'),
     '-vf', 'scale=out_range=tv,format=yuv420p', '-c:v', 'libx264', '-crf', '18', '-maxrate', '14M', '-bufsize', '28M',
-    '-preset', 'medium', '-movflags', '+faststart', OUT]   // tv range + bitrate cap: a 60 s reel stays under GitHub's 100 MB, { stdio: 'inherit' })
+    '-preset', 'medium', '-movflags', '+faststart', OUT], { stdio: 'inherit' })   // tv range + 14 Mb/s cap: fits GitHub's 100 MB
     .on('close', c => c ? rej(new Error('ffmpeg failed')) : res()));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log('saved', OUT);

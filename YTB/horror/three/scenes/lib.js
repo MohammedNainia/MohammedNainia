@@ -7,9 +7,10 @@ import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 export {THREE};
-export const W = 1080, H = 1920;
+export let W = 1080, H = 1920;
 
-export function setup({bloom = .45, ao = true} = {}) {
+export function setup({bloom = .45, ao = true, w = 1080, h = 1920} = {}) {
+  W = w; H = h;
   const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
   renderer.setPixelRatio(1); renderer.setSize(W, H);
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
