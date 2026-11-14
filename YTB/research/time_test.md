@@ -13,7 +13,7 @@ Rule: compare slot medians only after each slot has 4+ reels; until then nothing
 | 08 | Undo your regret | 04:00 (IG went out 04:45) | 195 (reach 166, 1 share) | 60 | 23 | n/a (TikTok counts not readable here) |
 | 09 | Red thread | 13:00 | 340 (read at ~55 h, not 24 h; 1 share, 5 saves) | 48 | 30 | n/a |
 | 10 | Would you listen? | 20:00 | 134 (0 shares, 1 save, 0 comments) | 76 | 11 | n/a |
-| 11 | Sleep paralysis: know it, or sleep? (AI-stills look) | posted now 23:43 on IG + TikTok + YouTube (off-slot, user choice) | 448 (read at ~20 h; 1 share) | 45 | 30 | n/a |
+| 11 | Sleep paralysis: know it, or sleep? (AI-stills look) | posted now 23:43 on IG + TikTok + YouTube (off-slot, user choice) | 449 @24 h (reach 369, 1 share); YouTube 1,246 @24 h (channel record) | 45 | 30 | n/a |
 | 12 | | 13:00 | | | | |
 | 13 | | 20:00 | | | | |
 | 14 | | 04:00 | | | | |
