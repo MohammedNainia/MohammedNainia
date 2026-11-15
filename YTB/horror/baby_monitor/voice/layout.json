@@ -1,0 +1,68 @@
+[
+ {
+  "name": "n1",
+  "start": 0.25,
+  "end": 4.63,
+  "offset": 0.13
+ },
+ {
+  "name": "n2",
+  "start": 5.53,
+  "end": 13.49,
+  "offset": 5.38
+ },
+ {
+  "name": "m1",
+  "start": 14.29,
+  "end": 19.7,
+  "offset": 14.15
+ },
+ {
+  "name": "n3",
+  "start": 20.6,
+  "end": 25.28,
+  "offset": 20.47
+ },
+ {
+  "name": "laugh",
+  "start": 25.88,
+  "end": 27.98,
+  "offset": 25.77
+ },
+ {
+  "name": "n4",
+  "start": 28.48,
+  "end": 36.78,
+  "offset": 28.34
+ },
+ {
+  "name": "n5",
+  "start": 37.58,
+  "end": 47.28,
+  "offset": 37.48
+ },
+ {
+  "name": "n6",
+  "start": 47.98,
+  "end": 54.2,
+  "offset": 47.87
+ },
+ {
+  "name": "n7",
+  "start": 54.9,
+  "end": 59.2,
+  "offset": 54.81
+ },
+ {
+  "name": "m2",
+  "start": 60.4,
+  "end": 63.43,
+  "offset": 60.3
+ },
+ {
+  "name": "n8",
+  "start": 64.43,
+  "end": 69.15,
+  "offset": 64.24
+ }
+]

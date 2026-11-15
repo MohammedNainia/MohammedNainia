@@ -1,0 +1,18 @@
+BABY MONITOR (vertical Short, 71.4 s, loops)
+Haru: Samara X (Eleven v3, stability 0.5, one generation per line). Monitor voice: "Hushed" (Eleven v3, British),
+pitched down a little and run through a thin crackly speaker in post.py.
+
+n1  Haru [whispering]: The baby monitor picked up someone singing. I was the only one home.
+n2  Haru [softly]: I was babysitting. The baby was asleep upstairs. I was on the couch, half asleep, with the monitor next to me.
+m1  Monitor [sings softly]: Hush now... hush now, little one... mmm... mmm...
+n3  Haru [nervous]: I thought it was a radio. Interference. Monitors do that.
+laugh  Monitor: a soft laugh
+n4  Haru [whispering]: But then it stopped humming... and it laughed. Softly. Like someone leaning over the crib.
+n5  Haru [scared]: I ran upstairs. The nursery door was open. The baby was asleep. And there was nobody there. Nobody.
+n6  Haru [softly]: I checked the closet. Under the crib. Behind the curtains. Nothing.
+n7  Haru [whispering]: So I went back downstairs... and sat down next to the monitor.
+m2  Monitor [whispering]: Shh... she's gone. You can open your eyes now.
+n8  Haru [whispering]: It wasn't singing to the baby. It was waiting for me to leave.
+
+Ending: the monitor's night-vision feed zooms on the crib: the baby's eyes are open, and a pale arm comes out of the gap
+in the curtains she just checked, its hand resting on the crib rail. Loops back to frame 0 (same picture, then a glitch clears it).
