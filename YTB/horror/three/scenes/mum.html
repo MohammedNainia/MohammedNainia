@@ -1,0 +1,208 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// "MUM?" (9:16, 58.5 s). Timed to YTB/horror/mum/voice/layout.json.
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .55});
+const DUR = 58.5;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+scene.fog = new THREE.Fog(0x04050a, 4, 16);
+renderer.setClearColor(0x000000);
+
+// ---------------------------------------------------------------- the house: bedroom + landing upstairs (floor y=3), stairs down to a hallway, the kitchen doorway at the bottom
+const UP = 3, WALL = flat(0x6a6f7d), WALL2 = flat(0x5b5f6b), WOOD = flat(0x5e4532), CARPET = flat(0x4a3f52), DARK = new THREE.MeshBasicMaterial({color: 0x000000});
+// bedroom: x 0..4, z -4..0
+mesh(scene, new THREE.BoxGeometry(4, .1, 4), CARPET, 2, UP - .05, -2);
+mesh(scene, new THREE.BoxGeometry(4, .1, 4), flat(0x7d7f88), 2, UP + 2.6, -2);
+mesh(scene, new THREE.BoxGeometry(4, 2.6, .1), WALL, 2, UP + 1.3, -4.05);
+mesh(scene, new THREE.BoxGeometry(4, 2.6, .1), WALL, 2, UP + 1.3, .05);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 4), WALL, 4.05, UP + 1.3, -2);
+// wall between bedroom and landing (x=0) with a door opening z -1.4..-0.5
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 2.6), WALL, 0, UP + 1.3, -2.7);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, .5), WALL, 0, UP + 1.3, -.25);
+mesh(scene, new THREE.BoxGeometry(.1, .55, .9), WALL, 0, UP + 2.33, -.95);
+const doorPivot = new THREE.Group(); doorPivot.position.set(0, UP, -1.4); scene.add(doorPivot);                  // hinge at z=-1.4
+const door = mesh(doorPivot, new THREE.BoxGeometry(.06, 2.05, .9), flat(0xd9d2c3), 0, 1.025, .45);
+const handle = new THREE.Group(); handle.position.set(.06, 1.0, .78); doorPivot.add(handle);
+mesh(handle, new THREE.CylinderGeometry(.035, .035, .05, 8), flat(0xb8a46a, {metalness: .7}), .02, 0, 0).rotation.z = Math.PI / 2;
+const lever = mesh(handle, new THREE.BoxGeometry(.03, .025, .16), flat(0xb8a46a, {metalness: .7}), .05, 0, -.06);
+const lockKnob = mesh(doorPivot, new THREE.BoxGeometry(.03, .09, .025), flat(0xb8a46a, {metalness: .7}), .05, 1.18, .78);
+// bed, nightstand, window with moonlight
+mesh(scene, new THREE.BoxGeometry(1.5, .45, 2.1), flat(0x3e4a6b), 2.9, UP + .23, -2.85);
+mesh(scene, new THREE.BoxGeometry(1.5, .9, .12), WOOD, 2.9, UP + .45, -3.95);
+const pillow = mesh(scene, jitterGeo(new THREE.BoxGeometry(.7, .14, .42), .03, 4), flat(0xd8d4cc), 2.9, UP + .52, -3.6);
+const blanket = mesh(scene, jitterGeo(new THREE.BoxGeometry(1.45, .16, 1.4), .05, 6), flat(0x5a6f99), 2.9, UP + .52, -2.45);
+mesh(scene, new THREE.BoxGeometry(.5, .55, .45), WOOD, 1.85, UP + .28, -3.7);
+const lamp = mesh(scene, new THREE.CylinderGeometry(.09, .12, .22, 8), flat(0xe8d9b8), 1.95, UP + .66, -3.85);
+const win = mesh(scene, new THREE.PlaneGeometry(1.1, 1.2), new THREE.MeshBasicMaterial({color: 0x3c5a8a}), 4.0, UP + 1.6, -2.2, false); win.rotation.y = -Math.PI / 2;
+for (const z of [-2.2]) { mesh(scene, new THREE.BoxGeometry(.05, 1.25, .05), flat(0x2b2b30), 3.99, UP + 1.6, z); mesh(scene, new THREE.BoxGeometry(.05, .05, 1.15), flat(0x2b2b30), 3.99, UP + 1.6, z); }
+// landing: x -2.4..0, z -4..0 (the stairs go down from its front edge)
+mesh(scene, new THREE.BoxGeometry(2.4, .1, 2.6), CARPET, -1.2, UP - .05, -2.7);
+mesh(scene, new THREE.BoxGeometry(2.4, .1, 4), flat(0x7d7f88), -1.2, UP + 2.6, -2);
+mesh(scene, new THREE.BoxGeometry(.1, 5.6, 12), WALL2, -2.45, 2.8, 2);                         // tall stairwell wall
+mesh(scene, new THREE.BoxGeometry(2.4, 2.6, .1), WALL2, -1.2, UP + 1.3, -4.05);
+const frame = mesh(scene, new THREE.BoxGeometry(.05, .45, .35), flat(0x2a2522), -2.39, UP + 1.6, -2.6);
+// stairs: 15 steps from the landing edge (z=-1.4, y=3) down to the hall (z=3.1, y=0), x -2.4..-1.2
+const N = 15, Z0 = -1.4, RUN = .3, RISE = UP / N;
+for (let k = 0; k < N; k++) {
+  const y = UP - (k + 1) * RISE, z = Z0 + k * RUN + RUN / 2;
+  mesh(scene, new THREE.BoxGeometry(1.2, RISE, RUN), WOOD, -1.8, y + RISE / 2, z);
+  mesh(scene, new THREE.BoxGeometry(1.2, y + .01, RUN), flat(0x3b2d22), -1.8, y / 2, z);
+  if (k % 2 === 0) mesh(scene, new THREE.CylinderGeometry(.025, .025, .9, 5), flat(0xd9d2c3), -1.18, y + RISE + .45, z);
+}
+const rail = mesh(scene, new THREE.BoxGeometry(.06, .06, 5.1), flat(0x6b4a33), -1.18, 2.4, .85); rail.rotation.x = Math.atan2(UP, N * RUN);
+mesh(scene, new THREE.BoxGeometry(.1, UP, 4.5), WALL2, -1.12, UP / 2, .85);   // wall on the stairs' right, under the landing
+// ground hall: z 3.1..7, kitchen doorway in the end wall
+mesh(scene, new THREE.BoxGeometry(2.6, .1, 5), flat(0x3a332d), -1.2, -.05, 4.6);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 5), WALL2, 0.05, 1.3, 4.6);
+mesh(scene, new THREE.BoxGeometry(1.0, 2.6, .1), WALL2, -2.0, 1.3, 7.05);
+mesh(scene, new THREE.BoxGeometry(.7, 2.6, .1), WALL2, -.3, 1.3, 7.05);
+mesh(scene, new THREE.BoxGeometry(.9, .55, .1), WALL2, -1.05, 2.33, 7.05);
+const kitchen = mesh(scene, new THREE.BoxGeometry(.9, 2.05, .02), DARK, -1.05, 1.025, 7.12, false);   // the doorway: pure black
+mesh(scene, new THREE.BoxGeometry(1.0, .06, .12), WOOD, -1.05, 2.08, 7.0);
+const glints = [-.07, .07].map(x => { const g = mesh(scene, new THREE.SphereGeometry(.012, 6, 4), new THREE.MeshBasicMaterial({color: 0xbfc8d8}), -1.05 + x, 1.62, 7.1, false); g.visible = false; return g; });
+const shoes = mesh(scene, new THREE.BoxGeometry(.3, .1, .25), flat(0x2a2522), -.4, .05, 6.4);
+
+// ---------------------------------------------------------------- Haru
+const haru = person(scene, {x: 2.9, z: -2.5, face: 0, coat: 0x8fa4c8, long: true, pants: 0x5b6585, seed: 3});   // pyjamas
+const lying = person(scene, {x: 2.9, z: -2.6, face: 0, coat: 0x8fa4c8, long: true, pants: 0x5b6585, seed: 3});
+lying.g.rotation.x = -Math.PI / 2; lying.g.position.set(2.9, UP + .6, -1.9);          // feet toward the room, head on the pillow, face up
+
+// ---------------------------------------------------------------- the phone (its screen is a chat)
+const MSG = {mum: ['Still at work. Home at 2.', 'Why are you awake?'], me: ['someone is in the house'], reply: ['I know.', 'I told it your name.']};
+let chatState = '';
+const chat = canvasTex(360, 720, (g, w, h, st = {}) => {
+  g.fillStyle = '#0d0f14'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#1a1d25'; g.fillRect(0, 0, w, 92);
+  g.fillStyle = '#d9a0b8'; g.beginPath(); g.arc(46, 50, 24, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.font = 'bold 28px sans-serif'; g.fillText('Mum ❤', 84, 60);
+  g.fillStyle = '#8a8f9c'; g.font = '19px sans-serif'; g.fillText(st.time || '00:47', w - 82, 58);
+  let y = 140;
+  const bubble = (lines, mine, alpha = 1) => {
+    g.globalAlpha = alpha; g.font = '25px sans-serif';
+    const tw = Math.max(...lines.map(l => g.measureText(l).width)) + 34, th = lines.length * 34 + 22;
+    const x = mine ? w - tw - 18 : 18;
+    g.fillStyle = mine ? '#3a6df0' : '#2a2e38'; roundRect(g, x, y, tw, th, 18); g.fill();
+    g.fillStyle = '#fff'; lines.forEach((l, i) => g.fillText(l, x + 17, y + 40 + i * 34));
+    y += th + 16; g.globalAlpha = 1;
+  };
+  if (st.mum) bubble(MSG.mum, false, st.mum);
+  if (st.me) bubble(MSG.me, true, st.me);
+  if (st.typing) { g.fillStyle = '#2a2e38'; roundRect(g, 18, y, 90, 50, 18); g.fill(); g.fillStyle = '#9aa0ad'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(44 + i * 20, y + 25, 6 + 2 * Math.sin(st.typing * 9 - i), 0, 7); g.fill(); } y += 66; }
+  if (st.reply) bubble(MSG.reply, false, st.reply);
+  g.fillStyle = '#1a1d25'; g.fillRect(0, h - 80, w, 80);
+  g.fillStyle = '#2a2e38'; roundRect(g, 18, h - 62, w - 36, 46, 23); g.fill();
+  if (st.draft) { g.fillStyle = '#fff'; g.font = '23px sans-serif'; g.fillText(st.draft, 36, h - 31); }
+});
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function setChat(st) { const k = JSON.stringify(st); if (k !== chatState) { chatState = k; chat.redraw(st); } }
+const phone = new THREE.Group(); scene.add(phone);
+mesh(phone, new THREE.BoxGeometry(.075, .15, .009), flat(0x1b1b1f, {metalness: .4}), 0, 0, 0, false);
+const screen = mesh(phone, new THREE.PlaneGeometry(.068, .136), new THREE.MeshBasicMaterial({map: chat}), 0, 0, .0051, false);
+const phoneLight = new THREE.PointLight(0xa9c4ff, 0, 2.2, 1.5); scene.add(phoneLight);
+const key = new THREE.PointLight(0x9fb2dc, .8, 4, 1.5); scene.add(key);      // soft cold fill that follows the camera
+
+// ---------------------------------------------------------------- lights
+const hemi = new THREE.HemisphereLight(0x7d93c4, 0x14141c, 1.0); scene.add(hemi);
+const moon = new THREE.SpotLight(0x8fb0e8, 14, 9, .7, .6, 1.2); moon.position.set(5.5, UP + 2.4, -2.2); moon.target.position.set(2.6, UP, -2.6); scene.add(moon, moon.target);
+const nightlight = new THREE.PointLight(0xffc77d, 3.0, 6, 1.4); nightlight.position.set(-2.2, UP + .4, -3.6); scene.add(nightlight);
+mesh(scene, new THREE.SphereGeometry(.05, 8, 6), new THREE.MeshBasicMaterial({color: 0xffd9a0}), -2.33, UP + .4, -3.6, false);
+const hallGlow = new THREE.PointLight(0x8aa0d0, 3.2, 7, 1.4); hallGlow.position.set(-.5, 2.2, 5.4); scene.add(hallGlow);   // faint moon from a hall window
+
+// ---------------------------------------------------------------- timing (from layout.json)
+const L = {n1: 0.25, n2: 8.35, m1: 12.75, n3: 17.35, buzz: 22.3, n4: 24.55, m2: 31.71, n5: 36.47, n6: 42.37, lock: 44.4, send: 48.4, n7: 51.19, reply: 53.6, end: 56.4, loop: 57.9};
+
+function shot(t) {
+  if (t < 4.2 || t >= L.loop) { const k = t >= L.loop ? 0 : ease(t / 4.2); return [V(-1.05, 1.5, 4.2 + 1.2 * k), V(-1.05, 1.25, 7.1), 46 - 6 * k, 'door']; }   // hook: the black kitchen doorway
+  if (t < 8.1) { const k = ease((t - 4.2) / 3.9); return [V(1.45, UP + .95, -3.05 + .08 * k), V(1.75, UP + .56, -3.58), 34 - 6 * k, 'nightstand']; }   // phone on the nightstand
+  if (t < 12.6) { const k = ease((t - 8.1) / 4.5); return [V(.8, UP + 1.9, -.6), V(2.8, UP + .5, -3.0), 50 - 4 * k, 'bed']; }                       // alone in bed
+  if (t < 16.6) { const k = ease((t - 12.6) / 4); return [V(2.55, UP + 1.45 - .1 * k, -3.0), V(2.9, UP + .72, -3.6), 44 - 6 * k, 'eyes']; }        // her eyes open at the voice
+  if (t < 21.8) { const k = ease((t - 16.6) / 5.2); return [V(-1.7, .9, 6.6), V(-1.75, UP - .6 + .4 * k, -1.0), 42, 'stairsup']; }                // from the bottom: she comes down
+  if (t < 24.4) return [V(-1.35, 3.25, 1.05), V(-1.72, 2.9, .45), 40, 'buzz'];                                                                 // the phone buzzes in her hand
+  if (t < 30.0) return [null, null, 40, 'screen'];                                                                                             // the text
+  if (t < 31.7) return [V(-1.7, 3.35, 1.55), V(-1.75, 3.5, .42), 40, 'face'];                                                                  // her face, lit by the phone
+  if (t < 36.4) { const k = ease((t - 31.7) / 4.7); return [V(-1.75, 3.5, .55), V(-1.1, 1.2, 7.1), 44 - 12 * k, 'pov']; }                      // POV: the dark doorway below
+  if (t < 42.3) { const k = ease((t - 36.4) / 5.9); return [V(-1.7, 3.45 + .4 * k, 2.0 - .5 * k), V(-1.75, 3.6 + .4 * k, .3 - .6 * k), 40, 'face2']; }   // frozen, then backing up
+  if (t < 44.2) return [V(-.4, UP + 1.6, -2.7), V(-1.5, UP + 1.0, -1.0), 62, 'runup'];                                                          // she runs up
+  if (t < 46.4) return [V(1.5, UP + 1.35, -.95), V(.05, UP + 1.1, -.75), 44, 'lock'];                                                          // the lock turns
+  if (t < 51.0) return [null, null, 40, 'type'];                                                                                               // typing: someone is in the house
+  if (t < 53.4) return [V(2.9, UP + 1.55, -.9), V(1.6, UP + 1.45, -2.4), 46, 'room'];                                                          // waiting, in the dark
+  if (t < L.end) return [null, null, 40, 'reply'];                                                                                             // the reply
+  return [V(1.5, UP + 1.25, -.95), V(.05, UP + 1.0, -.75), 44, 'handle'];                                                                       // the door handle turns
+}
+
+function renderAt(t) {
+  const [pos, look, fov, mode] = shot(t);
+  // Haru: in bed, or standing on the stairs / in her room
+  const inBed = t < 16.6 || t >= L.loop;
+  lying.g.visible = inBed; haru.g.visible = !inBed && !['screen', 'type', 'reply', 'door'].includes(mode);
+  const eyesOpen = t > 13.6 || t >= L.loop ? 1 : .08;
+  lying.eyes.forEach(e => e.scale.set(1, 1.35 * (t < 13.6 ? .08 : 1), .5));
+  if (mode === 'stairsup') {                                         // walking down the stairs
+    const k = ease((t - 16.6) / 5.2), step = Math.min(6, k * 6.5), z = Z0 + step * RUN, y = UP - step * RISE;
+    haru.g.position.set(-1.75, y, z); haru.g.rotation.y = 0; haru.body.position.y = .82 + Math.abs(Math.sin(k * 20)) * .02;
+  } else if (['buzz', 'face', 'pov', 'face2'].includes(mode)) {
+    const back = mode === 'face2' ? ease((t - 38.5) / 3.6) : 0, step = 6 - back * 2.5;
+    haru.g.position.set(-1.75, UP - step * RISE, Z0 + step * RUN); haru.g.rotation.y = back > .01 ? Math.PI * 0 : 0; haru.body.position.y = .82;
+    haru.headPivot.rotation.set(mode === 'face' || mode === 'face2' ? .25 : .5, 0, Math.sin(t * 41) * .01 * (t > L.n4 ? 1 : 0));
+    haru.body.rotation.z = Math.sin(t * 47) * .008 * (t > L.m2 ? 1 : 0);
+  } else if (mode === 'runup') {
+    const k = ease((t - 42.3) / 1.9); haru.g.position.set(lerp(-1.75, -.4, k), UP, lerp(-1.3, -.95, k)); haru.g.rotation.y = Math.PI / 2;
+    haru.headPivot.rotation.set(0, 0, 0);
+  } else {                                                           // in her room, by the door
+    haru.g.position.set(1.6, UP, -2.4); haru.g.rotation.y = -Math.PI / 2 + .5; haru.headPivot.rotation.set(.35, 0, 0); haru.body.rotation.z = Math.sin(t * 43) * .01;
+  }
+  haru.arms.forEach((a, i) => { if (['buzz', 'face', 'pov', 'face2', 'room', 'handle'].includes(mode) && i === 1) { a.sh.rotation.set(-.6, 0, .1); a.el.rotation.set(-1.4, 0, .3); } else { a.sh.rotation.set(0, 0, (i ? 1 : -1) * -.1); a.el.rotation.set(-.15, 0, 0); } });
+  // door: open until she slams it; the lock knob turns; at the end the handle turns by itself
+  const shut = t >= 44.0;
+  doorPivot.rotation.y = shut ? 0 : 1.25;
+  lockKnob.rotation.z = t > L.lock + .3 ? Math.PI / 2 : 0;
+  handle.rotation.x = mode === 'handle' ? -ease((t - L.end - .2) / .7) * .7 : 0;
+  // phone
+  let st = {};
+  if (t >= L.n4 - .4) st.mum = clamp01((t - (L.n4 - .4)) / .25);
+  if (t >= 46.8) { const txt = 'someone is in the house', n = Math.floor(clamp01((t - 46.8) / 1.5) * txt.length); if (t < L.send) st.draft = txt.slice(0, n) + (Math.floor(t * 3) % 2 ? '|' : ''); else st.me = 1; }
+  if (t >= L.send + .6 && t < L.reply) st.typing = t;
+  if (t >= L.reply) st.reply = clamp01((t - L.reply) / .25);
+  st.time = t < L.n4 ? '00:47' : '00:52';
+  setChat(st);
+  const screenShot = mode === 'screen' || mode === 'type' || mode === 'reply';
+  if (screenShot) {                                                  // the phone fills the frame, held in front of the camera
+    cam.position.set(-1.75, UP - .7, .9); cam.lookAt(-1.75, UP - .7, 0); cam.fov = 40; cam.updateProjectionMatrix();
+    if (mode !== 'screen') { cam.position.set(.6, UP + 1.3, -1.6); cam.lookAt(-.4, UP + 1.3, -1.6); cam.updateProjectionMatrix(); }
+    const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd);
+    phone.position.copy(cam.position).add(fwd.multiplyScalar(.2)); phone.quaternion.copy(cam.quaternion); phone.rotateZ(.04 + Math.sin(t * 2) * .01);
+    phone.position.y += Math.sin(t * 9) * .0012 * (t > L.n4 + 2 ? 1 : 0);
+    phone.visible = true;
+  } else if (['buzz', 'face', 'face2', 'pov', 'room', 'handle'].includes(mode) || mode === 'nightstand') {
+    phone.visible = true;
+    if (mode === 'nightstand') { phone.position.set(1.75, UP + .565, -3.58); phone.rotation.set(-Math.PI / 2, 0, .4); }
+    else { const hp = new THREE.Vector3(); haru.arms[1].el.children[1].getWorldPosition(hp); phone.position.copy(hp).add(V(0, .03, .03)); phone.lookAt(haru.headPivot.getWorldPosition(new THREE.Vector3())); }
+  } else phone.visible = false;
+  if (mode === 'buzz') phone.position.x += Math.sin(t * 90) * .004 * (t > L.buzz && t < L.buzz + .8 ? 1 : 0);
+  screen.material.color.setScalar(mode === 'nightstand' ? (t > 5.4 ? 1 : .05) : 1);
+  phoneLight.intensity = phone.visible && mode !== 'nightstand' ? 2.4 : mode === 'nightstand' && t > 5.4 ? 1.2 : 0;
+  phoneLight.position.copy(phone.position).add(V(0, .05, .05));
+  // the doorway: two faint glints for a moment while she stares
+  glints.forEach(g => g.visible = mode === 'pov' && t > 34.6 && t < 35.0);
+  // lights
+  lamp.material.color.set(0x5a5348);
+  nightlight.intensity = t > 51 ? 2.0 : 3.0;
+  // camera
+  key.position.copy(screenShot ? cam.position : pos).add(V(0, .3, 0));
+  if (!screenShot) { cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix(); }
+  let shake = 0;
+  if (mode === 'runup') shake = .02;
+  if (mode === 'handle') shake = .004;
+  if (mode === 'pov') shake = .003;
+  if (shake) cam.position.add(V(Math.sin(t * 91) * shake, Math.sin(t * 77) * shake, 0));
+  renderer.toneMappingExposure = t >= L.end + 1.0 && t < L.loop ? 0 : 1;   // black, then back to the doorway (loop)
+  grain.uniforms.vig.value = .65;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>
