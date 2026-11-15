@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); VO = os.path.join(HERE, 'voic
 SFX = os.path.join(HERE, '..', '..', '..', 'lanternfold', 'sfx_library')
 TM = json.load(open(os.path.join(HERE, 'timemap.json')))
 W, H, FPS, DUR = 1920, 1080, 30, TM['dur']
-def N(t):                                                       # scene time (old pacing) -> video time (Samara)
+def SN(t):                                                       # scene time (old pacing) -> video time (Samara)
     M = TM['map']
     for i in range(1, len(M)):
         if t <= M[i][1]: (n0, o0), (n1, o1) = M[i - 1], M[i]; return n0 + (n1 - n0) * (t - o0) / (o1 - o0) if t >= o0 else t - o0 + n0
@@ -20,9 +20,9 @@ WORDS = json.load(open(os.path.join(VO, 'words.json')))
 args = sys.argv[1:]
 RAW = os.path.join(HERE, args[args.index('--raw') + 1] if '--raw' in args else 'raw.mp4')
 OUT = 'keeper_part1_1920x1080.mp4'
-CARD = None   # set below, after N()                       # PART 2 card, around the 1 s flash of part 2
+CARD = None   # set below, after SN()                       # PART 2 card, around the 1 s flash of part 2
 
-CARD = [(N(142.2), N(146.0)), (N(147.0), N(150.0))]
+CARD = [(SN(142.2), SN(146.0)), (SN(147.0), SN(150.0))]
 def ease(x): x = min(1, max(0, x)); return x * x * (3 - 2 * x)
 
 CHUNKS, i = [], 0
@@ -36,7 +36,7 @@ def overlay(fr, t):
     im = Image.fromarray(cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)); d = ImageDraw.Draw(im, 'RGBA')
     ha = 1.0 if t < .12 else max(0, 1 - (t - .12) / .3) if t < .42 else 0
     if ha > 0: d.text((W // 2, 150), HOOK[0], font=f_hook, fill=(255, 255, 255, int(255 * ha)), stroke_width=7, stroke_fill=(0, 0, 0, int(230 * ha)), anchor='mm')
-    if .42 <= t < N(141.3):
+    if .42 <= t < SN(141.3):
         for ch in CHUNKS:
             if ch[0][1] - .05 <= t <= ch[-1][2] + .3:
                 d.text((W // 2, H - 140), ' '.join(w for w, _, _ in ch), font=f_cap, fill=(255, 255, 255), stroke_width=6, stroke_fill=(0, 0, 0, 235), anchor='mm')
@@ -53,21 +53,21 @@ SR = 48000
 def load(p): return np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-i', p, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True).stdout, np.float32)
 def mix(path):
     n = int(DUR * SR); m = np.zeros(n + SR, np.float32); rng = np.random.default_rng(21)
-    def add(t, x, g): i = int(N(t) * SR); m[i:i + len(x)] += x[:len(m) - i] * g       # times below are scene times
+    def add(t, x, g): i = int(SN(t) * SR); m[i:i + len(x)] += x[:len(m) - i] * g       # times below are scene times
     def addv(t, x, g): i = int(t * SR); m[i:i + len(x)] += x[:len(m) - i] * g      # video times
     def tt(sec): return np.arange(int(sec * SR)) / SR
     def env(x, a, r): L = len(x); e = np.ones(L); A, R = int(a * SR), int(r * SR); e[:A] = np.linspace(0, 1, A); e[L - R:] = np.linspace(1, 0, R); return x * e
     def brown(sec): x = np.cumsum(rng.standard_normal(int(sec * SR))).astype(np.float32); x -= np.convolve(x, np.ones(3000) / 3000, 'same'); return x / (np.abs(x).max() + 1e-6)
     def white_lp(sec, k): x = rng.standard_normal(int(sec * SR)).astype(np.float32); return np.convolve(x, np.ones(k) / k, 'same')
     # the sea: slow swells of filtered noise, all the way to the black
-    sec = N(141.3); t = tt(sec); sw = .55 + .45 * np.sin(2 * np.pi * t / 7.3) * np.sin(2 * np.pi * t / 3.1 + 1)
+    sec = SN(141.3); t = tt(sec); sw = .55 + .45 * np.sin(2 * np.pi * t / 7.3) * np.sin(2 * np.pi * t / 3.1 + 1)
     sea = white_lp(sec, 60); sea /= np.abs(sea).max(); add(0, env(sea * sw, 1.5, 1.0), .16)
     wind = brown(sec); add(0, env(wind * (.6 + .4 * np.sin(2 * np.pi * t / 11)), 2, 1), .05)
     # gulls at dusk
     for g0 in (8.4, 10.9, 13.6):
         tg = tt(.5); f = 1500 + 900 * np.sin(np.pi * tg / .5) ** 2; add(g0, np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * tg / .5) ** 2, .05)
     # the lamp turning: a low motor hum and a click per turn, until it stops
-    t = tt(N(139.2) - N(16.6)); add(16.6, env(.5 * np.sin(2 * np.pi * 60 * t) + .3 * brown(len(t) / SR), .5, .05), .035)
+    t = tt(SN(139.2) - SN(16.6)); add(16.6, env(.5 * np.sin(2 * np.pi * 60 * t) + .3 * brown(len(t) / SR), .5, .05), .035)
     tick = load(os.path.join(SFX, 'synth_tick.wav'))
     for c in [55.9, 65.9, 71.8, 72.8, 80.0, 81.2, 82.5, 83.7]: add(c - .05, tick, .5)            # the beam lands on them
     hb = load(os.path.join(SFX, 'synth_heartbeat.wav')); t0 = 62.0
@@ -83,7 +83,7 @@ def mix(path):
     t = tt(1.0); add(142.2, env(brown(1.0), .02, .8) * np.linspace(1, 0, len(t)), .2)              # card whoosh
     sting(146.0, .22, 247)                                                                          # part 2 flash
     addv(0, load(os.path.join(VO, 'narration.mp3')), 1.0)
-    m = m[:n]; m[int(N(141.3) * SR):int(N(142.2) * SR)] *= .0
+    m = m[:n]; m[int(SN(141.3) * SR):int(SN(142.2) * SR)] *= .0
     m /= max(1.0, np.abs(m).max() / .95)
     with wave.open(path, 'wb') as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes((m * 32767).astype('<i2').tobytes())
 
