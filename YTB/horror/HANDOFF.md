@@ -25,12 +25,14 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
    Thumbnails: upload via a raw.githubusercontent.com URL (mcp.vidiq.com upload URL is blocked here).
 
 ## Done so far
-- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, thumbnail "DON'T COUNT THEM / PART 1"), Mum? (Short): all posted.
+- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, thumbnail "DON'T COUNT THEM / PART 1"), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0): all posted.
 - Keeper's Rules Parts 2 and 3 are planned (story in this chat's history: Part 2 "The Light Stopped": dark spiral stairs,
   phone torch, figures in old keeper uniforms, the front one wears her coat; Part 3 "The Last Keeper": the copy wants to swap
   places, she leaves at dawn, the note is in her handwriting with rule 4 "Don't trust the keeper who left", she has a paper face).
 
-## NEXT: "Baby Monitor" (vertical Short, ~55 s)
+## DONE: "Baby Monitor" (posted; see YTB/horror/baby_monitor, scene three/scenes/baby_monitor.html)
+Monitor voice used: Artlist "Hushed" (id 28), pitched down and band-limited in post.py. The final render was done on the user's GPU (38 s).
+Original plan:
 Haru (Samara) + the voice on the monitor (a soft older woman; crackly, close-miked, band-limited in the mix).
 1. Haru [whispering]: The baby monitor picked up someone singing. I was the only one home.
 2. Haru [softly]: I was babysitting. The baby was asleep upstairs. I was on the couch, half asleep, with the monitor next to me.
