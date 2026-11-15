@@ -152,6 +152,13 @@ const beamGeo = new THREE.ConeGeometry(6, 90, 20, 1, true); beamGeo.translate(0,
 const beamMat = new THREE.MeshBasicMaterial({color: 0xfff0c8, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide});
 const beamMesh = new THREE.Mesh(beamGeo, beamMat); beamMesh.position.copy(beam.position); scene.add(beamMesh);
 const beam2 = beamMesh.clone(); scene.add(beam2);
+const extraCrowd = [0, 1, 2, 3, 4].map(i => {
+  const p = person(scene, {x: 0, z: 0, face: 0, coat: [0x6f7469, 0x5c6158, 0x7a7c74][i % 3], skin: 0xc9cdc6, hair: 0x1c1f1d, long: i % 2 === 1, pants: 0x4b4f49, seed: 500 + i * 13});
+  p.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); p.mouth.visible = false; p.arms.forEach(a => { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); });
+  p.g.visible = false; return p;
+});
+const thumbFill = new THREE.SpotLight(0xb9c8ec, 0, 40, .5, .6, 1); scene.add(thumbFill, thumbFill.target);
+const thumbFace = new THREE.PointLight(0xc6d2f0, 0, 7, 1.2); thumbFace.position.set(1.6, 3.4, 27.4); scene.add(thumbFace);
 const rockMoon = new THREE.PointLight(0x9fb4dc, 0, 40, 1.0); rockMoon.position.set(0, 9, 20); scene.add(rockMoon);   // faint cold light on the rocks between sweeps
 const keyLight = new THREE.PointLight(0xc8d4ff, 0, 3, 1.5); scene.add(keyLight);       // soft face light for the lantern-room shots
 const torch = new THREE.SpotLight(0xf2f6ff, 0, 14, .5, .5, 1); scene.add(torch, torch.target);   // phone torch (Part 2 flash)
@@ -180,6 +187,7 @@ const TOP = TOWER_H;
 const HEAD_SIT = () => V(Math.cos(1.6) * .95, TOWER_H + 1.45, Math.sin(1.6) * .95);
 const around = (ang, r, y) => V(Math.cos(ang) * r, TOWER_H + y, Math.sin(ang) * r);
 function shot(t) {
+  if (t >= 900) return [V(.8, 1.5, 30.5), V(0, 6.8, 0), 46, 'thumb'];                                                             // THUMBNAIL
   if (t < 3.4) { const k = ease(t / 3.4); return [V(-38 + 6 * k, 9, 46 - 5 * k), V(0, 9, 0), 40, 'night']; }                                          // hook: the lighthouse at night
   if (t < 7.6) { const k = ease((t - 3.4) / 4.2); return [V(2.2, TOP + 1.2, 2.6), V(-1 + 2 * k, .8, 22), 24, 'tease']; }                               // tease: the rocks full of them
   if (t < 16.6) { const k = ease((t - 7.6) / 9); return [V(-30 + 4 * k, 3.2, 34 - 2 * k), V(-6, 4, 4), 42, 'dusk']; }                                  // dusk: the boat leaves
@@ -206,14 +214,14 @@ function shot(t) {
 // ---------------------------------------------------------------- render one frame
 function renderAt(t) {
   const [pos, look, fov, mode] = shot(t);
-  const dusk = mode === 'dusk', black = mode === 'black' || (t >= T.black && mode !== 'flash');
+  const dusk = mode === 'dusk', black = mode === 'black' || (t >= T.black && mode !== 'flash' && mode !== 'thumb');
   if (skyMode !== (dusk ? 'dusk' : 'night')) { skyMode = dusk ? 'dusk' : 'night'; skyTex.redraw(skyMode); }
   stars.visible = !dusk; moon.visible = !dusk;
   scene.fog.color.set(dusk ? 0x2b2a3a : 0x0b1424); renderer.setClearColor(scene.fog.color);
   hemi.intensity = dusk ? .9 : .5; hemi.color.set(dusk ? 0xffc6a8 : 0x8fa3c8); sunset.intensity = dusk ? 1.6 : 0; moonLight.intensity = dusk ? 0 : 1.1;
   waves(t);
   // beam
-  const lit = !dusk && t < T.black;
+  const lit = !dusk && (t < T.black || mode === 'thumb');
   const a = beamAngle(t), dir = V(Math.cos(a), -.06, Math.sin(a));
   beam.target.position.copy(beam.position).add(dir.clone().multiplyScalar(40)); beam.intensity = lit ? 9 : 0;
   spill.target.position.set(Math.cos(a) * 19, .5, Math.sin(a) * 19); spill.intensity = lit ? 7 : 0;
@@ -274,7 +282,22 @@ function renderAt(t) {
   const bk = clamp01((t - 7.6) / 9);
   boat.position.set(-14 - 30 * bk, .1 + Math.sin(t * 1.3) * .08, 16 + 25 * bk); boat.rotation.y = .9;
   rockMoon.intensity = !dusk && t >= 53 && t < T.open ? 7 : 0;
-  keyLight.intensity = near && !dusk ? .9 : 0; keyLight.position.copy(pos).add(V(0, .25, 0));
+  keyLight.intensity = near && !dusk ? .9 : 0;
+  thumbFill.intensity = 0; thumbFace.intensity = mode === 'thumb' ? 5 : 0;
+  if (mode === 'thumb') {                                           // the crowd on the rocks, all staring at you
+    const spots = [[-4.5, 20], [-1.6, 19], [1.4, 19.6], [4.2, 20.4], [-6.8, 16.5], [-3.0, 15.8], [0.2, 16.4], [3.3, 15.6], [6.4, 17.0], [-1.4, 12.8], [2.0, 12.4], [-5.2, 12.2], [2.6, 24.6]];   // the last one is close: the face that stares at you
+    const all = drowned.concat(extraCrowd);
+    all.forEach((p, i) => {
+      if (i >= spots.length) { p.g.visible = false; return; }
+      const [x, z] = spots[i]; p.g.visible = true; p.g.position.set(x, .55, z);
+      p.g.rotation.y = Math.atan2(.8 - x, 30.5 - z); p.headPivot.rotation.set(-.08, 0, (i % 3 - 1) * .12); p.body.rotation.z = 0;
+    });
+    thumbFill.intensity = 9; thumbFill.position.set(.8, 3, 27); thumbFill.target.position.set(0, 1.5, 16);
+    const ta = ROCK_A + .95, d2 = V(Math.cos(ta), -.03, Math.sin(ta));
+    beam.target.position.copy(beam.position).add(d2.clone().multiplyScalar(40)); beamMesh.lookAt(beamMesh.position.clone().add(d2)); beam2.lookAt(beam2.position.clone().sub(d2));
+    beamMesh.visible = beam2.visible = true; beamMat.opacity = .16; lens.material.color.set(0xfff6d8);
+    beam.intensity = 9; spill.intensity = 0; rockMoon.intensity = 3;
+  } else extraCrowd.forEach(p => p.g.visible = false); keyLight.position.copy(pos).add(V(0, .25, 0));
   torch.intensity = mode === 'flash' ? 12 : 0; torch.position.copy(pos); torch.target.position.copy(look);
   // camera
   cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
