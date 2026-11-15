@@ -1,19 +1,17 @@
-# Horror narration voice (from Nov 14, 2026, every horror reel)
+# Horror narration voice (from Nov 15, 2026, every horror video)
 
-Chosen by the user after a 4-voice test (YTB/horror/voice_tests/): **number 4, "Unfiltered"** (young adult, Australian, raw).
+The user tried "Unfiltered" (raw, stability 0) on Keeper Part 1 and found it robotic. Chosen instead: **Samara X**, the soft, slow
+woman's voice from the philosophy reels (Lanternfold 07 to 10).
 
 ## Settings (Artlist, Eleven v3)
-- Voice: Unfiltered (Artlist library voice id 31). Accent: Australian (its default).
-- voice_stability: **0** (most expressive). The old setting (0.3 with Samara X) sounded flat.
-- One generation for the whole narration keeps the voice consistent; split only if a line needs a retake.
+- Voice: Samara X (Artlist library voice id 224933), British.
+- voice_stability: **0.5**, and **one generation per line/paragraph** (not one long take). This is what makes her soft and unhurried.
+- Tags stay gentle: [whispering], [softly], [nervous], [scared], [thoughtful]. Avoid loud tags ([panicked], [crying]); fear comes from whispering.
 
-## Writing the script for her
-- First person, present tense where possible ("The doors are opening"), so the fear is happening now.
-- Emotion tag before each beat: [whispering], [nervous], [breathing heavily], [panicked], [crying], [shaky voice], [gasps].
-- Short broken sentences and repeats under stress: "No, no, no... close. Close!"
-- Calm start (whisper), rising to panic at the climax, then a quiet last line before the twist.
-- Never use the long dash in the text; use "..." for pauses.
-
-## After generating
-- Word timings with faster-whisper (base.en), then fix any missed or misheard words by hand (it dropped the first line on Floor 13 and heard "past" as "passed").
+## Building the narration
+- Lay the lines out with the pauses the scene needs; then build a time map so the animation follows her pacing
+  (see YTB/horror/keeper/part1: timemap.json, three/scenes/keeper_p1_map.js). Pin key words (counts, knocks, names) as anchors.
+- Word timings with faster-whisper per line; fix misheard words by hand.
 - Loudness: two-pass loudnorm to -14 LUFS in the post script.
+
+Earlier test voices: YTB/horror/voice_tests/ (Unfiltered was #4).
