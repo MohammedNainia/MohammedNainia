@@ -5,6 +5,10 @@
 <script type="module">
 // THE KEEPER'S RULES, Part 1: "The Rules" (16:9, 150 s). Timed to YTB/horror/keeper/part1/voice/narration.mp3.
 import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+import {DUR as DUR_V, MAP} from './keeper_p1_map.js';      // Samara's pacing -> the scene's own timeline
+function toScene(t) { if (t <= MAP[0][0]) return t - MAP[0][0] + MAP[0][1];
+  for (let i = 1; i < MAP.length; i++) if (t <= MAP[i][0]) { const [n0, o0] = MAP[i - 1], [n1, o1] = MAP[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); }
+  return MAP[MAP.length - 1][1] + t - MAP[MAP.length - 1][0]; }
 const {scene, cam, renderer, render, grain} = setup({bloom: .7, w: 1920, h: 1080});
 const DUR = 150;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -148,6 +152,7 @@ const beamGeo = new THREE.ConeGeometry(6, 90, 20, 1, true); beamGeo.translate(0,
 const beamMat = new THREE.MeshBasicMaterial({color: 0xfff0c8, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide});
 const beamMesh = new THREE.Mesh(beamGeo, beamMat); beamMesh.position.copy(beam.position); scene.add(beamMesh);
 const beam2 = beamMesh.clone(); scene.add(beam2);
+const rockMoon = new THREE.PointLight(0x9fb4dc, 0, 40, 1.0); rockMoon.position.set(0, 9, 20); scene.add(rockMoon);   // faint cold light on the rocks between sweeps
 const keyLight = new THREE.PointLight(0xc8d4ff, 0, 3, 1.5); scene.add(keyLight);       // soft face light for the lantern-room shots
 const torch = new THREE.SpotLight(0xf2f6ff, 0, 14, .5, .5, 1); scene.add(torch, torch.target);   // phone torch (Part 2 flash)
 const spill = new THREE.SpotLight(0xfff0c8, 0, 70, .42, .55, 0); spill.position.copy(beam.position); scene.add(spill, spill.target);                    // the lens throws two beams, back to back
@@ -189,9 +194,9 @@ function shot(t) {
   if (t < 89.5) { const k = ease((t - 85) / 4.5); return [V(.05, TOWER_H - .8, .05), V(0, 0, 0), 46 - 14 * k, 'stairs']; }      // straight down the well                    // the ninth, at the bottom of the stairs
   if (t < 107.5) { const k = ease((t - 89.5) / 18); return [around(2.3, 1.4 - .25 * k, 1.55), HEAD_SIT(), 46 - 8 * k, 'night']; }  // eyes shut
   if (t < 115.0) return [V(1.6, TOP + 1.3, 1.9), V(-.5, .8, 22), 26, 'night'];                                                                          // empty rocks
-  if (t < 120.5) { const k = ease((t - 115) / 5.5); return [around(.8, 1.4, 1.7), HEAD_SIT().add(V(0, -.3, 0)), 56 - 6 * k, 'night']; }   // relief
+  if (t < 120.5) { const k = ease((t - 115) / 5.5); return [around(2.75, 1.4, 1.55), HEAD_SIT().add(V(0, -.1, 0)), 56 - 6 * k, 'night']; }   // relief
   if (t < 123.8) return [around(DA + 1.3, 1.35, 1.4), around(DA, LR, 1.1), 50, 'night'];   // the door
-  if (t < 132.8) { const k = ease((t - 123.8) / 9); return [around(2.1, 1.35 - .2 * k, 1.5), HEAD_SIT(), 42 - 8 * k, 'night']; }   // her, frozen
+  if (t < 132.8) { const k = ease((t - 123.8) / 9); return [around(2.1, 1.42, 1.5), HEAD_SIT(), 52 - 8 * k, 'night']; }   // her, frozen
   if (t < 137.7) { const k = ease((t - 132.8) / 4.9); return [around(DA + .9, 1.05 - .25 * k, 1.55), around(DA, LR, 1.52), 40, 'night']; }  // the window in the door
   if (t < T.black) { const k = ease((t - 137.7) / 3.6); return [V(-24, 12, 30 - 4 * k), V(0, TOP, 0), 40, 'night']; }                                     // the light stops
   if (t >= T.flash && t < T.flash + 1.0) return [V(Math.cos(9.24 + 2.2) * .9, 8.2, Math.sin(9.24 + 2.2) * .9), V(Math.cos(9.24) * 1.0, 5.6, Math.sin(9.24) * 1.0), 62, 'flash'];                                                                  // Part 2 flash: stairs in the dark
@@ -268,6 +273,7 @@ function renderAt(t) {
   boat.visible = t < 16.6;
   const bk = clamp01((t - 7.6) / 9);
   boat.position.set(-14 - 30 * bk, .1 + Math.sin(t * 1.3) * .08, 16 + 25 * bk); boat.rotation.y = .9;
+  rockMoon.intensity = !dusk && t >= 53 && t < T.open ? 7 : 0;
   keyLight.intensity = near && !dusk ? .9 : 0; keyLight.position.copy(pos).add(V(0, .25, 0));
   torch.intensity = mode === 'flash' ? 12 : 0; torch.position.copy(pos); torch.target.position.copy(look);
   // camera
@@ -283,6 +289,6 @@ function renderAt(t) {
   render(t);
   return true;
 }
-window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+window.renderAt = t => renderAt(toScene(t)); window.DUR = DUR_V; window.ready = true;
 </script>
 </body></html>
