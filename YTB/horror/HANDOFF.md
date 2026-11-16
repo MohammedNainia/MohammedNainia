@@ -25,7 +25,9 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
    Thumbnails: upload via a raw.githubusercontent.com URL (mcp.vidiq.com upload URL is blocked here).
 
 ## Done so far
-- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, thumbnail "DON'T COUNT THEM / PART 1"), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0): all posted.
+- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, thumbnail "DON'T COUNT THEM / PART 1"), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0), Baby Monitor Part 2 (Short, 57 s, https://www.youtube.com/watch?v=HEXrLwstn0g): all posted.
+- Darija versions on the Facebook Page قصص هارو المرعبة (YTB/horror/facebook): Part 1 https://www.facebook.com/reel/1300685672216645 , Part 2 https://www.facebook.com/reel/3061539507571879 .
+  Darija voices come from the user's VoiceStudio (OmniVoice) via their local agent; one render serves both languages (fixed line slots, see baby_monitor2).
 - Keeper's Rules Parts 2 and 3 are planned (story in this chat's history: Part 2 "The Light Stopped": dark spiral stairs,
   phone torch, figures in old keeper uniforms, the front one wears her coat; Part 3 "The Last Keeper": the copy wants to swap
   places, she leaves at dawn, the note is in her handwriting with rule 4 "Don't trust the keeper who left", she has a paper face).
