@@ -13,7 +13,7 @@ The profile circle covers the bottom left corner on desktop: only the sofa is th
 Primary: Video creator. Add: Entertainment website, Arts & entertainment.
 
 ## 4. Bio / Intro (max 101 characters)
-قصص رعب قصيرة بالدارجة المغربية 🌙 هارو كتعيش حوايج عادية... حتى كيوليو مرعبين. فيديو جديد كل أسبوع.
+قصص رعب قصيرة بالدارجة المغربية 🌙 هارو كتعيش حوايج عادية... حتى كيوليو مرعبين. فيديو جديد كل نهار.
 
 ## 5. About / Details
 هارو بنت عادية: كتحضي الدراري، كتركب فالطوبيس، كتبقى بوحدها فالدار.
