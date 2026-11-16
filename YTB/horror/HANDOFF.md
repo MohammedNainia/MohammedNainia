@@ -12,6 +12,9 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
 - Captions: white, sentence-safe chunks; other speakers in pink italic. Hook text on frame 0; reels loop (last frame = first).
 - Loudness -14 LUFS (two-pass loudnorm in each post.py).
 
+## Skills
+- camera-cinematography (.claude/skills/camera-cinematography): use it when planning shots, lenses and camera moves for any scene.
+
 ## Pipeline (see YTB/horror/mum as the latest complete example)
 1. Script -> generate voice lines (Artlist) -> faster-whisper word timings -> layout.json (line starts) + words.json.
 2. Scene: YTB/horror/three/scenes/<name>.html using scenes/lib.js (person(), flat(), mesh(), canvasTex(), post FX).
