@@ -1,5 +1,5 @@
-DOORBELL CAMERA (vertical Short, 50 s, loops). English + Darija share one render (three/scenes/doorbell.html).
-Line slots: n1 .6, n2 7.6, n3 15.0, n4 22.0, n5 29.2, n6 35.0, n7 40.6, n8 44.4 (end 47.2).
+DOORBELL CAMERA (vertical Short, 52 s, loops). English only (Darija on hold); one render (three/scenes/doorbell.html).
+Line slots: n1 .6, n2 7.6, n3 15.0, n4 22.0, n5 29.2, n6 35.0, n7 40.6, n8 44.0, n9 46.0 (end 48.8, 52 s).
 English voice: Samara X (Artlist Eleven v3).
 n1 At 3 a.m., my doorbell camera sent me a notification. Motion at the front door.  | فالتلاتة ديال الليل، الكاميرا ديال الباب صيفطات ليا نوتيفيكاسيون. كاين شي حركة قدام الباب.
 n2 I opened the live view. The porch was empty. Just the gate, and the street light. | حليت البث المباشر. قدام الباب ما كان حتى حد. غير الباب الحديدي، والضو ديال الزنقة.
@@ -8,5 +8,6 @@ n4 And then the camera started to turn. Slowly. By itself.                      
 n5 It turned away from the porch... toward my bedroom window.                     | دارت على الباب. ومشات للشرجم ديال البيت ديالي.
 n6 I could see myself. In bed. Holding my phone.                                   | شفت راسي. فالناموسية. وفيدي التيليفون.
 n7 And someone standing right next to my bed.                                      | وشي حد واقف حدا الناموسية ديالي.
-n8 I haven't looked up yet.                                                        | مازال ما هزيتش عينيا.
+n8 I live alone.   (added: the ending must be clear)
+n9 I haven't looked up yet.                                                        | مازال ما هزيتش عينيا.
 The figure beside her bed exists only in the camera feed. Frame 0 = last frame (the feed with the figure).

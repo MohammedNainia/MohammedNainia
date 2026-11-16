@@ -4,6 +4,9 @@ Channel: PaperLit (YouTube @paperlit, channel UCEPxEir-yy6bpwdue24CLlA). **YouTu
 Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs unless asked. Never use the long dash in any text.
 
 ## Style and rules
+- ENGLISH ONLY until the user says otherwise (Darija / Facebook versions on hold).
+- Every reel needs a clear, understandable ending (a closer line that makes the threat obvious, e.g. "I live alone.")
+  and close-ups on the key reveal so it reads at a glance on a phone.
 - Pure horror (no philosophy question). Real, everyday situations that turn wrong; horror carried by sound and ambiguity.
   Avoid the "it gets closer every time" mechanic and "wish" stories (user says they are overused / didn't like).
 - Look: low-poly faceted 3D built in three.js (YTB/horror/three). Haru = main character (yellow hoodie or pyjamas, long black hair, dot eyes).

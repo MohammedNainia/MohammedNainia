@@ -1,12 +1,12 @@
 """DOORBELL CAMERA (English): finish the render (silent): hook, captions, narration, sound.
-    python post.py                  reads raw.mp4 -> doorbell_1080x1920.mp4  (the Darija version: ../doorbell_darija/post.py)
+    python post.py                  reads raw.mp4 -> doorbell_1080x1920.mp4
     python post.py --frames 0,900   check frames in check/"""
 import os, sys, json, wave, subprocess
 import numpy as np, cv2
 from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__)); VO = os.path.join(HERE, 'voice')
 SFX = os.path.join(HERE, '..', '..', 'lanternfold', 'sfx_library')
-W, H, FPS, DUR = 1080, 1920, 30, 50.0
+W, H, FPS, DUR = 1080, 1920, 30, 52.0
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 FONT_I = '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf'
 if not os.path.exists(FONT_I): FONT_I = FONT
@@ -15,7 +15,7 @@ WORDS = json.load(open(os.path.join(VO, 'words.json'))); LAY = {l['name']: l for
 args = sys.argv[1:]
 RAW = os.path.join(HERE, args[args.index('--raw') + 1] if '--raw' in args else 'raw.mp4')
 def ease(x): x = min(1, max(0, x)); return x * x * (3 - 2 * x)
-GLITCH = [(1.2, 1.45), (40.7, 40.95), (44.2, 44.35)]     # same as the scene
+GLITCH = [(1.2, 1.45), (40.7, 40.95), (45.9, 46.05)]     # same as the scene
 
 CHUNKS, i = [], 0
 while i < len(WORDS):
@@ -24,7 +24,7 @@ while i < len(WORDS):
         if WORDS[i + k][0][-1:] in ',.?!' or WORDS[i + k][3] != WORDS[i + k + 1][3]: n = k + 1; break
     CHUNKS.append(WORDS[i:i + n]); i += n
 f_cap = ImageFont.truetype(FONT, 64); f_mon = ImageFont.truetype(FONT_I, 64); f_hook = ImageFont.truetype(FONT, 120)
-END_CAP = 46.6
+END_CAP = 48.6
 def overlay(fr, t):
     im = Image.fromarray(cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)); d = ImageDraw.Draw(im, 'RGBA')
     ha = 1.0 if t < .12 else max(0, 1 - (t - .12) / .3) if t < .42 else ease((t - (DUR - .55)) / .2) if t > DUR - .55 else 0
@@ -64,7 +64,7 @@ def mix(path):
     for k in [1.9, 16.1, 17.4, 18.6, 19.8, 20.9]: add(k, bz, .22); add(k + .05, ding, .09)
     # the live view's hiss while it is on screen, glitch bursts
     hiss = band(rng.standard_normal(n).astype(np.float32), 1500, 7000); hiss /= np.abs(hiss).max(); env = np.zeros(n, np.float32)
-    for a, b in [(0, 1.5), (7.6, 11.5), (15.0, 18.5), (20.0, 25.6), (29.2, 44.4), (47.2, DUR)]: env[int(a * SR):int(b * SR)] = .02
+    for a, b in [(0, 1.5), (7.6, 11.5), (15.0, 18.5), (20.0, 25.6), (29.2, 44.0), (46.0, DUR)]: env[int(a * SR):int(b * SR)] = .02
     for a, b in GLITCH: env[int(a * SR):int(b * SR)] = .16
     m[:n] += hiss * env
     # the camera's little motor: whirring while it turns (22.6 to 33.6), louder on the close-up
@@ -75,8 +75,8 @@ def mix(path):
     for name, l in LAY.items(): add(l['offset'], load(os.path.join(VO, name + '.mp3')), 1.0)
     # her heartbeat from the window on, a low swell under "someone standing", silence on the last line
     hb = load(os.path.join(SFX, 'synth_heartbeat.wav')); k = 33.6
-    while k < 44.2: add(k, hb, .3); k += .85 - .25 * (k - 33.6) / 10.6
-    t = tt(3.6); dr = (np.sin(2 * np.pi * 55 * t) + .5 * np.sin(2 * np.pi * 82.4 * t) + .3 * brown(3.6)) * np.minimum(1, t / 1.5) * np.minimum(1, (3.6 - t) / .2)
+    while k < 45.8: add(k, hb, .3); k += .85 - .25 * (k - 33.6) / 12.2
+    t = tt(5.0); dr = (np.sin(2 * np.pi * 55 * t) + .5 * np.sin(2 * np.pi * 82.4 * t) + .3 * brown(3.6)) * np.minimum(1, t / 1.5) * np.minimum(1, (5.0 - t) / .2)
     add(40.8, dr.astype(np.float32), .08)
     m = m[:n]
     m /= max(1.0, np.abs(m).max() / .95)

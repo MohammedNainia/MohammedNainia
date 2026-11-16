@@ -247,7 +247,6 @@ mesh(scene, new THREE.CylinderGeometry(.08, .11, .22, 8), flat(0xf0dcb0), BX + .
 const bedLamp = new THREE.PointLight(0xffc98a, 1.6, 4.5, 1.5); bedLamp.position.set(BX + .95, .85, .35); scene.add(bedLamp);
 [[0x8fb5d8, 21.0], [0xe8a3b8, 21.5], [0xb8d8b0, 23.0]].forEach(([c, x]) => mesh(scene, new THREE.BoxGeometry(.4, .55, .02), flat(c), x, 1.65, .02));   // posters
 const rwin = mesh(scene, new THREE.PlaneGeometry(.9, 1.0), new THREE.MeshStandardMaterial({color: 0x9fb4d0, transparent: true, opacity: .12, roughness: .1}), RX - .05, 1.55, 1.6, false); rwin.rotation.y = Math.PI / 2;
-mesh(scene, new THREE.BoxGeometry(.06, 1.0, .04), flat(0x2b2b30), RX - .05, 1.55, 1.6); mesh(scene, new THREE.BoxGeometry(.06, .04, .9), flat(0x2b2b30), RX - .05, 1.55, 1.6);
 mesh(scene, new THREE.BoxGeometry(1.6, .02, 1.2), flat(0x7a5a6a), RX + 1.2, .01, 2.4);
 // her bag, and what falls out of it
 const bag = mesh(scene, jitterGeo(new THREE.BoxGeometry(.35, .28, .18), .02, 8), flat(0x9a6a3a), BX + .2, .66, BZ + 1.45);
@@ -293,8 +292,8 @@ const camIR = new THREE.PointLight(0xffffff, 0, 10, 1.1); scene.add(camIR);
 sitB.g.visible = false;
 const inBed = person(scene, Object.assign({pose: 'sit', x: BX + .1, z: .38, face: 0}, HARU)); inBed.g.position.y = -.06;
 inBed.arms.forEach((a, i) => { a.sh.rotation.set(-.9, 0, (i ? 1 : -1) * -.25); a.el.rotation.set(-1.0, 0, (i ? 1 : -1) * -.35); });
-const other = person(scene, {x: BX + .82, z: .7, face: -Math.PI / 2 + .3, coat: 0x141418, skin: 0xbab6ae, hair: 0x070707, long: true, pants: 0x101014, seed: 51, headScale: 1.3});
-other.g.scale.setScalar(1.12); other.headPivot.rotation.set(.3, -.2, .12); mesh(other.headPivot, new THREE.BoxGeometry(.3, .42, .06), flat(0x070707), 0, .02, .17);
+const other = person(scene, {x: BX + .82, z: .7, face: -Math.PI / 2 + .3, coat: 0x8c8a88, skin: 0xdcd8d0, hair: 0x101010, long: true, pants: 0x6a6866, seed: 51, headScale: 1.3});
+other.g.scale.setScalar(1.12); other.headPivot.rotation.set(.45, -.25, .1); other.mouth.visible = false;
 other.arms.forEach(a => { a.sh.rotation.set(-.05, 0, 0); a.el.rotation.set(-.05, 0, 0); }); other.g.visible = false;
 // her phone: the doorbell app (lock screen, then the live view + motion alerts)
 const ui = canvasTex(360, 760, (g, w, h, st = {}) => {
@@ -344,8 +343,8 @@ const phoneGlow = new THREE.PointLight(0xc8d4ff, 0, 2.0, 1.6); scene.add(phoneGl
 mesh(scene, new THREE.BoxGeometry(.45, .5, .4), WOOD, BX - .95, .25, .3);                                     // nightstand on the other side
 
 // ---------------------------------------------------------------- slots (seconds), English and Darija start lines here
-const S = {n1: .6, n2: 7.6, n3: 15.0, n4: 22.0, n5: 29.2, n6: 35.0, n7: 40.6, n8: 44.4, end: 47.2};
-const DUR = 50.0;
+const S = {n1: .6, n2: 7.6, n3: 15.0, n4: 22.0, n5: 29.2, n6: 35.0, n7: 40.6, n8: 44.0, n9: 46.0, end: 48.8};
+const DUR = 52.0;
 const PH = (x, y, z) => pscreen.localToWorld(V(x, y, z));
 function phShot(dist, fov, dy = 0) { phone.updateMatrixWorld(true); const c = PH(0, dy, 0), n = PH(0, dy, 1).sub(c).normalize(), u = PH(0, 1, 0).sub(PH(0, 0, 0)).normalize();
   return [c.clone().addScaledVector(n, dist), c, fov, 'phone', u]; }
@@ -363,8 +362,9 @@ function shot(t) {
   if (t < 25.6) return P(phShot(.22, 34, .028), 'phone');
   if (t < S.n5) { const k = ease((t - 25.6) / 3.6); return [V(18.45, 1.95, 3.3 - .1 * k), V(17.8, 1.72, 2.6), 34 - 4 * k, 'cam']; }
   if (t < S.n7) return P(phShot(.22 - .025 * ease((t - S.n5) / 11.4), 34, .028), 'phone');
-  if (t < S.n8) return P(phShot(.19 - .02 * ease((t - S.n7) / 3.8), 32, .028), 'phone');
-  const h = headOf(inBed); const k = ease((t - S.n8) / 2.8); return [h.clone().add(V(-.3, .05, 1.75 - .25 * k)), h.clone().add(V(-.3, -.08, 0)), 40, 'last'];
+  if (t < S.n8) return P(phShot(.19 - .02 * ease((t - S.n7) / 3.4), 32, .028), 'phone');
+  if (t < S.n9) { const h = headOf(inBed); const k = ease((t - S.n8) / 2); return [h.clone().add(V(.15, .05, 1.8 - .25 * k)), h.clone().add(V(.3, -.08, 0)), 42, 'last']; }
+  return P(phShot(.17, 32, .028), 'phone');
 }
 const yawAt = t => lerp(Math.PI, -.33, ease((t - 22.6) / 11.0));                 // the camera turns: from the gate to her window
 let uiState = '';
@@ -382,11 +382,13 @@ function renderAt(t) {
   const yaw = t < 1.5 || t >= S.end ? -.33 : yawAt(t);
   dcam.rotation.set(0, -yaw + Math.PI / 2, 0);
   const tgt = V(17.8 + Math.cos(yaw) * 4, 1.15 - (yaw < 1 ? .25 : 0), 2.6 + Math.sin(yaw) * 4);
-  doorCam.position.set(17.8, 1.78, 2.6); doorCam.lookAt(tgt); doorCam.fov = t < 1.5 || t >= S.end ? 22 : 72 - 50 * ease((t - 30.5) / 12); doorCam.updateProjectionMatrix();
+  const zin = t < 1.5 || t >= S.n9 ? 1 : ease((t - S.n7) / 3.0);                 // close-up on her and the one beside her bed
+  tgt.lerp(V(BX + .45, 1.42, .58), zin);
+  doorCam.position.set(17.8, 1.78, 2.6); doorCam.lookAt(tgt); doorCam.fov = t < 1.5 || t >= S.n9 ? 16 : t >= S.n7 ? lerp(22, 16, ease((t - S.n7) / 3.0)) : 72 - 50 * ease((t - 30.5) / 10); doorCam.updateProjectionMatrix();
   dLed.material.color.setScalar(Math.floor(t * 1.2) % 2 ? 1 : .2).multiply(new THREE.Color(0xff2020));
   const figure = t < 1.4 || t >= 40.95;
   let glitch = 0;
-  for (const [a, b] of [[1.2, 1.45], [40.7, 40.95], [44.2, 44.35]]) if (t >= a && t < b) glitch = 1;
+  for (const [a, b] of [[1.2, 1.45], [40.7, 40.95], [45.9, 46.05]]) if (t >= a && t < b) glitch = 1;
   // phone UI state
   const notes = [];
   const pings = [1.9, 16.1, 17.4, 18.6, 19.8, 20.9];
