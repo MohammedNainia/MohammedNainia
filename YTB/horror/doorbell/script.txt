@@ -1,4 +1,4 @@
-DOORBELL CAMERA (vertical Short, 52 s, loops). English only (Darija on hold); one render (three/scenes/doorbell.html).
+DOORBELL CAMERA (vertical Short, 62 s, loops). English only (Darija on hold); one render (three/scenes/doorbell.html).
 Line slots: n1 .6, n2 7.6, n3 15.0, n4 22.0, n5 29.2, n6 35.0, n7 40.6, n8 44.0, n9 46.0 (end 48.8, 52 s).
 English voice: Samara X (Artlist Eleven v3).
 n1 At 3 a.m., my doorbell camera sent me a notification. Motion at the front door.  | فالتلاتة ديال الليل، الكاميرا ديال الباب صيفطات ليا نوتيفيكاسيون. كاين شي حركة قدام الباب.
@@ -11,3 +11,8 @@ n7 And someone standing right next to my bed.                                   
 n8 I live alone.   (added: the ending must be clear)
 n9 I haven't looked up yet.                                                        | مازال ما هزيتش عينيا.
 The figure beside her bed exists only in the camera feed. Frame 0 = last frame (the feed with the figure).
+
+ENDING (no narration): after "I haven't looked up yet." the figure bends down over her on the feed (48.8), glitch,
+"Connection lost" (50.25), black and total silence (51.0-52.6). Morning (52.6): daylight, her bed empty, her phone on
+the floor still on the LIVE app, the feed showing the empty bed through her window. 58.5: "Front Door: Motion detected",
+the phone buzzes on the floor, nobody picks it up. That shot is also frame 0 (the loop). Haru's fate is left unsaid.

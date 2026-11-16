@@ -6,7 +6,7 @@ import numpy as np, cv2
 from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__)); VO = os.path.join(HERE, 'voice')
 SFX = os.path.join(HERE, '..', '..', 'lanternfold', 'sfx_library')
-W, H, FPS, DUR = 1080, 1920, 30, 52.0
+W, H, FPS, DUR = 1080, 1920, 30, 62.0
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 FONT_I = '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf'
 if not os.path.exists(FONT_I): FONT_I = FONT
@@ -15,7 +15,7 @@ WORDS = json.load(open(os.path.join(VO, 'words.json'))); LAY = {l['name']: l for
 args = sys.argv[1:]
 RAW = os.path.join(HERE, args[args.index('--raw') + 1] if '--raw' in args else 'raw.mp4')
 def ease(x): x = min(1, max(0, x)); return x * x * (3 - 2 * x)
-GLITCH = [(1.2, 1.45), (40.7, 40.95), (45.9, 46.05)]     # same as the scene
+GLITCH = [(40.7, 40.95), (45.9, 46.05), (49.9, 50.25)]     # same as the scene
 
 CHUNKS, i = [], 0
 while i < len(WORDS):
@@ -62,9 +62,10 @@ def mix(path):
     t = tt(.32); bz = (np.sign(np.sin(2 * np.pi * 170 * t)) * .5 * np.sin(np.pi * t / .32)).astype(np.float32)
     t2 = tt(.5); ding = ((np.sin(2 * np.pi * 1320 * t2) + .5 * np.sin(2 * np.pi * 1980 * t2)) * np.exp(-t2 * 8)).astype(np.float32)
     for k in [1.9, 16.1, 17.4, 18.6, 19.8, 20.9]: add(k, bz, .22); add(k + .05, ding, .09)
+    add(58.5, bz, .4); add(58.55, ding, .1); add(58.5, bz, .2)                     # the last alert: the phone rattling on the floor, nobody there
     # the live view's hiss while it is on screen, glitch bursts
     hiss = band(rng.standard_normal(n).astype(np.float32), 1500, 7000); hiss /= np.abs(hiss).max(); env = np.zeros(n, np.float32)
-    for a, b in [(0, 1.5), (7.6, 11.5), (15.0, 18.5), (20.0, 25.6), (29.2, 44.0), (46.0, DUR)]: env[int(a * SR):int(b * SR)] = .02
+    for a, b in [(0, 1.5), (7.6, 11.5), (15.0, 18.5), (20.0, 25.6), (29.2, 44.0), (46.0, 50.25), (56.5, DUR)]: env[int(a * SR):int(b * SR)] = .02
     for a, b in GLITCH: env[int(a * SR):int(b * SR)] = .16
     m[:n] += hiss * env
     # the camera's little motor: whirring while it turns (22.6 to 33.6), louder on the close-up
@@ -78,7 +79,12 @@ def mix(path):
     while k < 45.8: add(k, hb, .3); k += .85 - .25 * (k - 33.6) / 12.2
     t = tt(5.0); dr = (np.sin(2 * np.pi * 55 * t) + .5 * np.sin(2 * np.pi * 82.4 * t) + .3 * brown(5.0)) * np.minimum(1, t / 1.5) * np.minimum(1, (5.0 - t) / .2)
     add(40.8, dr.astype(np.float32), .08)
-    m = m[:n]
+    t = tt(1.5); dr2 = (np.sin(2 * np.pi * 41 * t) + .6 * brown(1.5)) * np.minimum(1, t / 1.2); add(48.8, dr2.astype(np.float32), .12)   # it leans over her
+    # morning: birds, a far scooter, the room
+    for k in np.arange(53.0, 61.5, .8):
+        tt_ = tt(.18); ch = (np.sin(2 * np.pi * (3200 + 900 * np.sin(tt_ * 40)) * tt_) * np.exp(-tt_ * 18)).astype(np.float32); add(k + rng.random() * .4, ch, .03)
+    t = tt(4.0); sc = (band(rng.standard_normal(len(t)).astype(np.float32), 120, 900) * np.sin(np.pi * t / 4.0)); add(54.0, sc / np.abs(sc).max(), .02)
+    m = m[:n]; m[int(50.25 * SR):int(52.6 * SR)] *= 0                                  # connection lost: total silence until morning
     m /= max(1.0, np.abs(m).max() / .95)
     with wave.open(path, 'wb') as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes((m * 32767).astype('<i2').tobytes())
 
