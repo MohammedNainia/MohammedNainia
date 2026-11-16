@@ -76,7 +76,7 @@ def mix(path):
     # her heartbeat from the window on, a low swell under "someone standing", silence on the last line
     hb = load(os.path.join(SFX, 'synth_heartbeat.wav')); k = 33.6
     while k < 45.8: add(k, hb, .3); k += .85 - .25 * (k - 33.6) / 12.2
-    t = tt(5.0); dr = (np.sin(2 * np.pi * 55 * t) + .5 * np.sin(2 * np.pi * 82.4 * t) + .3 * brown(3.6)) * np.minimum(1, t / 1.5) * np.minimum(1, (5.0 - t) / .2)
+    t = tt(5.0); dr = (np.sin(2 * np.pi * 55 * t) + .5 * np.sin(2 * np.pi * 82.4 * t) + .3 * brown(5.0)) * np.minimum(1, t / 1.5) * np.minimum(1, (5.0 - t) / .2)
     add(40.8, dr.astype(np.float32), .08)
     m = m[:n]
     m /= max(1.0, np.abs(m).max() / .95)
