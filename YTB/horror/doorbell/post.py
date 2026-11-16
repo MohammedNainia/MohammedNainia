@@ -30,7 +30,7 @@ def overlay(fr, t):
     ha = 1.0 if t < .12 else max(0, 1 - (t - .12) / .3) if t < .42 else ease((t - (DUR - .55)) / .2) if t > DUR - .55 else 0
     if ha > 0:
         for k, line in enumerate(['DOORBELL', 'CAMERA']):
-            d.text((W // 2, 250 + k * 135), line, font=f_hook, fill=(255, 255, 255, int(255 * ha)), stroke_width=9, stroke_fill=(0, 0, 0, int(230 * ha)), anchor='mm')
+            d.text((W // 2, 1600 + k * 135), line, font=f_hook, fill=(255, 255, 255, int(255 * ha)), stroke_width=9, stroke_fill=(0, 0, 0, int(230 * ha)), anchor='mm')
     if .42 <= t < END_CAP:
         for ch in CHUNKS:
             if ch[0][1] - .05 <= t <= ch[-1][2] + .3:
