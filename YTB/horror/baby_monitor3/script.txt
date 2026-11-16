@@ -1,0 +1,22 @@
+BABY MONITOR 3: THE LAST BABYSITTER (final part, vertical, 101 s, loops). English + Darija share one render.
+Line slots (three/scenes/baby_monitor3.html, S): n1 .6, n2 7.4, n3 13.4, m1 20.6, m2 27.2, n4 34.6, m3 36.6, n5 46.4,
+n6 54.0, n7 61.0, n8 68.2, v1 75.2, (silence/black 76.2-78.4), n9 78.6, n10 87.6, song 91.4, end 98.4.
+English voices (Artlist Eleven v3): Haru = Samara X, Mum = Assistance, Nora (the monitor) = Hushed.
+
+n1 Haru: I threw the monitor in the bin outside. I locked my door. I didn't sleep.
+n2 Haru: In the morning, it was on my pillow. Switched on. Still warm.
+n3 Haru: So I went back to the family. I had to know what happened to the last babysitter.
+m1 Mum: Her name was Nora. She looked after our children for years. She sang to them every night.
+m2 Mum: One night she called us. She said someone else was singing on the monitor. We told her it was interference.
+n4 Haru: And then?
+m3 Mum: When we came home, the baby was asleep. And Nora was gone. The doors were locked from the inside.
+n5 Haru: She showed me a photo. Nora, smiling, in the nursery. Holding the same monitor.
+n6 Haru: That night I went back. I wanted to find the camera that didn't exist.
+n7 Haru: I stood behind the curtains, where the hand had been. And I looked at the screen.
+n8 Haru: On the screen, I wasn't alone. Nora was standing right next to me. Smiling.
+v1 Nora (monitor): Your turn.
+n9 Haru: They hired a new babysitter last week. She's on the couch right now, half asleep, with the monitor next to her.
+n10 Haru: She thinks it's interference. They always do.
+song Haru (through the monitor): Hush now... hush now, little one...
+Ending: the feed of the nursery: the baby's eyes open, Haru's pale hand in a faded yellow sleeve on the crib rail. = frame 0.
+The story closes the loop: Haru became the voice on the monitor, the new babysitter is where Haru was in Part 1.
