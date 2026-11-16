@@ -1,0 +1,422 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// "DOORBELL CAMERA" (9:16, 50 s). One render for the English and the Darija version (fixed line slots, S below).
+// Haru's room from baby_monitor2.html, now with a real window, and the street outside it.
+// The monitor's screen is a live night-vision feed: a second camera in the nursery rendered to a texture.
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .4});
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+scene.fog = new THREE.Fog(0x04050a, 4, 16);
+renderer.setClearColor(0x000000);
+
+// ---------------------------------------------------------------- the house (same as mum.html): bedroom upstairs is now the nursery
+const UP = 3, WALL = flat(0x6f6a78), WALL2 = flat(0x5b5f6b), WOOD = flat(0x5e4532), CARPET = flat(0x4f4a5e), DARK = new THREE.MeshBasicMaterial({color: 0x000000});
+mesh(scene, new THREE.BoxGeometry(4, .1, 4), CARPET, 2, UP - .05, -2);
+mesh(scene, new THREE.BoxGeometry(4, .1, 4), flat(0x7d7f88), 2, UP + 2.6, -2);
+mesh(scene, new THREE.BoxGeometry(4, 2.6, .1), WALL, 2, UP + 1.3, -4.05);
+mesh(scene, new THREE.BoxGeometry(4, 2.6, .1), WALL, 2, UP + 1.3, .05);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 4), WALL, 4.05, UP + 1.3, -2);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 2.6), WALL, 0, UP + 1.3, -2.7);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, .5), WALL, 0, UP + 1.3, -.25);
+mesh(scene, new THREE.BoxGeometry(.1, .55, .9), WALL, 0, UP + 2.33, -.95);
+const doorPivot = new THREE.Group(); doorPivot.position.set(0, UP, -1.4); scene.add(doorPivot);
+mesh(doorPivot, new THREE.BoxGeometry(.06, 2.05, .9), flat(0xd9d2c3), 0, 1.025, .45);
+doorPivot.rotation.y = 1.25;                                                     // the nursery door: open
+// crib: x 2.62..3.38, z -3.15..-1.85
+const CRIB = flat(0x8a6a4e), CX = 3.0, CZ = -2.5;
+mesh(scene, new THREE.BoxGeometry(.72, .12, 1.26), flat(0xdcd6e8), CX, UP + .44, CZ);              // mattress
+mesh(scene, new THREE.BoxGeometry(.76, .04, 1.3), CRIB, CX, UP + .37, CZ);
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) mesh(scene, new THREE.BoxGeometry(.05, 1.0, .05), CRIB, CX + sx * .37, UP + .5, CZ + sz * .64);
+for (const sx of [-1, 1]) mesh(scene, new THREE.BoxGeometry(.05, .04, 1.32), CRIB, CX + sx * .37, UP + .97, CZ);
+for (const sz of [-1, 1]) mesh(scene, new THREE.BoxGeometry(.78, .04, .05), CRIB, CX, UP + .97, CZ + sz * .64);
+for (let k = -5; k <= 5; k++) for (const sx of [-1, 1]) mesh(scene, new THREE.BoxGeometry(.02, .5, .02), CRIB, CX + sx * .37, UP + .72, CZ + k * .115, false);
+for (let k = -2; k <= 2; k++) for (const sz of [-1, 1]) mesh(scene, new THREE.BoxGeometry(.02, .5, .02), CRIB, CX + k * .12, UP + .72, CZ + sz * .64, false);
+const mobile = new THREE.Group(); mobile.position.set(CX, UP + 1.55, CZ - .1); scene.add(mobile);     // a little hanging mobile
+mesh(mobile, new THREE.CylinderGeometry(.006, .006, .6, 4), CRIB, 0, .3, 0, false);
+for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; mesh(mobile, new THREE.IcosahedronGeometry(.035, 0), flat([0xe7c46a, 0x9fb7e8, 0xe8a3b8, 0xb5d9a8][k]), Math.cos(a) * .16, -.12, Math.sin(a) * .16, false); }
+// the baby: swaddled, head toward the back wall
+const baby = new THREE.Group(); baby.position.set(CX, UP + .52, CZ - .05); scene.add(baby);
+const swaddle = mesh(baby, jitterGeo(new THREE.CapsuleGeometry(.1, .32, 3, 6), .015, 3), flat(0xf0e2c8), 0, .03, .12); swaddle.rotation.x = Math.PI / 2; swaddle.scale.set(1.1, 1, .7);
+const bhead = mesh(baby, jitterGeo(new THREE.IcosahedronGeometry(.085, 2), .008, 5), flat(0xf1c9a5), 0, .06, -.2);
+mesh(baby, new THREE.IcosahedronGeometry(.088, 1), flat(0xf3e6d0), 0, .075, -.24).scale.set(1.05, 1, .8);   // bonnet
+const bEyesShut = [], bEyesOpen = [];
+for (const sx of [-.03, .03]) {
+  const s = mesh(baby, new THREE.BoxGeometry(.022, .004, .004), new THREE.MeshBasicMaterial({color: 0x3a2620}), sx, .145, -.19, false); bEyesShut.push(s);
+  const o = mesh(baby, new THREE.SphereGeometry(.016, 8, 6), new THREE.MeshBasicMaterial({color: 0xffffff}), sx, .15, -.19, false); o.scale.y = .8; o.visible = false; bEyesOpen.push(o);
+}
+// the hand: pale, long, resting on the crib rail, its arm coming out of the gap in the curtains
+const PALE = flat(0xd9d7cf, {roughness: .7});
+const hand = new THREE.Group(); scene.add(hand); hand.visible = false;
+{
+  const R = V(CX + .37, UP + .99, CZ + .1), S = V(3.93, UP + 1.5, -2.2);              // on the rail <- from the curtain gap
+  const arm = mesh(hand, jitterGeo(new THREE.CylinderGeometry(.028, .036, 1, 5), .006, 9), PALE, 0, 0, 0, false);
+  arm.position.copy(R.clone().add(S).multiplyScalar(.5)); arm.lookAt(S); arm.rotateX(Math.PI / 2); arm.scale.y = R.distanceTo(S);
+  mesh(hand, jitterGeo(new THREE.BoxGeometry(.07, .025, .09), .006, 4), PALE, R.x + .03, R.y + .03, R.z, false);
+  for (let k = 0; k < 4; k++) {                                                    // fingers curled over the rail, too long
+    const f = mesh(hand, new THREE.BoxGeometry(.11, .014, .014), PALE, R.x - .045, R.y + .005, R.z - .033 + k * .022, false); f.rotation.z = -.55;
+    mesh(hand, new THREE.BoxGeometry(.012, .06, .013), PALE, R.x - .1, R.y - .03, R.z - .033 + k * .022, false);
+  }
+}
+// dresser + star projector, nightstand lamp off
+mesh(scene, new THREE.BoxGeometry(.9, .8, .45), flat(0xcfc6b5), 1.0, UP + .4, -3.75);
+for (const y of [.2, .55]) mesh(scene, new THREE.BoxGeometry(.8, .02, .02), WOOD, 1.0, UP + y, -3.52);
+const PROJ = V(1.0, UP + .92, -3.65);
+const projector = new THREE.Group(); projector.position.copy(PROJ); scene.add(projector);
+mesh(projector, new THREE.CylinderGeometry(.08, .09, .05, 10), flat(0xeeeeee), 0, -.09, 0);
+const dome = mesh(projector, new THREE.SphereGeometry(.08, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({color: 0xbcd0ff}), 0, -.065, 0, false);
+const starTex = canvasTex(64, 64, (g, w) => {
+  g.clearRect(0, 0, w, w); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.beginPath();
+  for (let i = 0; i < 10; i++) { const r = i % 2 ? 9 : 30, a = i * Math.PI / 5 - Math.PI / 2; g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); }
+  g.fill();
+});
+const stars = [];
+{ let s = 11; const r = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 90; i++) {
+    const el = .08 + r() * 1.35, az = r() * Math.PI * 2;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({map: starTex, color: r() < .6 ? 0x9cb8ff : 0xffd98f, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, opacity: .55 + r() * .4}));
+    scene.add(m); stars.push({m, el, az, sz: .04 + r() * .05});
+  }
+}
+const BOX = {x0: .06, x1: 3.99, z0: -3.99, z1: -.01, y1: UP + 2.54};
+function placeStars(t) {
+  const rot = t * .22;
+  for (const st of stars) {
+    const a = st.az + rot, d = V(Math.cos(a) * Math.cos(st.el), Math.sin(st.el), Math.sin(a) * Math.cos(st.el));
+    let best = 1e9, n = null;
+    const test = (k, val, nn) => { const dd = d.getComponent(k); if (Math.abs(dd) < 1e-4) return; const s = (val - PROJ.getComponent(k)) / dd; if (s > 0 && s < best) { best = s; n = nn; } };
+    test(0, BOX.x0, V(1, 0, 0)); test(0, BOX.x1, V(-1, 0, 0)); test(2, BOX.z0, V(0, 0, 1)); test(2, BOX.z1, V(0, 0, -1)); test(1, BOX.y1, V(0, -1, 0));
+    const p = PROJ.clone().addScaledVector(d, best);
+    st.m.position.copy(p).addScaledVector(n, .005); st.m.lookAt(p.clone().add(n));
+    st.m.scale.setScalar(st.sz * (1.0 + best * .5));
+  }
+}
+// closet in the front wall: x 2.65..3.75
+const CL = flat(0xd6cfc0);
+mesh(scene, new THREE.BoxGeometry(1.14, 2.2, .04), CL, 3.2, UP + 1.1, -.03);
+for (const x of [2.63, 3.77]) mesh(scene, new THREE.BoxGeometry(.04, 2.2, .62), CL, x, UP + 1.1, -.33);
+mesh(scene, new THREE.BoxGeometry(1.18, .05, .62), CL, 3.2, UP + 2.2, -.33);
+mesh(scene, new THREE.BoxGeometry(1.1, .02, .55), flat(0x2a2522), 3.2, UP + .01, -.33);
+mesh(scene, new THREE.CylinderGeometry(.012, .012, 1.1, 5), flat(0x999999, {metalness: .6}), 3.2, UP + 1.85, -.33).rotation.z = Math.PI / 2;
+[0x8fb5d8, 0xe8c0c8, 0xf0e0a0, 0xb8d8b0, 0xd8d0f0].forEach((c, k) => mesh(scene, jitterGeo(new THREE.BoxGeometry(.04, .32, .3), .02, k), flat(c), 2.85 + k * .16, UP + 1.65, -.33));
+const clDoors = [2.66, 3.74].map((x, k) => { const p = new THREE.Group(); p.position.set(x, UP, -.64); scene.add(p);
+  mesh(p, new THREE.BoxGeometry(.54, 2.15, .03), flat(0xe2dccd), k ? -.27 : .27, 1.08, 0); mesh(p, new THREE.SphereGeometry(.02, 6, 4), flat(0xb8a46a, {metalness: .7}), k ? -.48 : .48, 1.05, -.03); return p; });
+// window + curtains (x=4)
+const win = mesh(scene, new THREE.PlaneGeometry(1.1, 1.2), new THREE.MeshBasicMaterial({color: 0x34507e}), 4.0, UP + 1.6, -2.2, false); win.rotation.y = -Math.PI / 2;
+mesh(scene, new THREE.BoxGeometry(.05, 1.25, .05), flat(0x2b2b30), 3.99, UP + 1.6, -2.2); mesh(scene, new THREE.BoxGeometry(.05, .05, 1.15), flat(0x2b2b30), 3.99, UP + 1.6, -2.2);
+mesh(scene, new THREE.CylinderGeometry(.015, .015, 2.0, 5), flat(0x777777, {metalness: .5}), 3.92, UP + 2.35, -2.2).rotation.x = Math.PI / 2;
+const curtains = [-1, 1].map(s => mesh(scene, jitterGeo(new THREE.BoxGeometry(.06, 2.1, .62, 1, 6, 4), .03, s + 4), flat(0xb7c4d8), 3.9, UP + 1.3, -2.2 + s * .32));
+// ground floor: hall (from mum.html) and a living room x 0..4.5, z 2.2..7
+mesh(scene, new THREE.BoxGeometry(2.4, .1, 2.6), CARPET, -1.2, UP - .05, -2.7);
+mesh(scene, new THREE.BoxGeometry(2.4, .1, 4), flat(0x7d7f88), -1.2, UP + 2.6, -2);
+mesh(scene, new THREE.BoxGeometry(.1, 5.6, 12), WALL2, -2.45, 2.8, 2);
+mesh(scene, new THREE.BoxGeometry(2.4, 2.6, .1), WALL2, -1.2, UP + 1.3, -4.05);
+const N = 15, Z0 = -1.4, RUN = .3, RISE = UP / N;
+for (let k = 0; k < N; k++) {
+  const y = UP - (k + 1) * RISE, z = Z0 + k * RUN + RUN / 2;
+  mesh(scene, new THREE.BoxGeometry(1.2, RISE, RUN), WOOD, -1.8, y + RISE / 2, z);
+  mesh(scene, new THREE.BoxGeometry(1.2, y + .01, RUN), flat(0x3b2d22), -1.8, y / 2, z);
+  if (k % 2 === 0) mesh(scene, new THREE.CylinderGeometry(.025, .025, .9, 5), flat(0xd9d2c3), -1.18, y + RISE + .45, z);
+}
+const rail = mesh(scene, new THREE.BoxGeometry(.06, .06, 5.1), flat(0x6b4a33), -1.18, 2.4, .85); rail.rotation.x = Math.atan2(UP, N * RUN);
+mesh(scene, new THREE.BoxGeometry(.1, UP, 4.5), WALL2, -1.12, UP / 2, .85);
+mesh(scene, new THREE.BoxGeometry(2.6, .1, 5), flat(0x3a332d), -1.2, -.05, 4.6);
+// the front door at the end of the hall (x -1.6..-0.7), the night outside
+mesh(scene, new THREE.BoxGeometry(1.0, 2.6, .1), WALL2, -2.1, 1.3, 7.05); mesh(scene, new THREE.BoxGeometry(.75, 2.6, .1), WALL2, -.33, 1.3, 7.05);
+mesh(scene, new THREE.BoxGeometry(.9, .5, .1), WALL2, -1.15, 2.35, 7.05);
+const fdoor = new THREE.Group(); fdoor.position.set(-1.6, 0, 7.05); scene.add(fdoor);
+mesh(fdoor, new THREE.BoxGeometry(.9, 2.1, .06), flat(0x5a3c2a), .45, 1.05, 0); mesh(fdoor, new THREE.SphereGeometry(.03, 6, 4), flat(0xb8a46a, {metalness: .7}), .8, 1.0, -.05);
+mesh(scene, new THREE.PlaneGeometry(4, 3), new THREE.MeshBasicMaterial({color: 0x0d1626}), -1.15, 1.4, 8.2, false).rotation.y = Math.PI;
+const porch = new THREE.PointLight(0xffc88a, 0, 3.5, 1.5); porch.position.set(-1.15, 2.2, 7.7); scene.add(porch);
+mesh(scene, new THREE.BoxGeometry(.32, .8, .9), WOOD, -2.25, .4, 5.0);                  // console table in the hall
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 1.3), WALL2, .05, 1.3, 2.75);           // hall / living room wall with a doorway z 3.4..4.6
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 2.5), WALL2, .05, 1.3, 5.85);
+mesh(scene, new THREE.BoxGeometry(.1, .55, 1.2), WALL2, .05, 2.33, 4.0);
+const LWALL = flat(0x5d6070);
+mesh(scene, new THREE.BoxGeometry(4.6, .1, 5), flat(0x4a4038), 2.25, -.05, 4.6);
+mesh(scene, new THREE.BoxGeometry(4.6, .1, 5), flat(0x6d6f78), 2.25, 2.65, 4.6);
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 5), LWALL, 4.55, 1.3, 4.6);
+mesh(scene, new THREE.BoxGeometry(4.6, 2.6, .1), LWALL, 2.25, 1.3, 2.15);
+mesh(scene, new THREE.BoxGeometry(1.2, 2.6, .1), LWALL, .6, 1.3, 7.05); mesh(scene, new THREE.BoxGeometry(2.3, 2.6, .1), LWALL, 3.4, 1.3, 7.05);
+mesh(scene, new THREE.BoxGeometry(1.1, .8, .1), LWALL, 1.75, .4, 7.05); mesh(scene, new THREE.BoxGeometry(1.1, .5, .1), LWALL, 1.75, 2.35, 7.05);
+const lwin = mesh(scene, new THREE.PlaneGeometry(1.1, 1.3), new THREE.MeshBasicMaterial({color: 0x2c4268}), 1.75, 1.45, 7.1, false); lwin.rotation.y = Math.PI;
+mesh(scene, new THREE.BoxGeometry(.05, 1.3, .06), flat(0x2b2b30), 1.75, 1.45, 7.06); mesh(scene, new THREE.BoxGeometry(1.1, .05, .06), flat(0x2b2b30), 1.75, 1.45, 7.06);
+// couch against x=4.5 facing -x, rug, coffee table, side table, a dark TV
+const SOFA = flat(0x5a6a7a);
+mesh(scene, jitterGeo(new THREE.BoxGeometry(.72, .42, 2.0, 2, 1, 3), .02, 2), SOFA, 4.1, .21, 5.0);
+mesh(scene, jitterGeo(new THREE.BoxGeometry(.22, .9, 2.0, 1, 2, 3), .02, 3), SOFA, 4.4, .45, 5.0);
+for (const z of [3.92, 6.08]) mesh(scene, jitterGeo(new THREE.BoxGeometry(.72, .62, .18), .02, 4), SOFA, 4.1, .31, z);
+for (const z of [4.5, 5.5]) mesh(scene, jitterGeo(new THREE.BoxGeometry(.6, .12, .95), .03, 5), flat(0x667888), 4.05, .48, z);
+mesh(scene, jitterGeo(new THREE.BoxGeometry(.18, .35, .4), .04, 6), flat(0xd9b46a), 4.3, .7, 4.3).rotation.z = .3;     // cushion
+const blanketL = mesh(scene, jitterGeo(new THREE.BoxGeometry(.5, .08, .7), .04, 8), flat(0x8a6f99), 4.05, .58, 4.4);
+mesh(scene, new THREE.BoxGeometry(2.0, .02, 2.4), flat(0x6b5a4c), 2.9, .01, 5.0);
+mesh(scene, new THREE.BoxGeometry(.6, .05, 1.1), WOOD, 3.1, .42, 5.0); for (const z of [4.5, 5.5]) mesh(scene, new THREE.BoxGeometry(.5, .4, .05), WOOD, 3.1, .2, z);
+mesh(scene, new THREE.CylinderGeometry(.04, .035, .1, 8), flat(0xd8d4cc), 3.0, .5, 5.2);                                           // a mug
+mesh(scene, new THREE.BoxGeometry(.45, .04, .45), WOOD, 4.1, .6, 6.45); mesh(scene, new THREE.BoxGeometry(.4, .58, .4), flat(0x4a3627), 4.1, .29, 6.45);
+mesh(scene, new THREE.BoxGeometry(.4, .5, 1.4), flat(0x2a2622), .35, .25, 5.4);
+mesh(scene, new THREE.BoxGeometry(.06, .7, 1.25), flat(0x111114), .35, .85, 5.4);
+const tvDot = mesh(scene, new THREE.SphereGeometry(.008, 6, 4), new THREE.MeshBasicMaterial({color: 0xff2a2a}), .39, .52, 5.9, false);
+
+// ---------------------------------------------------------------- the baby monitor (parent unit) on the side table, facing the couch
+const MON = new THREE.Group(); MON.position.set(4.1, .62, 6.42); MON.rotation.y = -Math.PI / 2 - .45; scene.add(MON);
+const WHITE = flat(0xeceae4, {roughness: .5});
+mesh(MON, new THREE.BoxGeometry(.17, .025, .1), WHITE, 0, .012, 0);
+const body = mesh(MON, jitterGeo(new THREE.BoxGeometry(.17, .15, .035), .002, 2), WHITE, 0, .1, -.01); body.rotation.x = -.18;
+const face = new THREE.Group(); face.position.set(0, .1, .009); face.rotation.x = -.18; MON.add(face);
+mesh(face, new THREE.BoxGeometry(.13, .095, .004), flat(0x15161a), 0, .018, .006, false);
+const ANT = mesh(MON, new THREE.CylinderGeometry(.006, .008, .09, 5), WHITE, .07, .21, -.02); ANT.rotation.z = -.15;
+// the night-vision feed: a camera high in the nursery corner, rendered into a texture
+const RT = new THREE.WebGLRenderTarget(480, 360, {samples: 0}); RT.texture.colorSpace = THREE.SRGBColorSpace;
+const nvCam = new THREE.PerspectiveCamera(58, 4 / 3, .05, 20); nvCam.position.set(2.0, UP + 2.3, -.75); nvCam.lookAt(3.1, UP + .55, -2.45); nvCam.fov = 52; nvCam.updateProjectionMatrix();
+mesh(scene, new THREE.BoxGeometry(.08, .06, .08), WHITE, 2.0, UP + 2.36, -.7);                              // the camera unit on the wall
+const camLed = mesh(scene, new THREE.SphereGeometry(.006, 6, 4), new THREE.MeshBasicMaterial({color: 0xff3030}), 2.0, UP + 2.36, -.75, false);
+const ir = new THREE.PointLight(0xffffff, 0, 9, 1.2); ir.position.copy(nvCam.position); scene.add(ir);
+const osd = canvasTex(480, 360, (g, w, h, st = {}) => {
+  g.clearRect(0, 0, w, h); g.font = 'bold 22px monospace'; g.fillStyle = 'rgba(230,255,230,.85)';
+  g.fillText('CAM 1', 18, 34); g.fillText('19°C', w - 80, 34);
+  g.fillText(st.clock || '23:41', 18, h - 20);
+  for (let i = 0; i < 4; i++) g.fillRect(w - 70 + i * 13, h - 22 - i * 5, 9, 8 + i * 5);
+});
+const screenMat = new THREE.ShaderMaterial({
+  uniforms: {tNV: {value: RT.texture}, tOSD: {value: osd}, time: {value: 0}, glitch: {value: 0}, on: {value: 1}},
+  vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `uniform sampler2D tNV; uniform sampler2D tOSD; uniform float time; uniform float glitch; uniform float on; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+time*3.1)*43758.5453);}
+    void main(){
+      vec2 uv=vUv; float row=floor(uv.y*90.);
+      uv.x+=glitch*(h(vec2(row,1.))-.5)*.18 + (h(vec2(row*.1,time))-.5)*.004;
+      vec3 c=texture2D(tNV,uv).rgb; float l=dot(c,vec3(.3,.59,.11));
+      l=pow(clamp(l*1.7,0.,1.),.9);
+      l+= (h(uv*400.)-.5)*.16; l*= .9+.1*sin(uv.y*700.);
+      l=mix(l,h(uv*300.+time),glitch*.85);
+      float v=1.-.55*pow(distance(vUv,vec2(.5))*1.5,2.);
+      vec3 col=vec3(.62,1.,.66)*l*v;
+      vec4 o=texture2D(tOSD,vUv); col=mix(col,o.rgb,o.a);
+      gl_FragColor=vec4(col*on*.62,1.);
+    }`});
+const screen = mesh(face, new THREE.PlaneGeometry(.12, .09), screenMat, 0, .018, .0085, false); screen.castShadow = false;
+const LEDS = [0x3cff5a, 0x3cff5a, 0xd8ff3c, 0xffa53c, 0xff3c3c].map((c, k) => {
+  const m = mesh(face, new THREE.BoxGeometry(.016, .007, .004), new THREE.MeshBasicMaterial({color: c, toneMapped: false}), -.044 + k * .022, -.047, .007, false);
+  m.userData.c = new THREE.Color(c); return m;
+});
+const ledLight = new THREE.PointLight(0x9cffb0, 0, 1.6, 1.6); scene.add(ledLight);
+const monitorGlow = new THREE.PointLight(0x9fe8b0, 0, 2.2, 1.4); scene.add(monitorGlow);
+
+// ---------------------------------------------------------------- Haru: yellow hoodie. One rig sits on the couch, one stands (stairs, nursery, walking)
+const HARU = {coat: 0xe2b23a, long: true, pants: 0x4c5670, seed: 3};
+const sit = person(scene, Object.assign({pose: 'sit', x: 3.98, z: 5.55, face: -Math.PI / 2}, HARU));
+sit.g.position.y = -.12;
+const st = person(scene, Object.assign({x: 0, z: 0}, HARU));
+const torch = new THREE.SpotLight(0xf2f0ff, 0, 7, .42, .55, 1.3); torch.castShadow = true; scene.add(torch, torch.target);
+
+// ---------------------------------------------------------------- lights
+const hemi = new THREE.HemisphereLight(0x7488b8, 0x121218, .55); scene.add(hemi);
+const moon = new THREE.SpotLight(0x86a6e0, 9, 9, .7, .6, 1.2); moon.position.set(5.5, UP + 2.4, -2.2); moon.target.position.set(2.8, UP, -2.6); scene.add(moon, moon.target);
+const projLight = new THREE.PointLight(0x7f9cff, 1.6, 5, 1.4); projLight.position.copy(PROJ).add(V(0, .1, 0)); scene.add(projLight);
+const lmoon = new THREE.SpotLight(0x7f9ad6, 10, 10, .6, .7, 1.2); lmoon.position.set(1.75, 2.4, 9.5); lmoon.target.position.set(3.0, 0, 4.5); scene.add(lmoon, lmoon.target);
+const hallGlow = new THREE.PointLight(0x8aa0d0, 1.6, 6, 1.4); hallGlow.position.set(-.5, 2.2, 5.4); scene.add(hallGlow);
+const landing = new THREE.PointLight(0x8a9ad0, 1.2, 5, 1.4); landing.position.set(-1.2, UP + 2.2, -2.6); scene.add(landing);
+const key = new THREE.PointLight(0x9fb2dc, .5, 3.5, 1.5); scene.add(key);
+
+
+// ---------------------------------------------------------------- the parents
+const mumP = person(scene, {x: -.55, z: 5.7, face: Math.PI, coat: 0x8a5466, long: true, hair: 0x2e211b, pants: 0x3a3440, seed: 11});
+const dadP = person(scene, {x: -.4, z: 6.6, face: Math.PI, coat: 0x3a4558, pants: 0x2b2f38, hair: 0x1a1512, seed: 19});
+const hallLight = new THREE.PointLight(0xffd6a0, 0, 6, 1.4); hallLight.position.set(-1.2, 2.45, 5.4); scene.add(hallLight);
+mesh(scene, new THREE.SphereGeometry(.07, 8, 6), new THREE.MeshBasicMaterial({color: 0xfff0d0}), -1.2, 2.55, 5.4, false);
+
+// ---------------------------------------------------------------- Haru's bedroom (far away at x 20..23.6, z 0..3.6)
+const RW = flat(0x6a6478), RX = 20, BX = 22.5, BZ = 1.0;
+mesh(scene, new THREE.BoxGeometry(3.6, .1, 3.6), flat(0x5b4a40), RX + 1.8, -.05, 1.8);
+mesh(scene, new THREE.BoxGeometry(3.6, .1, 3.6), flat(0x77727e), RX + 1.8, 2.65, 1.8);
+mesh(scene, new THREE.BoxGeometry(3.6, 2.6, .1), RW, RX + 1.8, 1.3, -.05); mesh(scene, new THREE.BoxGeometry(3.6, 2.6, .1), RW, RX + 1.8, 1.3, 3.65);
+// the outside wall with a real window opening (z 1.15..2.05, y 1.05..2.05)
+mesh(scene, new THREE.BoxGeometry(.1, 2.6, 1.15), RW, RX - .05, 1.3, .575); mesh(scene, new THREE.BoxGeometry(.1, 2.6, 1.55), RW, RX - .05, 1.3, 2.825);
+mesh(scene, new THREE.BoxGeometry(.1, 1.05, .9), RW, RX - .05, .525, 1.6); mesh(scene, new THREE.BoxGeometry(.1, .55, .9), RW, RX - .05, 2.325, 1.6);
+mesh(scene, new THREE.BoxGeometry(.12, 2.6, 4.0), flat(0x8a7a68), RX - .16, 1.3, 5.6);                          // facade beyond the room mesh(scene, new THREE.BoxGeometry(.1, 2.6, 3.6), RW, RX + 3.65, 1.3, 1.8);
+mesh(scene, new THREE.BoxGeometry(1.2, .42, 2.0), flat(0x3e3a52), BX, .21, BZ);                                   // bed
+mesh(scene, new THREE.BoxGeometry(1.25, .9, .1), WOOD, BX, .45, .02);
+mesh(scene, jitterGeo(new THREE.BoxGeometry(1.15, .14, 1.3), .04, 6), flat(0xc9a9c8), BX, .49, BZ + .25);          // duvet
+mesh(scene, jitterGeo(new THREE.BoxGeometry(.6, .12, .35), .03, 4), flat(0xe8e2d6), BX, .52, .3);                 // pillow
+mesh(scene, new THREE.BoxGeometry(.45, .5, .4), WOOD, BX + .95, .25, .3);                                         // nightstand
+mesh(scene, new THREE.CylinderGeometry(.08, .11, .22, 8), flat(0xf0dcb0), BX + .95, .61, .3);
+const bedLamp = new THREE.PointLight(0xffc98a, 1.6, 4.5, 1.5); bedLamp.position.set(BX + .95, .85, .35); scene.add(bedLamp);
+[[0x8fb5d8, 21.0], [0xe8a3b8, 21.5], [0xb8d8b0, 23.0]].forEach(([c, x]) => mesh(scene, new THREE.BoxGeometry(.4, .55, .02), flat(c), x, 1.65, .02));   // posters
+const rwin = mesh(scene, new THREE.PlaneGeometry(.9, 1.0), new THREE.MeshStandardMaterial({color: 0x9fb4d0, transparent: true, opacity: .12, roughness: .1}), RX - .05, 1.55, 1.6, false); rwin.rotation.y = Math.PI / 2;
+mesh(scene, new THREE.BoxGeometry(.06, 1.0, .04), flat(0x2b2b30), RX - .05, 1.55, 1.6); mesh(scene, new THREE.BoxGeometry(.06, .04, .9), flat(0x2b2b30), RX - .05, 1.55, 1.6);
+mesh(scene, new THREE.BoxGeometry(1.6, .02, 1.2), flat(0x7a5a6a), RX + 1.2, .01, 2.4);
+// her bag, and what falls out of it
+const bag = mesh(scene, jitterGeo(new THREE.BoxGeometry(.35, .28, .18), .02, 8), flat(0x9a6a3a), BX + .2, .66, BZ + 1.45);
+const junk = [[0x222228, .07, .015, .14], [0xd8c27a, .06, .02, .06], [0xe05a6a, .12, .04, .05]].map(([c, a, b, d], k) => {
+  const m = mesh(scene, new THREE.BoxGeometry(a, b, d), flat(c), BX - .1 + k * .14, .57, BZ + 1.15 + k * .1); m.visible = false; return m; });
+// the second night-vision camera: high in her corner. And the thing behind her, which only that camera sees
+const nvCam2 = new THREE.PerspectiveCamera(42, 4 / 3, .05, 20); nvCam2.position.set(RX + .35, 2.35, 3.3); nvCam2.lookAt(BX - .35, .85, BZ + .25);
+const ir2 = new THREE.PointLight(0xffffff, 0, 9, 1.2); ir2.position.copy(nvCam2.position); scene.add(ir2);
+const sitB = person(scene, Object.assign({pose: 'sit', x: BX - .45, z: BZ + .3, face: -Math.PI / 2}, HARU)); sitB.g.position.y = -.08;
+const ghost = person(scene, {pose: 'sit', x: BX + .2, z: BZ + .42, face: -Math.PI / 2, coat: 0xcfcbc2, skin: 0xe2e0da, hair: 0x0c0b0b, long: true, pants: 0xbab6ad, seed: 23, headScale: 1.3});
+ghost.g.position.y = .12; ghost.g.scale.setScalar(1.12); ghost.headPivot.rotation.set(.35, 0, .15);
+mesh(ghost.headPivot, new THREE.BoxGeometry(.3, .4, .06), flat(0x0c0b0b), 0, .02, .17);                   // hair hangs over the face
+ghost.arms[0].sh.rotation.set(-1.25, 0, .25); ghost.arms[0].el.rotation.set(-.35, 0, 0);                  // a hand on her shoulder
+ghost.arms[1].sh.rotation.set(-.1, 0, .05); ghost.arms[1].el.rotation.set(-.1, 0, 0);
+ghost.g.visible = false;
+
+
+// ---------------------------------------------------------------- doorbell camera extras
+mumP.g.visible = dadP.g.visible = false; bag.visible = false; junk.forEach(j => j.visible = false); ghost.g.visible = false;
+// outside: a little yard, a Moroccan metal gate, a street lamp, the front door on the facade
+mesh(scene, new THREE.BoxGeometry(6, .1, 10), flat(0x3a3632), 17, -.05, 2.5);
+mesh(scene, new THREE.BoxGeometry(4, .1, 12), flat(0x26262a), 12.5, -.06, 2.5);
+for (const z of [-1.2, 6.2]) mesh(scene, new THREE.BoxGeometry(5.8, 1.6, .2), flat(0x9a8a74), 17.1, .8, z);
+for (const z of [1.3, 3.9]) mesh(scene, new THREE.BoxGeometry(.35, 2.1, .35), flat(0x9a8a74), 15.9, 1.05, z);
+mesh(scene, new THREE.BoxGeometry(.25, 1.6, 2.4), flat(0x9a8a74), 15.95, .8, -.1); mesh(scene, new THREE.BoxGeometry(.25, 1.6, 2.1), flat(0x9a8a74), 15.95, .8, 5.1);
+const GATE = flat(0x1f3a36, {metalness: .5, roughness: .5});
+for (let k = 0; k < 12; k++) mesh(scene, new THREE.BoxGeometry(.04, 1.8, .04), GATE, 15.9, .95, 1.55 + k * .2);
+for (const y of [.15, 1.0, 1.85]) mesh(scene, new THREE.BoxGeometry(.06, .06, 2.3), GATE, 15.9, y, 2.6);
+for (let k = 0; k < 6; k++) { const a = mesh(scene, new THREE.TorusGeometry(.18, .02, 4, 12, Math.PI), GATE, 15.9, 1.85, 1.75 + k * .38); a.rotation.y = Math.PI / 2; }
+mesh(scene, new THREE.BoxGeometry(.04, 2.1, .9), flat(0x5a3626), RX - .23, 1.05, 4.6);                             // front door
+mesh(scene, new THREE.CylinderGeometry(.05, .06, 3.4, 6), flat(0x333338), 14.6, 1.7, 3.2);
+mesh(scene, new THREE.SphereGeometry(.13, 8, 6), new THREE.MeshBasicMaterial({color: 0xffc070}), 14.75, 3.35, 3.2, false);
+const lamp = new THREE.SpotLight(0xffaa60, 16, 12, .95, .6, 1.2); lamp.position.set(14.75, 3.3, 3.2); lamp.target.position.set(16.8, 0, 2.4); scene.add(lamp, lamp.target);
+mesh(scene, new THREE.CylinderGeometry(.22, .16, .35, 8), flat(0x8a4a32), 19.3, .18, 3.6); mesh(scene, new THREE.IcosahedronGeometry(.32, 0), flat(0x2f5a3a), 19.3, .5, 3.6);
+// the doorbell camera on a post by the gate; it turns
+mesh(scene, new THREE.BoxGeometry(.12, 1.7, .12), flat(0x9a8a74), 17.8, .85, 2.6);
+const dcam = new THREE.Group(); dcam.position.set(17.8, 1.78, 2.6); scene.add(dcam);
+mesh(dcam, new THREE.BoxGeometry(.12, .16, .09), flat(0x55565e, {roughness: .4}), 0, 0, 0); const camSpot = new THREE.PointLight(0xffc088, 0, 1.5, 1.5); camSpot.position.set(18.2, 2.0, 3.0); scene.add(camSpot); mesh(dcam, new THREE.CylinderGeometry(.03, .03, .03, 10), flat(0x050505), 0, .02, .05).rotation.x = Math.PI / 2;
+const dLed = mesh(dcam, new THREE.SphereGeometry(.008, 6, 4), new THREE.MeshBasicMaterial({color: 0xff2020}), .035, -.05, .046, false);
+const doorCam = new THREE.PerspectiveCamera(72, 16 / 9, .05, 30);
+const camIR = new THREE.PointLight(0xffffff, 0, 10, 1.1); scene.add(camIR);
+// Haru in bed, sitting up against the headboard, the phone in her hands; and the one standing beside the bed (only the camera sees it)
+sitB.g.visible = false;
+const inBed = person(scene, Object.assign({pose: 'sit', x: BX + .1, z: .38, face: 0}, HARU)); inBed.g.position.y = -.06;
+inBed.arms.forEach((a, i) => { a.sh.rotation.set(-.9, 0, (i ? 1 : -1) * -.25); a.el.rotation.set(-1.0, 0, (i ? 1 : -1) * -.35); });
+const other = person(scene, {x: BX + .82, z: .7, face: -Math.PI / 2 + .3, coat: 0x141418, skin: 0xbab6ae, hair: 0x070707, long: true, pants: 0x101014, seed: 51, headScale: 1.3});
+other.g.scale.setScalar(1.12); other.headPivot.rotation.set(.3, -.2, .12); mesh(other.headPivot, new THREE.BoxGeometry(.3, .42, .06), flat(0x070707), 0, .02, .17);
+other.arms.forEach(a => { a.sh.rotation.set(-.05, 0, 0); a.el.rotation.set(-.05, 0, 0); }); other.g.visible = false;
+// her phone: the doorbell app (lock screen, then the live view + motion alerts)
+const ui = canvasTex(360, 760, (g, w, h, st = {}) => {
+  g.fillStyle = '#07080b'; g.fillRect(0, 0, w, h); g.textAlign = 'left';
+  if (st.lock) {
+    g.fillStyle = '#e8ecf4'; g.textAlign = 'center'; g.font = '300 92px sans-serif'; g.fillText('03:07', w / 2, 190);
+    g.font = '22px sans-serif'; g.fillStyle = '#9aa3b4'; g.fillText(st.day || 'Tuesday', w / 2, 230);
+  } else {
+    g.fillStyle = '#e8ecf4'; g.font = 'bold 26px sans-serif'; g.fillText(st.title || 'Front Door', 22, 70);
+    g.fillStyle = '#ff3b3b'; g.beginPath(); g.arc(w - 92, 61, 7, 0, 7); g.fill(); g.fillStyle = '#e8ecf4'; g.font = 'bold 20px sans-serif'; g.fillText('LIVE', w - 78, 68);
+    g.fillStyle = '#9aa3b4'; g.font = '18px sans-serif'; g.fillText(st.clock || '03:07:12', 22, 360);
+    for (let i = 0; i < 4; i++) { g.fillStyle = '#1a1d25'; g.beginPath(); g.arc(60 + i * 80, 420, 26, 0, 7); g.fill(); }
+    g.fillStyle = '#9aa3b4'; g.font = '15px sans-serif'; ['Talk', 'Siren', 'Rec', 'More'].forEach((l, i) => { g.textAlign = 'center'; g.fillText(l, 60 + i * 80, 470); }); g.textAlign = 'left';
+    g.fillStyle = '#6a7180'; g.font = '16px sans-serif'; g.fillText(st.hint || 'Activity', 22, 520);
+  }
+  (st.notes || []).forEach((n, i) => {                                          // notification cards, newest on top
+    const y = (st.lock ? 300 : 540) + i * 82, a = n.a;
+    g.globalAlpha = a; g.fillStyle = 'rgba(40,44,54,.94)'; rr(g, 16, y, w - 32, 70, 16); g.fill();
+    g.fillStyle = '#ffb020'; rr(g, 30, y + 15, 40, 40, 10); g.fill(); g.fillStyle = '#111'; g.font = 'bold 22px sans-serif'; g.fillText('◉', 38, y + 43);
+    g.fillStyle = '#fff'; g.font = 'bold 18px sans-serif'; g.fillText(n.t1, 84, y + 30); g.fillStyle = '#b8bfcc'; g.font = '16px sans-serif'; g.fillText(n.t2, 84, y + 53);
+    g.fillStyle = '#8a91a0'; g.font = '14px sans-serif'; g.fillText('now', w - 66, y + 30); g.globalAlpha = 1;
+  });
+});
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+const RT3 = new THREE.WebGLRenderTarget(640, 360); RT3.texture.colorSpace = THREE.SRGBColorSpace;
+const phoneMat = new THREE.ShaderMaterial({uniforms: {ui: {value: ui}, feed: {value: RT3.texture}, show: {value: 0}, time: {value: 0}, glitch: {value: 0}, lum: {value: 1}},
+  vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader: `uniform sampler2D ui; uniform sampler2D feed; uniform float show; uniform float time; uniform float glitch; uniform float lum; varying vec2 vUv;
+    float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+time*3.1)*43758.5453);}
+    void main(){
+      vec3 c=texture2D(ui,vUv).rgb;
+      vec2 r0=vec2(0.,1.-330./760.), r1=vec2(1.,1.-100./760.);                 // the live view rectangle (canvas y 100..330)
+      if(show>.5 && vUv.y>r0.y && vUv.y<r1.y){
+        vec2 f=vec2(vUv.x,(vUv.y-r0.y)/(r1.y-r0.y)); vec2 d=f-.5; f=.5+d*(1.-.18*dot(d,d));   // a little fisheye
+        f.x+=glitch*(h(vec2(floor(f.y*60.),1.))-.5)*.2;
+        vec3 v=texture2D(feed,f).rgb; float l=dot(v,vec3(.3,.59,.11)); l=pow(clamp(l*1.8,0.,1.),.85);
+        l+=(h(f*500.)-.5)*.12; l=mix(l,h(f*300.+time),glitch*.8); l*=1.-.5*pow(length(d)*1.4,2.);
+        c=vec3(l*.92,l*.95,l);
+        if(f.x<.32&&f.y>.86) c=mix(c,vec3(1.),.0);
+      }
+      gl_FragColor=vec4(c*lum,1.);
+    }`});
+const phone = new THREE.Group(); scene.add(phone);
+mesh(phone, new THREE.BoxGeometry(.074, .156, .009), flat(0x15151a, {metalness: .4}), 0, 0, 0, false);
+const pscreen = mesh(phone, new THREE.PlaneGeometry(.068, .1436), phoneMat, 0, 0, .0051, false);
+const phoneGlow = new THREE.PointLight(0xc8d4ff, 0, 2.0, 1.6); scene.add(phoneGlow);
+mesh(scene, new THREE.BoxGeometry(.45, .5, .4), WOOD, BX - .95, .25, .3);                                     // nightstand on the other side
+
+// ---------------------------------------------------------------- slots (seconds), English and Darija start lines here
+const S = {n1: .6, n2: 7.6, n3: 15.0, n4: 22.0, n5: 29.2, n6: 35.0, n7: 40.6, n8: 44.4, end: 47.2};
+const DUR = 50.0;
+const PH = (x, y, z) => pscreen.localToWorld(V(x, y, z));
+function phShot(dist, fov, dy = 0) { phone.updateMatrixWorld(true); const c = PH(0, dy, 0), n = PH(0, dy, 1).sub(c).normalize(), u = PH(0, 1, 0).sub(PH(0, 0, 0)).normalize();
+  return [c.clone().addScaledVector(n, dist), c, fov, 'phone', u]; }
+const headOf = p => { p.g.updateMatrixWorld(true); return p.headPivot.localToWorld(V(0, .12, .05)); };
+const P = (r, m) => { r[3] = m; return r; };
+function shot(t) {
+  if (t < 1.5 || t >= S.end) return P(phShot(.215, 34, .028), 'phone');
+  if (t < 4.5) return [V(BX - .95, .9, .85), V(BX - .95, .52, .3), 40, 'stand'];
+  if (t < S.n2) { const h = headOf(inBed); return [h.clone().add(V(-.2, .1, 1.9)), h.clone().add(V(0, -.08, 0)), 34, 'face']; }
+  if (t < 11.5) return P(phShot(.24 - .02 * ease((t - S.n2) / 3.9), 34, .028), 'phone');
+  if (t < S.n3) { const k = ease((t - 11.5) / 3.5); return [V(19.2 - .2 * k, 1.65, 4.5), V(16.4, 1.1, 2.4), 54, 'yard']; }
+  if (t < 18.5) return P(phShot(.25, 34, -.005), 'phone');
+  if (t < 20.0) { const h = headOf(inBed); return [h.clone().add(V(-.1, .08, 1.6)), h.clone().add(V(0, -.05, 0)), 30, 'face']; }
+  if (t < S.n4) return P(phShot(.25, 34, -.005), 'phone');
+  if (t < 25.6) return P(phShot(.22, 34, .028), 'phone');
+  if (t < S.n5) { const k = ease((t - 25.6) / 3.6); return [V(18.45, 1.95, 3.3 - .1 * k), V(17.8, 1.72, 2.6), 34 - 4 * k, 'cam']; }
+  if (t < S.n7) return P(phShot(.22 - .025 * ease((t - S.n5) / 11.4), 34, .028), 'phone');
+  if (t < S.n8) return P(phShot(.19 - .02 * ease((t - S.n7) / 3.8), 32, .028), 'phone');
+  const h = headOf(inBed); const k = ease((t - S.n8) / 2.8); return [h.clone().add(V(-.3, .05, 1.75 - .25 * k)), h.clone().add(V(-.3, -.08, 0)), 40, 'last'];
+}
+const yawAt = t => lerp(Math.PI, -.33, ease((t - 22.6) / 11.0));                 // the camera turns: from the gate to her window
+let uiState = '';
+function renderAt(t) {
+  const mode = shot(t)[3];
+  sit.g.visible = false; st.g.visible = false;
+  // Haru in bed; the phone in her hands (on the nightstand before she picks it up)
+  inBed.headPivot.rotation.set(t < 4.5 && t >= 1.5 ? .05 : .55, 0, 0);
+  inBed.eyes.forEach(e => e.scale.set(1, 1.35 * (t >= 1.5 && t < 4.5 ? .1 : 1), .5));
+  if (t >= 1.5 && t < 4.5) { phone.position.set(BX - .95, .515, .3); phone.rotation.set(-Math.PI / 2, 0, .3); }
+  else { inBed.g.updateMatrixWorld(true); const a = new THREE.Vector3(), b = new THREE.Vector3(); inBed.arms[0].el.children[1].getWorldPosition(a); inBed.arms[1].el.children[1].getWorldPosition(b);
+    phone.position.copy(a.add(b).multiplyScalar(.5)).add(V(0, .05, .02)); phone.lookAt(headOf(inBed)); }
+  if (mode === 'phone' && t >= 1.5 && t < S.end) phone.position.y += Math.sin(t * 9) * .0008 * (t > S.n4 ? 1 : 0);
+  // the doorbell camera turns; its feed
+  const yaw = t < 1.5 || t >= S.end ? -.33 : yawAt(t);
+  dcam.rotation.set(0, -yaw + Math.PI / 2, 0);
+  const tgt = V(17.8 + Math.cos(yaw) * 4, 1.15 - (yaw < 1 ? .25 : 0), 2.6 + Math.sin(yaw) * 4);
+  doorCam.position.set(17.8, 1.78, 2.6); doorCam.lookAt(tgt); doorCam.fov = t < 1.5 || t >= S.end ? 22 : 72 - 50 * ease((t - 30.5) / 12); doorCam.updateProjectionMatrix();
+  dLed.material.color.setScalar(Math.floor(t * 1.2) % 2 ? 1 : .2).multiply(new THREE.Color(0xff2020));
+  const figure = t < 1.4 || t >= 40.95;
+  let glitch = 0;
+  for (const [a, b] of [[1.2, 1.45], [40.7, 40.95], [44.2, 44.35]]) if (t >= a && t < b) glitch = 1;
+  // phone UI state
+  const notes = [];
+  const pings = [1.9, 16.1, 17.4, 18.6, 19.8, 20.9];
+  if (t >= 1.5 && t < S.n2) notes.push({t1: 'Front Door', t2: 'Motion detected', a: clamp01((t - 1.9) / .25)});
+  if (t >= S.n3 && t < S.n4) pings.slice(1).forEach(p => { if (t >= p) notes.unshift({t1: 'Front Door', t2: 'Motion detected', a: clamp01((t - p) / .2)}); });
+  const lock = t >= 1.5 && t < S.n2;
+  const sec = String(12 + Math.floor((t + 50) % 48)).padStart(2, '0');
+  const st8 = {lock, notes: notes.slice(0, 3), clock: '03:' + (t >= S.n6 || t < 1.5 ? '08' : '07') + ':' + sec, hint: t >= S.n4 && t < S.end ? 'Camera moving...' : 'Activity'};
+  const key8 = JSON.stringify(st8); if (key8 !== uiState) { uiState = key8; ui.redraw(st8); }
+  phoneMat.uniforms.show.value = lock ? 0 : 1; phoneMat.uniforms.time.value = t; phoneMat.uniforms.glitch.value = glitch;
+  phoneMat.uniforms.lum.value = t >= 1.5 && t < 1.9 ? 0 : .8;
+  phoneGlow.position.copy(PH(0, 0, .3)); phoneGlow.intensity = t >= 1.5 && t < 1.9 ? 0 : (mode === 'phone' ? 0 : .5);
+  // lights: night outside, dark room
+  hemi.intensity = ['yard', 'cam'].includes(mode) ? .8 : .35; bedLamp.intensity = 0; lamp.intensity = 16; camSpot.intensity = mode === 'cam' ? 2.5 : 0;
+  // render the camera feed (the figure only exists for the camera)
+  if (mode === 'phone') {
+    other.g.visible = figure; camIR.position.copy(doorCam.position); camIR.intensity = 1.0; pscreen.visible = false; phoneGlow.intensity = 1.6;
+    renderer.setRenderTarget(RT3); renderer.render(scene, doorCam); renderer.setRenderTarget(null);
+    other.g.visible = false; camIR.intensity = 0; pscreen.visible = true; phoneGlow.intensity = 0;
+  }
+  // camera
+  const [pos, look, fov, , camUp] = shot(t);
+  cam.position.copy(pos); if (camUp) cam.up.copy(camUp); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix(); cam.up.set(0, 1, 0);
+  const shake = mode === 'phone' && t > S.n7 ? .0006 : mode === 'last' ? .002 : 0;
+  if (shake) cam.position.add(V(Math.sin(t * 91) * shake, Math.sin(t * 77) * shake, 0));
+  key.intensity = mode === 'phone' ? .1 : .35; key.position.copy(pos).add(V(0, .3, 0));
+  grain.uniforms.vig.value = .6;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>
