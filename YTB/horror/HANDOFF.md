@@ -14,6 +14,12 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
 
 ## Skills
 - camera-cinematography (.claude/skills/camera-cinematography): use it when planning shots, lenses and camera moves for any scene.
+- bang-motion: HTML + GSAP motion graphics (openers, title cards, kinetic type, explainers; 9:16 or 16:9, renders to MP4). Use for intros/outros, series title cards, thumbnail-style text animation.
+- claude-drawing: code-painted images in 83 styles (ink wash, ukiyo-e, VHS, cave painting, pencil...), numpy + Pillow only, draw-on GIFs. Use for 2D story art, posters, the "photo"/drawing inserts.
+- huashu-art-motion: animated paintings / art-style explainer clips (35+ styles, mostly Chinese docs; README.en.md in English). Needs uv + Playwright.
+- vox-director: Vox-style paper-collage explainers. Needs a paid Atlas Cloud API key (ATLASCLOUD_API_KEY), not set up yet.
+  (All four from the "4 repos" list: bangtutorial/bang-motion, cloveric/claude-drawing-skill, alchaincyf/huashu-art-motion,
+  Alisa0808/vox-director; MIT; installed without their demo media.)
 
 ## Pipeline (see YTB/horror/mum as the latest complete example)
 1. Script -> generate voice lines (Artlist) -> faster-whisper word timings -> layout.json (line starts) + words.json.
