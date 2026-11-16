@@ -1,0 +1,17 @@
+BABY MONITOR 2: THE PARENTS CAME HOME (vertical Short, 57 s, loops). English + Darija share one render.
+Every line starts at a fixed slot (three/scenes/baby_monitor2.html, S): n1 .6, n2 9.0, m1 14.4, n3 18.0, n4 23.0,
+m2 27.2, n5 31.4, n6 37.2, m3 45.0, n7 46.8 (end 53.6).
+Voices (English, Artlist Eleven v3): Haru = Samara X, Mum = Assistance, monitor = Hushed.
+
+n1 Haru: When the parents came home, I told them everything. The singing. The laugh. The hand on the crib.
+n2 Haru: The mum didn't laugh. She just stared at the monitor in my hand.
+m1 Mum: That's strange... we don't have a camera in the nursery.
+n3 Haru: I said, then what's this? And I turned the screen around.
+n4 Haru: She went very quiet. Then she said...
+m2 Mum: We stopped using that monitor. After the last babysitter.
+n5 Haru: I put it down and I left. I didn't ask what happened to the last babysitter.
+n6 Haru: When I got home, I emptied my bag. The monitor was inside. And it was on.
+m3 Monitor: There you are.
+n7 Haru: The screen wasn't showing the nursery anymore. It was showing my room.
+Ending: the feed shows her own room from a high corner: a pale figure kneels on the bed behind her, a hand on her
+shoulder. Cut to the real room: nobody. Back to the screen (= frame 0).
