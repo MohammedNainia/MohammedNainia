@@ -1,0 +1,27 @@
+THE KEEPER'S RULES, PART 2: "THE LIGHT STOPPED" (16:9, 151 s). Voice: Samara X, one Artlist generation per line (voice/l01..l20).
+Scene: three/scenes/keeper_p2.html (Part 1's island/tower + floor hatch, rail, coat, keepers, motor, the double).
+Line starts in voice/layout.json; key beats: dark 9.4, torch 38.2, hatch 41.3, coat 57.0, them 65.0, lever 104.0, relit 105.2, turn 145.2, cut 146.4.
+
+l01 The light stopped turning. And the voice behind the door went quiet.
+l02 Without the beam, the island disappeared. No rocks. No sea. Just the sound of the waves, all around me, in the dark.
+l03 Rule one. Keep the light turning, all night. I had already broken it.
+l04 The motor for the lamp is at the bottom of the tower. Sixty-four steps down. I counted them on my first day.
+l05 I turned on my phone torch. Eleven percent battery. And I opened the door.
+l06 Nobody was there. Just the stairs, going round and round, down into the dark.
+l07 Halfway down, my torch found a coat, hanging on the rail. A yellow coat. My coat. I had left it upstairs, by the lamp.
+l08 Then I saw them. On the steps below me. Standing still. All facing up.
+l09 Old keeper uniforms. Dark wool. Brass buttons. Like the faded photos in the logbook.
+l10 I didn't count them. I kept my eyes on my feet, and I walked down between them.
+l11 Nobody moved. But I could hear them turning, slowly, to watch me pass.
+l12 At the bottom, the motor room door was open. The lever was pulled all the way down.
+l13 I pushed it back up. And high above me, the light started turning again.
+l14 I looked back up the stairs. They were empty. All of them, gone.
+l15 I climbed back up. Sixty-four steps. I counted every one.
+l16 Sixty-five.
+l17 At the top, someone was standing at the lamp. Turning it by hand. In my yellow coat.
+l18 Without looking round, she said...
+l19 "You're late for your shift."   (her double, same voice)
+l20 It was my voice.
+Ending: Haru's face; the double starts to turn round; cut to black before we see her face. Card: PART 3 / THE LAST KEEPER.
+Part 3 plan: the copy wants to swap places; Haru leaves at dawn; the note is in her handwriting with rule 4
+"Don't trust the keeper who left"; she has a paper face.
