@@ -1,0 +1,355 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE KEEPER'S RULES, Part 3: "The Last Keeper" (16:9, 121 s, the finale). Timed to YTB/horror/keeper/part3/voice/layout.json.
+// Built on keeper_p2.html (island, tower, lantern room, stairs, the double).
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .7, w: 1920, h: 1080});
+const DUR = 121;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+let rs = 11; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+
+// ---------------------------------------------------------------- sky (dusk or night), stars, fog
+const skyTex = canvasTex(8, 256, (g, w, h, mode = 'night') => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  if (mode === 'dusk') { gr.addColorStop(0, '#1c2140'); gr.addColorStop(.42, '#5b3f63'); gr.addColorStop(.5, '#e0805a'); gr.addColorStop(.56, '#2b2a3a'); gr.addColorStop(1, '#0d0f18'); }
+  else { gr.addColorStop(0, '#02030a'); gr.addColorStop(.45, '#0b1424'); gr.addColorStop(.5, '#122036'); gr.addColorStop(.56, '#070a12'); gr.addColorStop(1, '#020306'); }
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+let skyMode = '';
+const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.MeshBasicMaterial({map: skyTex, side: THREE.BackSide, fog: false}));
+scene.add(sky);
+const starGeo = new THREE.BufferGeometry(), sp = [];
+for (let i = 0; i < 900; i++) { const a = rnd() * 6.283, e = .05 + rnd() * 1.4; sp.push(Math.cos(a) * Math.cos(e) * 380, Math.sin(e) * 380, Math.sin(a) * Math.cos(e) * 380); }
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xcfd8ff, size: 1.2, sizeAttenuation: false, fog: false}));
+scene.add(stars);
+scene.fog = new THREE.Fog(0x0b1424, 30, 160);
+const moon = new THREE.Mesh(new THREE.IcosahedronGeometry(9, 1), new THREE.MeshBasicMaterial({color: 0xdfe6ff, fog: false}));
+moon.position.set(-180, 120, -260); scene.add(moon);
+
+// ---------------------------------------------------------------- sea (faceted, animated)
+const seaGeo = new THREE.PlaneGeometry(420, 420, 110, 110); seaGeo.rotateX(-Math.PI / 2);
+const seaBase = seaGeo.attributes.position.array.slice();
+const sea = new THREE.Mesh(seaGeo, flat(0x2b4155, {roughness: .3, metalness: .25})); sea.receiveShadow = true; scene.add(sea);
+function waves(t) {
+  const p = seaGeo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const x = seaBase[i], z = seaBase[i + 2];
+    p[i + 1] = .45 * Math.sin(x * .09 + t * .9) + .35 * Math.sin(z * .12 - t * 1.1) + .2 * Math.sin((x + z) * .21 + t * 1.7);
+  }
+  seaGeo.attributes.position.needsUpdate = true; seaGeo.computeVertexNormals();
+}
+
+// ---------------------------------------------------------------- island rocks
+const rockM = [flat(0x3d3a38), flat(0x48443f), flat(0x34312f)];
+function rock(x, z, s, h = .6, seed = 1) {
+  const r = mesh(scene, jitterGeo(new THREE.DodecahedronGeometry(s, 0), s * .35, seed), rockM[seed % 3], x, h * s * .3, z);
+  r.scale.y = h; r.rotation.y = seed; return r;
+}
+for (let i = 0; i < 46; i++) { const a = rnd() * 6.283, d = 4 + rnd() * 9; rock(Math.cos(a) * d, Math.sin(a) * d, 1.4 + rnd() * 2.4, .45 + rnd() * .5, i + 3); }
+mesh(scene, jitterGeo(new THREE.CylinderGeometry(7, 10, 2.2, 9), .6, 77), rockM[1], 0, -.2, 0);        // the island top
+// the dock (dusk arrival)
+const dock = new THREE.Group(); scene.add(dock); dock.position.set(-9, 0, 9); dock.rotation.y = .7;
+for (let k = 0; k < 9; k++) mesh(dock, new THREE.BoxGeometry(2.2, .12, .5), flat(0x5a4632), 0, 1.0, k * .55);
+for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) mesh(dock, new THREE.CylinderGeometry(.09, .09, 2.4, 5), flat(0x3f3122), sx * 1.0, .1, k * 2.1);
+
+// the people on the rocks: where each one stands when it is counted (towards the camera side, +z), closer each time
+const RSPOT = [[ -6, 31], [6, 27], [-3, 24], [4.5, 21], [-6.5, 18.5], [2, 16.5], [-2.5, 14.2], [5.2, 12.6]];
+RSPOT.forEach(([x, z], i) => rock(x, z, 1.3, .45, 200 + i));
+const pale = 0xc9cdc6;
+const drowned = RSPOT.map(([x, z], i) => {
+  const p = person(scene, {x, z, face: Math.atan2(-x, -z), coat: [0x6f7469, 0x5c6158, 0x7a7c74][i % 3], skin: pale, hair: 0x1c1f1d, long: i % 2 === 0, pants: 0x4b4f49, seed: 300 + i * 11});
+  p.g.position.y = .55; p.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); p.mouth.visible = false;
+  p.arms.forEach(a => { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); });
+  p.g.visible = false; return p;
+});
+
+// ---------------------------------------------------------------- the lighthouse
+const TOWER_H = 14, LR = 1.7;
+const tower = new THREE.Group(); scene.add(tower);
+for (let k = 0; k < 7; k++) {                                       // red and white bands, tapering
+  const y0 = k * 2, r0 = 2.2 - k * .1, r1 = 2.2 - (k + 1) * .1;
+  mesh(tower, jitterGeo(new THREE.CylinderGeometry(r1, r0, 2, 12, 1, true), .03, 400 + k), flat(k % 2 ? 0xb3342b : 0xe6e1d6), 0, y0 + 1, 0);
+}
+mesh(tower, new THREE.BoxGeometry(.9, 1.8, .25), flat(0x3a2a1e), 0, .9 + .9, 2.18);                        // front door
+for (const y of [5, 9]) mesh(tower, new THREE.BoxGeometry(.35, .5, .2), new THREE.MeshBasicMaterial({color: 0x2a2a20}), 0, y, 2.1 - y * .05);
+mesh(tower, new THREE.CylinderGeometry(2.25, 2.25, .2, 16), flat(0x2c2c2c), 0, TOWER_H, 0);                // gallery deck
+for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283; mesh(tower, new THREE.BoxGeometry(.04, .9, .04), flat(0x1f1f1f), Math.cos(a) * 2.15, TOWER_H + .55, Math.sin(a) * 2.15); }
+mesh(tower, new THREE.TorusGeometry(2.15, .03, 4, 24), flat(0x1f1f1f), 0, TOWER_H + 1.0, 0).rotation.x = Math.PI / 2;
+// lantern room: low wall ring, glass, roof
+const lwall = mesh(tower, new THREE.CylinderGeometry(LR, LR, .9, 16, 1, true), flat(0xa8322a, {side: THREE.DoubleSide}), 0, TOWER_H + .55, 0);
+const glass = mesh(tower, new THREE.CylinderGeometry(LR, LR, 1.9, 16, 1, true), new THREE.MeshBasicMaterial({color: 0x9fb6c9, transparent: true, opacity: .07, side: THREE.DoubleSide, depthWrite: false}), 0, TOWER_H + 1.95, 0, false);
+for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; mesh(tower, new THREE.BoxGeometry(.06, 1.9, .06), flat(0x202020), Math.cos(a) * LR, TOWER_H + 1.95, Math.sin(a) * LR); }
+mesh(tower, jitterGeo(new THREE.ConeGeometry(2.0, 1.4, 12), .02, 9), flat(0x2a2a2a), 0, TOWER_H + 3.6, 0);
+mesh(tower, new THREE.SphereGeometry(.18, 8, 6), flat(0x2a2a2a), 0, TOWER_H + 4.35, 0);
+mesh(tower, new THREE.CylinderGeometry(LR - .02, LR - .02, .06, 16), flat(0x50463d), 0, TOWER_H + .12, 0);   // lantern room floor
+// the lamp: a faceted lens on a stand, glowing
+const lampStand = mesh(tower, new THREE.CylinderGeometry(.18, .3, .9, 8), flat(0x2a2a2a, {metalness: .6}), 0, TOWER_H + .6, 0);
+const lens = new THREE.Mesh(new THREE.IcosahedronGeometry(.5, 1), new THREE.MeshBasicMaterial({color: 0xfff2c4}));
+lens.position.set(0, TOWER_H + 1.45, 0); tower.add(lens);
+const lensCage = mesh(tower, new THREE.IcosahedronGeometry(.56, 1), new THREE.MeshStandardMaterial({color: 0xc9a24a, wireframe: true, metalness: .8}), 0, TOWER_H + 1.45, 0, false);
+// the note pinned to the wall (inside), and the door out to the gallery
+const RULES = ['Rule 1.  Keep the light turning, all night.', 'Rule 2.  Never count the people on the rocks.', "Rule 3.  If someone knocks, don't answer.", "            They don't knock."];
+let noteState = '';
+const noteTex = canvasTex(512, 640, (g, w, h, hi = -1) => {
+  g.fillStyle = '#e9e0c8'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(110,90,60,${rnd() * .06})`; g.fillRect(rnd() * w, rnd() * h, 3, 3); }
+  g.fillStyle = 'rgba(90,70,40,.25)'; g.fillRect(0, 0, w, 14);
+  g.font = 'italic bold 30px serif'; g.fillStyle = '#2b2118'; g.fillText('To the next keeper,', 36, 80);
+  RULES.forEach((r, i) => {
+    g.globalAlpha = hi < 0 || hi === i || (hi === 3 && i === 2) ? 1 : .28;
+    g.font = (i === 3 ? 'italic bold 30px serif' : 'bold 27px serif'); wrap(g, r, 36, 160 + i * 115, w - 70, 34);
+  });
+  g.globalAlpha = 1; g.font = 'italic 24px serif'; g.fillText('- E.', w - 110, h - 40);
+});
+function wrap(g, text, x, y, mw, lh) { let line = ''; for (const wd of text.split(' ')) { const t = line + wd + ' '; if (g.measureText(t).width > mw && line) { g.fillText(line, x, y); line = wd + ' '; y += lh; } else line = t; } g.fillText(line, x, y); }
+const NA = 2.5;                                                     // the note is on the wall at this angle
+const note = mesh(tower, new THREE.PlaneGeometry(.42, .52), new THREE.MeshStandardMaterial({map: noteTex, roughness: 1}), Math.cos(NA) * (LR - .05), TOWER_H + 1.1, Math.sin(NA) * (LR - .05), false);
+note.lookAt(0, TOWER_H + 1.1, 0);
+const DA = -.6;                                                      // the gallery door
+const doorG = new THREE.Group(); doorG.position.set(Math.cos(DA) * (LR - .02), TOWER_H + .12, Math.sin(DA) * (LR - .02)); doorG.lookAt(0, TOWER_H + .12, 0); tower.add(doorG);
+mesh(doorG, new THREE.BoxGeometry(.9, 2.0, .08), flat(0x4a3324), 0, 1.0, 0);
+const doorWin = mesh(doorG, new THREE.CircleGeometry(.14, 10), new THREE.MeshBasicMaterial({color: 0x101820}), 0, 1.5, .05, false);
+mesh(doorG, new THREE.SphereGeometry(.04, 6, 4), flat(0xb8a46a, {metalness: .7}), .32, .95, .06);
+const faceInWindow = mesh(doorG, new THREE.CircleGeometry(.12, 10), new THREE.MeshBasicMaterial({color: 0xbfc4bd}), 0, 1.5, .056, false);
+faceInWindow.visible = false;    // seen through the round window, from inside
+const fwEyes = [-.04, .04].map(x => { const e = mesh(doorG, new THREE.CircleGeometry(.018, 8), new THREE.MeshBasicMaterial({color: 0x050505}), x, 1.52, .058, false); e.visible = false; return e; });
+const stool = mesh(tower, new THREE.BoxGeometry(.4, .45, .4), flat(0x5a4632), Math.cos(2.95) * .95, TOWER_H + .35, Math.sin(2.95) * .95);
+
+// Haru: the keeper
+const haru = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+const SITTING = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3, pose: 'sit'});
+const bag = mesh(scene, new THREE.BoxGeometry(.5, .35, .3), flat(0x3d5a73), 0, 0, 0);
+
+// ---------------------------------------------------------------- inside the tower: the spiral stairs
+const stairs = new THREE.Group(); scene.add(stairs); stairs.position.set(0, 0, 0);
+mesh(stairs, new THREE.CylinderGeometry(1.45, 2.05, TOWER_H - .2, 14, 1, true), flat(0x6d6a62, {side: THREE.BackSide}), 0, (TOWER_H - .2) / 2, 0);
+for (let k = 0; k < 64; k++) { const a = k * .42, y = k * (TOWER_H - .6) / 64; const s = mesh(stairs, new THREE.BoxGeometry(.8, .08, .5), flat(0x58534c), Math.cos(a) * 1.0, y + .3, Math.sin(a) * 1.0); s.rotation.y = -a; }   // open well in the middle
+mesh(stairs, new THREE.CylinderGeometry(1.9, 1.9, .1, 14), flat(0x2f2d2a), 0, .02, 0);
+const stairLight = new THREE.PointLight(0xffd9a0, 0, 7, 1.6); stairLight.position.set(0, 2.2, 0); scene.add(stairLight);
+const ninth = person(scene, {x: .8, z: .2, face: Math.PI, coat: 0x5c6158, skin: pale, hair: 0x1c1f1d, long: true, seed: 999});
+ninth.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); ninth.mouth.visible = false; ninth.g.visible = false;
+
+// ---------------------------------------------------------------- boat (dusk)
+const boat = new THREE.Group(); scene.add(boat);
+mesh(boat, jitterGeo(new THREE.BoxGeometry(2.2, .9, 5.5), .12, 5), flat(0x6b2f2a), 0, .2, 0);
+mesh(boat, new THREE.BoxGeometry(1.4, 1.0, 1.6), flat(0xd9d2c3), 0, 1.1, -.6);
+const boatLight = mesh(boat, new THREE.SphereGeometry(.1, 6, 4), new THREE.MeshBasicMaterial({color: 0xffe2a0}), 0, 1.8, -.6, false);
+
+// ---------------------------------------------------------------- lights
+const hemi = new THREE.HemisphereLight(0x8fa3c8, 0x0b0d12, .35); scene.add(hemi);
+const moonLight = new THREE.DirectionalLight(0x9db0d8, 1.1); moonLight.position.set(-60, 80, -40); scene.add(moonLight);
+const sunset = new THREE.DirectionalLight(0xff9b6a, 0); sunset.position.set(80, 20, -120); scene.add(sunset);
+const lampGlow = new THREE.PointLight(0xffe2a0, 2.5, 6, 1.4); lampGlow.position.set(0, TOWER_H + 1.45, 0); scene.add(lampGlow);
+const beam = new THREE.SpotLight(0xfff0c8, 0, 120, .1, .35, 0); beam.position.set(0, TOWER_H + 1.45, 0); scene.add(beam, beam.target);
+const beamGeo = new THREE.ConeGeometry(6, 90, 20, 1, true); beamGeo.translate(0, -45, 0); beamGeo.rotateX(-Math.PI / 2);
+const beamMat = new THREE.MeshBasicMaterial({color: 0xfff0c8, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide});
+const beamMesh = new THREE.Mesh(beamGeo, beamMat); beamMesh.position.copy(beam.position); scene.add(beamMesh);
+const beam2 = beamMesh.clone(); scene.add(beam2);
+const extraCrowd = [0, 1, 2, 3, 4].map(i => {
+  const p = person(scene, {x: 0, z: 0, face: 0, coat: [0x6f7469, 0x5c6158, 0x7a7c74][i % 3], skin: 0xc9cdc6, hair: 0x1c1f1d, long: i % 2 === 1, pants: 0x4b4f49, seed: 500 + i * 13});
+  p.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); p.mouth.visible = false; p.arms.forEach(a => { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); });
+  p.g.visible = false; return p;
+});
+const thumbFill = new THREE.SpotLight(0xb9c8ec, 0, 40, .5, .6, 1); scene.add(thumbFill, thumbFill.target);
+const thumbFace = new THREE.PointLight(0xc6d2f0, 0, 7, 1.2); thumbFace.position.set(1.6, 3.4, 27.4); scene.add(thumbFace);
+const rockMoon = new THREE.PointLight(0x9fb4dc, 0, 40, 1.0); rockMoon.position.set(0, 9, 20); scene.add(rockMoon);   // faint cold light on the rocks between sweeps
+const keyLight = new THREE.PointLight(0xc8d4ff, 0, 3, 1.5); scene.add(keyLight);       // soft face light for the lantern-room shots
+const torch = new THREE.SpotLight(0xf2f6ff, 0, 14, .5, .5, 1); scene.add(torch, torch.target);   // phone torch (Part 2 flash)
+const spill = new THREE.SpotLight(0xfff0c8, 0, 70, .42, .55, 0); spill.position.copy(beam.position); scene.add(spill, spill.target);                    // the lens throws two beams, back to back
+
+
+// ---------------------------------------------------------------- part 2: things that are not in part 1
+drowned.forEach(p => p.g.visible = false); extraCrowd.forEach(p => p.g.visible = false); boat.visible = false; bag.visible = false; ninth.g.visible = false; dock.visible = false;
+const NSTEP = 64, stepA = k => k * .42, stepY = k => k * (TOWER_H - .6) / NSTEP + .34;
+const stepPos = k => V(Math.cos(stepA(k)) * 1.0, stepY(k), Math.sin(stepA(k)) * 1.0);
+const upDir = k => V(-Math.sin(stepA(k)), (TOWER_H - .6) / NSTEP / .42, Math.cos(stepA(k))).normalize();      // up the stairs
+// an inner hand rail around the well
+for (let k = 0; k < NSTEP * 4; k++) { const q = k / 4, a = stepA(q), y = stepY(q) + .85; mesh(stairs, new THREE.BoxGeometry(.035, .035, .12), flat(0x3a2a1e), Math.cos(a) * .58, y, Math.sin(a) * .58, false).rotation.y = -a; if (k % 4 === 0) mesh(stairs, new THREE.CylinderGeometry(.015, .015, .85, 4), flat(0x2a2a2a), Math.cos(a) * .58, y - .42, Math.sin(a) * .58, false); }
+// the floor hatch at the top of the stairs (above step 63)
+const HA = stepA(63) % (2 * Math.PI), HP = V(Math.cos(HA) * 1.0, TOWER_H + .16, Math.sin(HA) * 1.0);
+mesh(scene, new THREE.BoxGeometry(.72, .01, .72), new THREE.MeshBasicMaterial({color: 0x000000}), HP.x, HP.y, HP.z, false).rotation.y = -HA;
+const hatch = new THREE.Group(); hatch.position.set(HP.x + Math.cos(HA) * .36, HP.y, HP.z + Math.sin(HA) * .36); hatch.rotation.y = -HA + Math.PI / 2; scene.add(hatch);
+mesh(hatch, new THREE.BoxGeometry(.74, .05, .74), flat(0x4a3324), 0, .025, -.37);
+mesh(hatch, new THREE.TorusGeometry(.05, .012, 4, 10), flat(0xb8a46a, {metalness: .7}), 0, .06, -.62).rotation.x = Math.PI / 2;
+// her yellow coat, hanging on the rail halfway down (step 34)
+const COAT_K = 34, cp = stepPos(COAT_K);
+const coat = new THREE.Group(); coat.position.set(Math.cos(stepA(COAT_K)) * .6, stepY(COAT_K) + .82, Math.sin(stepA(COAT_K)) * .6); coat.rotation.y = -stepA(COAT_K) + Math.PI / 2; scene.add(coat);
+mesh(coat, jitterGeo(new THREE.CylinderGeometry(.13, .24, .75, 6), .03, 7), flat(0xe2a92b), 0, -.38, .03);
+for (const sx of [-1, 1]) mesh(coat, jitterGeo(new THREE.CylinderGeometry(.045, .06, .55, 5), .02, 8), flat(0xe2a92b), sx * .2, -.32, .03).rotation.z = sx * .12;
+mesh(coat, new THREE.BoxGeometry(.3, .06, .1), flat(0xd39a22), 0, .0, .03);
+// the old keepers: dark wool, brass buttons, caps; standing on the steps below the coat, all facing up
+const KEEP_K = [29, 25, 21, 17, 13, 9];
+const keepers = KEEP_K.map((k, i) => {
+  const p = person(scene, {x: 0, z: 0, face: 0, coat: [0x1d2430, 0x232a35, 0x1a202b][i % 3], skin: 0xc9cdc6, hair: 0x1c1f1d, long: i === 2, pants: 0x161b24, seed: 700 + i * 17});
+  p.eyes.forEach(e => e.scale.set(1.5, 1.9, .5)); p.mouth.visible = false;
+  p.arms.forEach(a => { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); });
+  mesh(p.headPivot, new THREE.CylinderGeometry(.17, .18, .1, 10), flat(0x141820), 0, .3, -.01);                // cap
+  mesh(p.headPivot, new THREE.BoxGeometry(.3, .02, .12), flat(0x0e1116), 0, .26, .13);                          // peak
+  mesh(p.headPivot, new THREE.SphereGeometry(.018, 6, 4), flat(0xc9a24a, {metalness: .8}), 0, .31, .16);        // badge
+  for (let b = 0; b < 4; b++) mesh(p.body, new THREE.SphereGeometry(.017, 6, 4), flat(0xc9a24a, {metalness: .8, roughness: .3}), 0, .52 - b * .11, .19 - b * .012, false);
+  const sp = stepPos(k), u = upDir(k); p.g.position.set(sp.x, sp.y + .04, sp.z); p.g.rotation.y = Math.atan2(u.x, u.z);
+  p.k = k; return p;
+});
+// the motor at the bottom of the well: a housing with a hatch, a lever, a cable up the middle
+const motor = new THREE.Group(); motor.position.set(-.05, .07, -.05); motor.scale.setScalar(1.5); motor.rotation.y = .3; scene.add(motor);
+mesh(motor, new THREE.BoxGeometry(.6, .7, .45), flat(0x3d4440, {metalness: .4}), 0, .35, 0);
+mesh(motor, new THREE.CylinderGeometry(.16, .16, .5, 10), flat(0x2a2e2c, {metalness: .6}), 0, .55, 0).rotation.z = Math.PI / 2;
+const mhatch = new THREE.Group(); mhatch.position.set(-.3, .35, .225); motor.add(mhatch);
+mesh(mhatch, new THREE.BoxGeometry(.5, .5, .03), flat(0x2f3532, {metalness: .4}), .25, 0, .015);
+const lever = new THREE.Group(); lever.position.set(.31, .45, 0); motor.add(lever);
+mesh(lever, new THREE.BoxGeometry(.04, .38, .04), flat(0x8a8f8a, {metalness: .7}), 0, .19, 0);
+mesh(lever, new THREE.SphereGeometry(.05, 8, 6), flat(0x9b2a22), 0, .4, 0);
+mesh(scene, new THREE.CylinderGeometry(.02, .02, TOWER_H - .8, 4), flat(0x2a2a2a), 0, TOWER_H / 2 + .3, 0, false);  // the cable / drive shaft
+const motorLamp = new THREE.PointLight(0xffb070, 0, 4, 1.4); motorLamp.position.set(-.2, 1.6, .3); scene.add(motorLamp);
+// the copy at the lamp: her yellow coat, her hair, turning the light by hand
+const copy = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+copy.g.visible = false;
+
+// ---------------------------------------------------------------- part 3
+keepers.forEach(p => p.g.visible = false); coat.visible = false;
+copy.mask.visible = true; copy.face.visible = false;                                   // her double: a paper face
+const copySit = person(scene, {x: 0, z: 0, face: 0, coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3, pose: 'sit', mask: true}); copySit.face.visible = false; copySit.g.visible = false;
+const CA = HA + 1.35, SA = 2.95;                                                      // where the double stands, the stool
+// home: a small bedroom far away (x 40)
+const HX = 40;
+mesh(scene, new THREE.BoxGeometry(4, .1, 4), flat(0x5a4a40), HX, -.05, 0); mesh(scene, new THREE.BoxGeometry(4, .1, 4), flat(0x77727e), HX, 2.65, 0);
+for (const [x, z, w, d] of [[HX, -2, 4, .1], [HX, 2, 4, .1], [HX - 2, 0, .1, 4], [HX + 2, 0, .1, 4]]) mesh(scene, new THREE.BoxGeometry(w, 2.6, d), flat(0x6a6478), x, 1.3, z);
+mesh(scene, new THREE.BoxGeometry(1.2, .45, 2.0), flat(0x3e3a52), HX + 1.2, .22, -.9); mesh(scene, jitterGeo(new THREE.BoxGeometry(1.1, .12, 1.4), .04, 6), flat(0xc9a9c8), HX + 1.2, .5, -.6);
+const hbag = mesh(scene, jitterGeo(new THREE.BoxGeometry(.5, .35, .3), .02, 9), flat(0x3d5a73), HX + 1.1, .63, -.2);
+const mirror = new THREE.Group(); mirror.position.set(HX - 1.94, 1.45, .3); mirror.rotation.y = Math.PI / 2; scene.add(mirror);
+mesh(mirror, new THREE.BoxGeometry(.7, 1.1, .05), flat(0x3a2a1e), 0, 0, 0); mesh(mirror, new THREE.PlaneGeometry(.6, 1.0), new THREE.MeshStandardMaterial({color: 0x8a96a8, roughness: .1, metalness: .8}), 0, 0, .03, false);
+const roomLamp = new THREE.PointLight(0xffc98a, 0, 6, 1.4); roomLamp.position.set(HX + .8, 1.9, .6); scene.add(roomLamp);
+const handNote = new THREE.Group(); scene.add(handNote); handNote.visible = false;
+const RULES3 = ['Rule 1.  Keep the light turning, all night.', 'Rule 2.  Never count the people on the rocks.', "Rule 3.  If someone knocks, don't answer.", "            They don't knock.", "Rule 4.  Don't trust the keeper who left."];
+const note3Tex = canvasTex(512, 720, (g, w, h, hi = -1, k4 = 1) => {
+  g.fillStyle = '#e9e0c8'; g.fillRect(0, 0, w, h);
+  let r = 3; const rr = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(110,90,60,${rr() * .06})`; g.fillRect(rr() * w, rr() * h, 3, 3); }
+  g.font = 'italic bold 30px serif'; g.fillStyle = '#1d2a4a'; g.fillText('To the next keeper,', 36, 80);           // her hand: blue ink, leaning
+  RULES3.forEach((t, i) => { if (i === 4 && k4 <= 0) return;
+    g.globalAlpha = (hi < 0 || hi === i ? 1 : .3) * (i === 4 ? k4 : 1); g.save(); g.translate(36, 160 + i * 112); g.rotate(-.015 + (i % 2) * .01);
+    g.fillStyle = i === 4 ? '#5a1414' : '#1d2a4a'; g.font = (i === 3 ? 'italic 28px serif' : 'italic bold 27px serif'); wrap(g, t, 0, 0, w - 70, 34); g.restore(); });
+  g.globalAlpha = 1; g.font = 'italic 26px serif'; g.fillStyle = '#1d2a4a'; g.fillText('- H.', w - 110, h - 40);
+});
+mesh(handNote, new THREE.PlaneGeometry(.21, .295), new THREE.MeshStandardMaterial({map: note3Tex, roughness: 1, side: THREE.DoubleSide}), 0, 0, 0, false);
+const S = {l01: 1.0, l02: 7.39, l03: 15.3, l04: 19.47, l05: 26.43, l06: 33.79, l07: 44.86, l08: 52.91, l09: 59.42, l10: 65.42, l11: 73.55, l12: 82.39,
+  l13: 86.64, l14: 94.2, l15: 99.47, l16: 105.56, l17: 114.1, end: 117.0};
+const T = {turned: 4.6, sit: 30.0, shut: 55.6, dawn: 59.8, paper: 109.8};
+
+// ---------------------------------------------------------------- shots
+const TOP = TOWER_H;
+const around = (ang, r, y) => V(Math.cos(ang) * r, TOWER_H + y, Math.sin(ang) * r);
+const COPYHEAD = () => around(CA, .62, 1.7);
+const HARUPOS = () => around(HA + .1, 1.0, 0);
+const POV = (s, h = 1.5) => { const p = stepPos(s); p.y += h; const tg = stepPos(Math.max(0, s - 2.6)); tg.y += h - .35; return [p, tg]; };
+const boatAt = t => V(-9 - 34 * ease((t - 72.0) / 12), .1 + Math.sin(t * 1.3) * .08, 9 + 30 * ease((t - 72.0) / 12));
+function shot(t) {
+  if (t < 1.0) return [around(HA + .3, 1.25, 1.68), COPYHEAD(), 46, 'copy'];                                                   // hook: her paper face
+  if (t < S.l02) { const k = ease((t - 1) / 5.4); return [around(HA + .3, 1.35 - .1 * k, 1.66), COPYHEAD(), 58 - 10 * k, 'copy']; }  // she turns round
+  if (t < 11.6) { const k = ease((t - S.l02) / 4.2); return [around(HA + .3, 1.3 - .1 * k, 1.68), COPYHEAD(), 46 - 6 * k, 'copy']; } // the paper face, close
+  if (t < S.l03) return [around(HA + 1.0, .3, 1.72), around(HA + .1, 1.0, 1.7), 36, 'haru'];                                    // her, seeing it
+  if (t < S.l04) { const k = ease((t - S.l03) / 3.2); return [around(HA + .3, 1.25, 1.68), COPYHEAD(), 42 - 4 * k, 'copy']; }    // one of us...
+  if (t < S.l05) return [around(HA + 1.0, .3, 1.72), around(HA + .1, 1.0, 1.7), 34, 'haru'];
+  if (t < 29.6) return [around(HA + .3, 1.25, 1.68), COPYHEAD(), 40, 'copy'];                                                   // then keep it turning
+  if (t < S.l06) { const k = ease((t - 29.6) / 4.2); return [around(SA - 1.3, 1.45, 1.75), around(SA, .95, 1.0), 48, 'wide']; }  // she sits on the stool
+  if (t < 39.0) { const k = ease((t - S.l06) / 5.2); return [around(HA + 2.4, 1.5, 2.0), around(0, 0, 1.3), 56, 'wide']; }        // turning it by hand
+  if (t < S.l07) { const k = ease((t - 39) / 4.7); const h = copySit.headPivot.getWorldPosition(new THREE.Vector3()).add(V(0, .17, 0)); return [around(SA + Math.PI, .25 + .1 * k, 1.5), h, 30 - 4 * k, 'stool']; }  // watching, not blinking
+  if (t < S.l08) return [V(1.6, TOP + 1.3, 1.9), V(-.5, .8, 22), 28, 'rocks'];                                                  // the rocks, full again
+  if (t < S.l09) { const k = ease((t - S.l08) / 6.5); return [around(HA + 1.0, .3 - .1 * k, 1.72), around(HA + .1, 1.0, 1.7), 32 - 6 * k, 'haru']; }   // eyes shut
+  if (t < 62.0) return [around(SA - 1.3, 1.45, 1.75), around(SA, .95, 1.0), 44, 'stoolDawn'];                                 // the empty stool, dawn
+  if (t < S.l10) { const k = ease((t - 62) / 3.4); return [V(-20, 6, 22), V(-9, 1, 9), 38 - 4 * k, 'dawnOut']; }              // the boat at the dock
+  if (t < 68.6) { const s = lerp(63, 0, ease((t - S.l10) / 3.2)); const [p, l] = POV(s); return [p, l, 66, 'run']; }        // running down
+  if (t < S.l11) { const k = ease((t - 68.6) / 4.9); return [V(-16, 3.5, 20), V(-9, 1.2, 9), 40, 'dawnOut']; }                // onto the boat
+  if (t < S.l12) { const b = boatAt(t); return [b.clone().add(V(0, 2.0, 0)), V(0, TOP * .7, 0), 34 - 6 * ease((t - S.l11) / 8), 'boat']; }   // the lighthouse, getting smaller
+  if (t < S.l13) { const b = boatAt(t); const k = ease((t - S.l12) / 2.2); return [b.clone().add(V(0, 2.0, 0)), V(0, TOP + 1.5, 0), lerp(20, 3.2, k), 'boatZoom']; }   // someone at the lamp
+  if (t < 90.6) { const k = ease((t - S.l13) / 4); return [V(HX - 1.2, 1.7, 1.6), V(HX + 1.1, .55, -.3), 50 - 6 * k, 'home']; }   // home, the bag
+  if (t < S.l16) { const k = ease((t - 90.6) / 14.9); handNote.updateMatrixWorld(true); const c = handNote.localToWorld(V(0, 0, 0)), n = handNote.localToWorld(V(0, 0, 1)).sub(c).normalize();
+    return [c.clone().addScaledVector(n, .45 - .12 * k), c, 36, 'note']; }                                                  // the note: her handwriting; rule four
+  if (t < S.l17) { const k = ease((t - S.l16) / 8.5); const h = haru.headPivot.getWorldPosition(new THREE.Vector3()).add(V(0, .17, 0)); return [h.clone().add(V(-1.0 + .15 * k, 0, 0)), h, 36, 'mirror']; }   // the mirror (we are the mirror)
+  if (t < S.end) { const h = haru.headPivot.getWorldPosition(new THREE.Vector3()).add(V(0, .17, 0)); return [h.clone().add(V(-.85, 0, 0)), h, 42, 'mirror']; }
+  return [V(0, -50, 0), V(0, -60, 0), 40, 'black'];
+}
+
+// ---------------------------------------------------------------- render one frame
+noteState = -2; let n3State = '';
+function renderAt(t) {
+  const mode = shot(t)[3]; let pos = shot(t)[0];
+  const dawn = t >= T.dawn && t < S.l13 && ['stoolDawn', 'dawnOut', 'run', 'boat', 'boatZoom'].includes(mode) || (mode === 'stoolDawn');
+  const sk = dawn ? 'dusk' : 'night'; if (skyMode !== sk) { skyMode = sk; skyTex.redraw(sk); }
+  scene.fog.color.set(dawn ? 0x2b2a3a : 0x0b1424); renderer.setClearColor(dawn ? 0x2b2a3a : 0x05070c);
+  stars.visible = moon.visible = !dawn; hemi.intensity = dawn ? 1.0 : .4; hemi.color.set(dawn ? 0xffc6a8 : 0x8fa3c8); sunset.intensity = dawn ? 1.6 : 0; moonLight.intensity = dawn ? 0 : 1.0;
+  waves(t);
+  // the light: turning (by hand all night, then still turning as she leaves)
+  const a = 1.2 + t * 2 * Math.PI / 7;
+  const dir = V(Math.cos(a), -.06, Math.sin(a));
+  beam.target.position.copy(beam.position).add(dir.clone().multiplyScalar(40)); beam.intensity = dawn ? 4 : 9;
+  spill.target.position.set(Math.cos(a) * 19, .5, Math.sin(a) * 19); spill.intensity = dawn ? 0 : 7;
+  beamMesh.lookAt(beamMesh.position.clone().add(dir)); beam2.lookAt(beam2.position.clone().sub(dir));
+  beamMesh.visible = beam2.visible = ['rocks', 'boat', 'boatZoom', 'dawnOut'].includes(mode); beamMat.opacity = dawn ? .05 : .09;
+  const near = pos.distanceTo(lens.position) < 2.6;
+  lens.material.color.set(near ? 0x9c8a58 : 0xfff2c4); lampGlow.intensity = near ? 1.4 : 2.5; lensCage.rotation.y = a;
+  if (noteState !== -1) { noteState = -1; noteTex.redraw(-1); }
+  hatch.rotation.x = -1.9;                                                    // left open since part 2
+  faceInWindow.visible = false; fwEyes.forEach(e => e.visible = false);
+  // the rocks, full again on every sweep
+  drowned.forEach((p, i) => { p.g.visible = mode === 'rocks'; p.headPivot.rotation.set(-.15, 0, Math.sin(i * 3) * .15); });
+  extraCrowd.forEach(p => p.g.visible = false); rockMoon.intensity = mode === 'rocks' ? 7 : 0;
+  // the double: standing at the lamp, turning round; then on the stool; gone at dawn
+  copy.g.visible = ['copy', 'haru', 'wide'].includes(mode) && t < T.sit && !(mode === 'haru');
+  copy.g.position.set(Math.cos(CA) * .62, TOP + .15, Math.sin(CA) * .62);
+  const turnK = t < 1.0 ? 1 : ease((t - 1.0) / 3.6);
+  { const cx = Math.cos(CA) * .62, cz = Math.sin(CA) * .62, a0 = Math.atan2(-cx, -cz), a1 = Math.atan2(around(HA + .3, 1.2, 0).x - cx, around(HA + .3, 1.2, 0).z - cz);
+    let d = a1 - a0; d = Math.atan2(Math.sin(d), Math.cos(d)); copy.g.rotation.y = a0 + d * turnK; }   // faces the lamp, then turns round to face her (and us)
+  copy.headPivot.rotation.set(0, 0, turnK * .12); copy.arms[0].sh.rotation.set(-1.25 * (1 - turnK), 0, -.2); copy.arms[0].el.rotation.set(-.3 * (1 - turnK), 0, 0);
+  copySit.g.visible = t >= T.sit && t < S.l09 && ['wide', 'stool'].includes(mode);
+  copySit.g.position.set(Math.cos(SA) * .95, TOP + .03, Math.sin(SA) * .95); copySit.g.rotation.y = Math.atan2(-Math.cos(SA), -Math.sin(SA)) + .5;
+  copySit.headPivot.rotation.set(-.08, -.35, .08); copySit.arms.forEach((ar, i) => { ar.sh.rotation.set(-.35, 0, (i ? 1 : -1) * -.12); ar.el.rotation.set(-1.2, 0, (i ? 1 : -1) * .35); });
+  // Haru: in the lantern room (facing the double / turning the lamp), on the boat, at home
+  haru.g.visible = SITTING.g.visible = false; haru.mask.visible = false; haru.face.visible = true;
+  haru.arms.forEach((ar, i) => { ar.sh.rotation.set(0, 0, (i ? 1 : -1) * -.1); ar.el.rotation.set(-.15, 0, 0); }); haru.body.rotation.set(0, 0, 0);
+  if (['copy', 'haru'].includes(mode) || (t < 33.79)) { haru.g.visible = mode !== 'copy'; const p = HARUPOS(); haru.g.position.copy(p); haru.g.rotation.y = Math.atan2(Math.cos(CA) * .62 - p.x, Math.sin(CA) * .62 - p.z);
+    haru.headPivot.rotation.set(-.05, 0, 0); haru.eyes.forEach(e => e.scale.set(1, 1.6, .5)); haru.body.rotation.z = Math.sin(t * 43) * .01; }
+  if (mode === 'wide' && t >= S.l06 || mode === 'stool' || mode === 'rocks' || (mode === 'haru' && t >= S.l08)) {          // turning the lamp by hand, all night
+    const ha = SA + Math.PI; haru.g.visible = mode !== 'stool' && mode !== 'rocks'; haru.g.position.set(Math.cos(ha) * .55, TOP + .15, Math.sin(ha) * .55); haru.g.rotation.y = Math.atan2(-Math.cos(ha), -Math.sin(ha));
+    haru.arms.forEach(ar => { ar.sh.rotation.set(-1.4 + Math.sin(t * 2) * .1, 0, 0); ar.el.rotation.set(-.3, 0, 0); }); haru.body.rotation.y = Math.sin(t * 2) * .15;
+    haru.headPivot.rotation.set(.1, 0, 0);
+    const shut = t >= T.shut && t < T.dawn; haru.eyes.forEach(e => e.scale.set(1, shut ? .1 : 1.35, .5)); }
+  if (mode === 'haru' && t >= S.l08) { const p = around(SA + Math.PI, .55, 0); haru.g.position.copy(p); }
+  const boat0 = boatAt(t); boat.visible = ['dawnOut', 'boat', 'boatZoom'].includes(mode); boat.position.copy(t < 72 ? V(-9, .1 + Math.sin(t * 1.3) * .08, 9) : boat0); boat.rotation.y = .9; dock.visible = true;
+  if (mode === 'dawnOut' && t >= 68.6) { const k = ease((t - 68.6) / 3.2); haru.g.visible = true; haru.g.position.copy(dock.localToWorld(V(0, 1.06, lerp(-1, 3.6, k)))); haru.g.rotation.y = dock.rotation.y; haru.body.position.y = .82 + Math.abs(Math.sin(t * 9)) * .03; }
+  // someone at the lamp as the boat leaves (in her yellow coat)
+  if (mode === 'boatZoom' || mode === 'boat') { copy.g.visible = true; copy.mask.visible = false; copy.face.visible = true; copy.g.rotation.y = Math.atan2(-Math.cos(CA), -Math.sin(CA)); copy.arms[0].sh.rotation.set(-1.25, 0, -.2); }
+  else { copy.mask.visible = true; copy.face.visible = false; }
+  // home
+  hbag.visible = true; roomLamp.intensity = ['home', 'note', 'mirror'].includes(mode) ? 1.8 : 0;
+  if (mode === 'home') { haru.g.visible = true; haru.g.position.set(HX + .55, 0, -.2); haru.g.rotation.y = Math.PI / 2; haru.headPivot.rotation.set(.4, 0, 0); haru.arms[1].sh.rotation.set(-1.0, 0, .2); haru.arms[1].el.rotation.set(-.5, 0, 0); }
+  handNote.visible = mode === 'note' || mode === 'home' && t > 91;
+  handNote.position.set(HX + .3, 1.15, .1); handNote.rotation.set(-.25, -Math.PI / 2 + .1, .05);
+  const hi = t >= S.l15 && t < S.l16 ? 4 : -1, k4 = t >= S.l14 + 2.5 ? clamp01((t - (S.l14 + 2.5)) / .8) : 0, ns = hi + ':' + k4.toFixed(2);
+  if (ns !== n3State) { n3State = ns; note3Tex.redraw(hi, k4); }
+  if (mode === 'mirror') {                                                    // looking into the mirror; the face becomes paper
+    haru.g.visible = true; haru.g.position.set(HX - .75, 0, .3); haru.g.rotation.y = -Math.PI / 2; haru.headPivot.rotation.set(.02, 0, 0);
+    const lift = ease((t - S.l16 - .8) / 1.2); haru.arms[0].sh.rotation.set(-2.1 * lift, 0, .25 * lift); haru.arms[0].el.rotation.set(-1.6 * lift, 0, -.5 * lift);
+    const paper = t >= T.paper; haru.mask.visible = paper; haru.face.visible = !paper; }
+  // lights
+  torch.intensity = 0; keyLight.intensity = ['copy', 'haru'].includes(mode) ? .9 : mode === 'mirror' ? .8 : mode === 'note' ? .15 : 0; keyLight.position.copy(pos).add(V(0, .2, 0));
+  thumbFill.intensity = 0; thumbFace.intensity = 0; stairLight.intensity = mode === 'run' ? 1.4 : 0; stairLight.position.set(0, stepY(40), 0);
+  // camera (aimed after everything has moved)
+  haru.g.updateMatrixWorld(true); copySit.g.updateMatrixWorld(true);
+  const sh = shot(t); pos = sh[0]; const look = sh[1], fov = sh[2];
+  cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
+  let shake = mode === 'run' ? .03 : mode === 'boat' || mode === 'boatZoom' ? .01 : mode === 'mirror' && t > T.paper ? .003 : 0;
+  if (shake) cam.position.add(V(Math.sin(t * 7.1) * shake, Math.sin(t * 5.3) * shake * 1.3, 0));
+  const fadeShut = t >= T.shut && t < T.dawn ? clamp01((t - T.shut) / 1.2) : 0;
+  renderer.toneMappingExposure = mode === 'black' ? 0 : 1 - .95 * fadeShut;
+  grain.uniforms.vig.value = .65;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>
