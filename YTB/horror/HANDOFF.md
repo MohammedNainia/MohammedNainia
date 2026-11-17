@@ -37,11 +37,10 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
    Thumbnails: upload via a raw.githubusercontent.com URL (mcp.vidiq.com upload URL is blocked here).
 
 ## Done so far
-- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, https://www.youtube.com/watch?v=KngNLKLPzas), Part 2 "The Light Stopped" (16:9, 2:31, https://www.youtube.com/watch?v=X2a-0pQ_ov0, thumbnail "THEY WERE ON THE STAIRS / PART 2"), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0), Baby Monitor Part 2 (Short, 57 s, https://www.youtube.com/watch?v=HEXrLwstn0g), Baby Monitor Part 3 / final (101 s, https://www.youtube.com/watch?v=Og5Wlfrve7c), Doorbell Camera (62 s, https://www.youtube.com/watch?v=3j97KUMR9LI): all posted. The Baby Monitor story is finished.
+- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, https://www.youtube.com/watch?v=KngNLKLPzas), Part 2 "The Light Stopped" (16:9, 2:31, https://www.youtube.com/watch?v=X2a-0pQ_ov0, thumbnail "THEY WERE ON THE STAIRS / PART 2"), Part 3 "The Last Keeper" (final, 16:9, 2:01, https://www.youtube.com/watch?v=iHF9rADSaGI), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0), Baby Monitor Part 2 (Short, 57 s, https://www.youtube.com/watch?v=HEXrLwstn0g), Baby Monitor Part 3 / final (101 s, https://www.youtube.com/watch?v=Og5Wlfrve7c), Doorbell Camera (62 s, https://www.youtube.com/watch?v=3j97KUMR9LI): all posted. The Baby Monitor story is finished.
 - Darija versions on the Facebook Page قصص هارو المرعبة (YTB/horror/facebook): Part 1 https://www.facebook.com/reel/1300685672216645 , Part 2 https://www.facebook.com/reel/3061539507571879 , Part 3 https://www.facebook.com/reel/4490946704487451 .
   Darija voices come from the user's VoiceStudio (OmniVoice) via their local agent; one render serves both languages (fixed line slots, see baby_monitor2).
-- Keeper's Rules Part 3 is next (Part 2 ended: her double in her yellow coat at the lamp, "You're late for your shift"; Part 3 "The Last Keeper": the copy wants to swap
-  places, she leaves at dawn, the note is in her handwriting with rule 4 "Don't trust the keeper who left", she has a paper face).
+- The Keeper's Rules is finished (3 parts).
 
 ## DONE: "Baby Monitor" (posted; see YTB/horror/baby_monitor, scene three/scenes/baby_monitor.html)
 Monitor voice used: Artlist "Hushed" (id 28), pitched down and band-limited in post.py. The final render was done on the user's GPU (38 s).
