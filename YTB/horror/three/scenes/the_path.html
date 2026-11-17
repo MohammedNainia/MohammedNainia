@@ -1,0 +1,527 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE PATH (9:16, 178.1 s). Timed to YTB/horror/the_path/voice/layout.json.
+// A village with a monster at every door; Haru is the only one they let pass; the walk to the mountain.
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .55});
+const DUR = 178.1;
+cam.far = 700; cam.updateProjectionMatrix();
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+let rs = 21; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+const PI = Math.PI;
+
+// ---------------------------------------------------------------- sky + fog + lights
+const skyTex = canvasTex(8, 256, (g, w, h, mode = 'day') => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  const C = {day: ['#4f5763', '#727a84', '#8d9194', '#5d5f5c'], night: ['#02040a', '#0a1222', '#142038', '#05070c'], dawn: ['#2a3448', '#58647a', '#8b8f98', '#3c4250']}[mode];
+  gr.addColorStop(0, C[0]); gr.addColorStop(.45, C[1]); gr.addColorStop(.52, C[2]); gr.addColorStop(1, C[3]);
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 24, 16), new THREE.MeshBasicMaterial({map: skyTex, side: THREE.BackSide, fog: false}));
+scene.add(sky);
+scene.fog = new THREE.Fog(0x8a9099, 25, 140);
+const hemi = new THREE.HemisphereLight(0xb8c0c8, 0x3a342e, 1.0); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xdfe4ea, 1.2); sun.position.set(-30, 50, 40); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left: -40, right: 40, top: 40, bottom: -40, near: 1, far: 160}); scene.add(sun); scene.add(sun.target);
+const key = new THREE.PointLight(0xfff0dc, 0, 9, 1.4); scene.add(key);
+const ENV = {
+  day:   {fog: 0x6f767e, near: 22, far: 130, hemi: [0xb8c0c8, .95], sun: 1.0, clear: 0x6f767e},
+  night: {fog: 0x0b1220, near: 14, far: 90, hemi: [0x6a7ea8, .7], sun: .6, clear: 0x05070c},
+  dawn:  {fog: 0x5d6a78, near: 7, far: 48, hemi: [0x9aa6b8, .8], sun: .45, clear: 0x5d6a78},
+};
+let envNow = '';
+function setEnv(e) {
+  if (envNow !== e) { envNow = e; skyTex.redraw(e); }
+  const E = ENV[e]; scene.fog.color.set(E.fog); scene.fog.near = E.near; scene.fog.far = E.far;
+  hemi.color.set(E.hemi[0]); hemi.intensity = E.hemi[1]; sun.intensity = E.sun; sun.color.set(e === 'night' ? 0x8fa3d8 : 0xdfe4ea); renderer.setClearColor(E.clear);
+  winMat.color.set(e === 'night' ? 0xffb35a : 0x4a4038);
+}
+
+// ---------------------------------------------------------------- ground, road, mountain
+const groundM = flat(0x7a6a55), roadM = flat(0x8d7c64);
+mesh(scene, jitterGeo(new THREE.PlaneGeometry(400, 400, 60, 60).rotateX(-PI / 2), .25, 5), groundM, 0, 0, 60);
+mesh(scene, new THREE.BoxGeometry(60, .04, 8.6), roadM, 0, .01, .5);
+const mountain = mesh(scene, jitterGeo(new THREE.ConeGeometry(110, 85, 11, 3), 7, 9), flat(0x4a4e5c, {fog: false, emissive: 0x15171f}), 0, 40, 290, false);
+mesh(scene, jitterGeo(new THREE.ConeGeometry(34, 26, 11, 1), 3, 4), flat(0x9aa0aa, {fog: false}), 0, 70, 290, false);
+// the village up on the mountain (seen from the roof): little houses, lit windows, chimney smoke
+const upVillage = new THREE.Group(); upVillage.position.set(-6, 34, 222); scene.add(upVillage);
+const upWin = new THREE.MeshBasicMaterial({color: 0xffb35a, fog: false});
+const smokeM = new THREE.MeshBasicMaterial({color: 0x8a9098, transparent: true, opacity: .16, depthWrite: false, fog: false});
+const smokes = [];
+for (let i = 0; i < 7; i++) {
+  const x = (i - 3) * 4.2 + (rnd() - .5) * 2, y = Math.abs(i - 3) * 1.6;
+  mesh(upVillage, new THREE.BoxGeometry(3, 2.4, 3), flat(0x5a5048, {fog: false}), x, y + 1.2, 0, false);
+  mesh(upVillage, new THREE.BoxGeometry(.5, .6, .05), upWin, x, y + 1.3, -1.53, false);
+  mesh(upVillage, new THREE.BoxGeometry(.4, 1, .4), flat(0x3a3430, {fog: false}), x + .8, y + 2.9, .3, false);
+  for (let k = 0; k < 6; k++) { const s = mesh(upVillage, new THREE.IcosahedronGeometry(.5, 0), smokeM, x + .8, 0, .3, false); smokes.push({s, x: x + .8, y: y + 3.4, k, i}); }
+}
+
+// ---------------------------------------------------------------- houses (hollow, with door + window holes)
+const wallCols = [0xc49a6c, 0xb98d62, 0xcfa678, 0xa9805a], doorCols = [0x2f5f8a, 0x3b6e6e, 0x5a3b2a, 0x2c4f73];
+const winMat = new THREE.MeshBasicMaterial({color: 0x4a4038});
+function wallWithHoles(parent, mat, w, h, d, holes) {        // a wall in the local x-y plane, centred on x, from y=0 to h
+  const hs = holes.slice().sort((a, b) => a.x - b.x); let x0 = -w / 2;
+  const seg = (a, b, y0, y1) => { if (b - a > .01 && y1 - y0 > .01) mesh(parent, new THREE.BoxGeometry(b - a, y1 - y0, d), mat, (a + b) / 2, (y0 + y1) / 2, 0); };
+  for (const o of hs) { seg(x0, o.x - o.w / 2, 0, h); seg(o.x - o.w / 2, o.x + o.w / 2, 0, o.y); seg(o.x - o.w / 2, o.x + o.w / 2, o.y + o.h, h); x0 = o.x + o.w / 2; }
+  seg(x0, w / 2, 0, h);
+}
+const HW = 5, HD = 5, HH = 3.0;
+function house(x, zFront, faceSign, i, opt = {}) {          // faceSign +1: door faces +z
+  const g = new THREE.Group(); g.position.set(x, 0, zFront); g.rotation.y = faceSign > 0 ? 0 : PI; scene.add(g);
+  const m = flat(wallCols[i % 4]);
+  const front = new THREE.Group(); g.add(front);
+  wallWithHoles(front, m, HW, HH, .25, [{x: -.6, y: 0, w: 1.0, h: 2.0}, {x: 1.3, y: 1.1, w: .8, h: .7}]);
+  const back = new THREE.Group(); back.position.z = -HD; back.rotation.y = PI; g.add(back);
+  wallWithHoles(back, m, HW, HH, .25, opt.backWin ? [{x: -1.8, y: 1.1, w: .9, h: .8}] : []);
+  for (const sx of [-1, 1]) { const s = mesh(g, new THREE.BoxGeometry(.25, HH, HD), m, sx * HW / 2, HH / 2, -HD / 2); }
+  mesh(g, new THREE.BoxGeometry(HW + .3, .25, HD + .3), flat(0x9a7a58), 0, HH, -HD / 2);                  // flat roof
+  for (const [w, d, px, pz] of [[HW + .3, .2, 0, .1], [HW + .3, .2, 0, -HD - .1], [.2, HD + .3, HW / 2 + .1, -HD / 2], [.2, HD + .3, -HW / 2 - .1, -HD / 2]])
+    mesh(g, new THREE.BoxGeometry(w, .45, d), m, px, HH + .3, pz);                                        // parapet
+  mesh(g, new THREE.BoxGeometry(1.0, .08, .3), flat(0x8a7a64), -.6, 2.06, .2);                            // lintel
+  mesh(g, new THREE.BoxGeometry(1.2, .14, .6), flat(0x8f8576), -.6, .07, .35);                            // doorstep
+  const hinge = new THREE.Group(); hinge.position.set(-1.1, 0, -.02); g.add(hinge);
+  const door = mesh(hinge, new THREE.BoxGeometry(1.0, 2.0, .08), flat(doorCols[i % 4]), .5, 1.0, 0);
+  mesh(hinge, new THREE.SphereGeometry(.04, 6, 4), flat(0xb8a46a, {metalness: .7}), .88, 1.0, .06);
+  if (!opt.open) mesh(g, new THREE.BoxGeometry(.8, .7, .05), winMat, 1.3, 1.45, -.12, false);           // the glass glows at night
+  return {g, hinge, door, x, zFront, faceSign, doorW: g.localToWorld(V(-.6, 0, 0))};
+}
+const XS = [-16, -8, 0, 8, 16];
+const backRow = XS.map((x, i) => house(x, -4, 1, i, {open: x === 0}));                 // Haru (x=0), Mr. Hamid (x=-8)
+const frontRow = XS.map((x, i) => house(x, 10, 1, i + 2, {backWin: x === 0})); // Fatima (x=0) has a back window onto the road; Amina (x=8)
+[...backRow, ...frontRow].forEach(h => { h.g.updateMatrixWorld(true); h.doorW = h.g.localToWorld(V(-.6, 0, 0)); });
+const HARU = backRow[2], HAMID = backRow[1], FATIMA = frontRow[2], AMINA = frontRow[3];
+// Haru's room: bed, table, candle, flour sacks
+const room = new THREE.Group(); scene.add(room);
+mesh(room, new THREE.BoxGeometry(4.6, .04, 4.6), flat(0x6b5a48), 0, .02, -6.5);
+const bed = mesh(room, new THREE.BoxGeometry(1.1, .45, 2.1), flat(0x7a5a40), 1.6, .22, -7.6);
+mesh(room, new THREE.BoxGeometry(1.0, .12, 1.9), flat(0xd9d2c0), 1.6, .5, -7.6);
+mesh(room, new THREE.BoxGeometry(1.1, .7, .08), flat(0x6a4a32), 1.6, .65, -8.66);                         // bed frame (the bracelet knocks on it)
+mesh(room, new THREE.BoxGeometry(1.0, .7, .7), flat(0x6a4a32), -1.4, .35, -7.9);                          // table
+const candle = mesh(room, new THREE.CylinderGeometry(.04, .04, .18, 6), flat(0xeee6d0), -1.4, .8, -7.9);
+const flameM = new THREE.MeshBasicMaterial({color: 0xffc46a}); const flame = mesh(room, new THREE.SphereGeometry(.03, 6, 4), flameM, -1.4, .92, -7.9, false); flame.scale.y = 1.8;
+const candleL = new THREE.PointLight(0xffa64a, 2.2, 7, 1.6); candleL.position.set(-1.4, 1.1, -7.7); scene.add(candleL);
+for (let k = 0; k < 4; k++) { const s = mesh(room, jitterGeo(new THREE.IcosahedronGeometry(.32, 1), .06, 30 + k), flat(0xd8ccb0), -1.9 + (k % 2) * .6, .3 + (k > 1) * .5, -5.6 - (k % 2) * .2); s.scale.y = 1.3; }
+// Fatima's lamp
+const fatL = new THREE.PointLight(0xffb060, 0, 5, 1.6); fatL.position.set(1.8, 1.8, 6.2); scene.add(fatL);
+
+// ---------------------------------------------------------------- the monsters
+const furM = flat(0x1e1a17, {roughness: 1}), furM2 = flat(0x2a2420, {roughness: 1}), toothM = flat(0xd9cfa8), gumM = flat(0x3a1a18);
+const eyeM = new THREE.MeshBasicMaterial({color: 0xf0d27a});
+const tuftG = new THREE.ConeGeometry(.12, .45, 4);
+const breathM = new THREE.MeshBasicMaterial({color: 0xdfe6ee, transparent: true, opacity: 0, depthWrite: false});
+function furry(parent, geo, x, y, z, sx, sy, sz, seed, n) {
+  const b = mesh(parent, jitterGeo(geo, .12, seed), furM, x, y, z); b.scale.set(sx, sy, sz);
+  for (let i = 0; i < n; i++) {                                     // jagged tufts sticking out of the body
+    const u = rnd() * 2 * PI, v = rnd() * PI, d = V(Math.sin(v) * Math.cos(u), Math.cos(v), Math.sin(v) * Math.sin(u));
+    const t = mesh(parent, tuftG, i % 2 ? furM : furM2, x + d.x * sx * .9, y + d.y * sy * .9, z + d.z * sz * .9);
+    t.quaternion.setFromUnitVectors(V(0, 1, 0), d); t.scale.setScalar(.7 + rnd() * .8);
+  }
+  return b;
+}
+function monster(seed) {
+  const g = new THREE.Group(); scene.add(g);
+  const legs = [];
+  for (const sx of [-.42, .42]) { const l = new THREE.Group(); l.position.set(sx, 1.35, 0); g.add(l); furry(l, new THREE.CylinderGeometry(.3, .24, 1.35, 6), 0, -.68, 0, 1, 1, 1, seed + sx * 10, 6); mesh(l, jitterGeo(new THREE.BoxGeometry(.5, .2, .75), .05, seed), furM2, 0, -1.28, .15); legs.push(l); }
+  const hip = new THREE.Group(); hip.position.set(0, 1.35, 0); g.add(hip);
+  furry(hip, new THREE.IcosahedronGeometry(1, 1), 0, .75, .08, .85, .95, .7, seed + 1, 26);     // the hunched body
+  furry(hip, new THREE.IcosahedronGeometry(1, 1), 0, 1.45, .3, .95, .55, .7, seed + 2, 16);     // shoulders
+  const neck = new THREE.Group(); neck.position.set(0, 1.55, .55); hip.add(neck);
+  const head = new THREE.Group(); head.position.set(0, .05, .35); neck.add(head);
+  furry(head, new THREE.BoxGeometry(.9, .75, .8), 0, .1, 0, 1, 1, 1, seed + 3, 10);
+  mesh(head, new THREE.BoxGeometry(.8, .26, .1), gumM, 0, -.12, .41);                                // the mouth, slightly open
+  for (let i = 0; i < 9; i++) {                                                                      // too many teeth
+    const x = -.34 + i * .085;
+    mesh(head, new THREE.ConeGeometry(.04, .2 + (i % 3) * .05, 4), toothM, x, -.02, .45).rotation.x = PI;
+    mesh(head, new THREE.ConeGeometry(.035, .17 + ((i + 1) % 3) * .05, 4), toothM, x + .04, -.24, .45);
+  }
+  const eyes = [-.2, .2].map(x => mesh(head, new THREE.SphereGeometry(.045, 6, 4), eyeM, x, .28, .41, false));
+  mesh(head, new THREE.BoxGeometry(.8, .12, .15), furM, 0, .36, .38);                                // heavy brow
+  const arms = [];
+  for (const sx of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(sx * .95, 1.4, .25); hip.add(sh);
+    furry(sh, new THREE.CylinderGeometry(.2, .16, 1.3, 6), 0, -.62, 0, 1, 1, 1, seed + 4 + sx, 6);
+    const el = new THREE.Group(); el.position.set(0, -1.25, 0); sh.add(el);
+    furry(el, new THREE.CylinderGeometry(.16, .12, 1.15, 6), 0, -.55, 0, 1, 1, 1, seed + 6 + sx, 5);
+    for (let f = 0; f < 3; f++) mesh(el, new THREE.ConeGeometry(.035, .32, 4), toothM, (f - 1) * .07, -1.22, .05).rotation.x = PI;   // long claws
+    sh.rotation.set(.15, 0, sx * .12); el.rotation.set(-.2, 0, 0); arms.push({sh, el});
+  }
+  const breath = []; for (let k = 0; k < 3; k++) breath.push(mesh(head, new THREE.IcosahedronGeometry(.16, 1), breathM.clone(), 0, -.1, .55, false));
+  return {g, hip, neck, head, eyes, arms, legs, breath, seed};
+}
+function pose(m, t, o = {}) {                                     // breathing, bending, walking
+  const br = Math.sin(t * 1.3 + m.seed);
+  const bend = o.bend || 0;
+  m.hip.rotation.set(.18 + bend * .95 + br * .015, 0, 0); m.hip.scale.set(1 + br * .012, 1, 1 + br * .02);
+  m.neck.rotation.set(-.25 - bend * .55 + (o.nod || 0), o.turn || 0, 0);
+  m.head.rotation.set(0, 0, o.tilt || 0);
+  const w = o.walk || 0;
+  m.legs.forEach((l, i) => l.rotation.x = Math.sin(w + i * PI) * .35 * (o.walk !== undefined ? 1 : 0));
+  m.arms.forEach((a, i) => { a.sh.rotation.x = .15 + bend * .3 + (o.walk !== undefined ? Math.sin(w + (1 - i) * PI) * .2 : 0); });
+  m.breath.forEach((b, k) => {                                    // a puff of fog on every out-breath
+    const ph = ((t * 1.3 + m.seed) / (2 * PI) + k / 3) % 1;
+    b.material.opacity = (o.fog || 0) * Math.sin(ph * PI) * ph * .22; b.position.set(0, -.15 - ph * .3, .55 + ph * .9); b.scale.setScalar(.4 + ph * 1.4);
+  });
+}
+const doorMon = [...backRow, ...frontRow].map((h, i) => {         // one outside every door, facing it
+  const m = monster(50 + i * 7); m.home = h;
+  m.g.position.set(h.doorW.x + .55, 0, h.zFront + 2.3); m.g.rotation.y = PI;
+  m.g.scale.setScalar(1.05 + (i % 3) * .06); return m;
+});
+const MHARU = doorMon[2]; MHARU.g.scale.setScalar(1.05);
+const pathMon = []; for (let i = 0; i < 9; i++) { const m = monster(400 + i * 13); m.g.scale.setScalar(1.05 + (i % 3) * .07); pathMon.push(m); }
+
+// ---------------------------------------------------------------- the path through the forest
+const PZ0 = 16, TREELINE = 150;
+const pathX = z => 4 + 5 * Math.sin((z - PZ0) / 38);
+mesh(scene, new THREE.BoxGeometry(2.2, .04, 1), roadM, 0, 0, 0).visible = false;
+for (let z = PZ0; z < TREELINE + 30; z += 1.2) {                 // the path: a strip of pale stones
+  const s = mesh(scene, new THREE.BoxGeometry(2.2, .05, 1.25), flat(0x8a8072), pathX(z), .02, z, false); s.rotation.y = Math.atan(5 / 38 * Math.cos((z - PZ0) / 38)) * -1;
+  for (let k = 0; k < 3; k++) mesh(scene, jitterGeo(new THREE.DodecahedronGeometry(.12 + rnd() * .1, 0), .04, k + z), flat(0x6f675d), pathX(z) + (rnd() - .5) * 1.8, .06, z + rnd(), false);
+}
+const pineM = [flat(0x22352a), flat(0x1b2b22), flat(0x2a3d2f)], trunkM = flat(0x3a2c22);
+const trees = [];
+for (let z = 34; z < TREELINE; z += 1.7) for (const side of [-1, 1]) for (let r = 0; r < 4; r++) {
+  const x = pathX(z) + side * (2.6 + r * 3.2 + rnd() * 2.5), zz = z + rnd() * 1.6, h = 5 + rnd() * 4;
+  const t = new THREE.Group(); t.position.set(x, 0, zz); scene.add(t);
+  mesh(t, new THREE.CylinderGeometry(.14, .2, 1.6, 5), trunkM, 0, .8, 0);
+  for (let k = 0; k < 3; k++) mesh(t, jitterGeo(new THREE.ConeGeometry(1.5 - k * .35, h * .45, 6), .15, x * 3 + k), pineM[(k + r) % 3], 0, 1.6 + k * h * .22 + h * .2, 0);
+  trees.push(t);
+}
+// the open slope beyond the tree line, rising to the mountain
+mesh(scene, jitterGeo(new THREE.PlaneGeometry(140, 140, 30, 30).rotateX(-PI / 2 + .12), .6, 12), flat(0x6e6a5c), 0, 7, TREELINE + 70);
+
+// ---------------------------------------------------------------- people
+const YELLOW = 0xe2a92b;
+const haru = person(scene, {coat: YELLOW, long: true, pants: 0x3c3f4a, seed: 3});
+const pack = new THREE.Group(); haru.body.add(pack); pack.position.set(0, .34, -.24);
+mesh(pack, jitterGeo(new THREE.BoxGeometry(.36, .42, .2), .02, 8), flat(0x8a3b2e), 0, 0, 0);
+const strap = mesh(haru.body, new THREE.BoxGeometry(.05, .5, .04), flat(0x5a2a20), .12, .4, -.17); strap.rotation.x = .25;
+const strap2 = mesh(haru.body, new THREE.BoxGeometry(.05, .5, .04), flat(0x5a2a20), -.12, .4, -.17); strap2.rotation.x = .25;
+const sister = person(scene, {coat: 0x6f86a8, long: true, pants: 0x4a4a55, seed: 17, headScale: 1.5}); sister.g.scale.setScalar(.82);
+const bracelet = new THREE.Group(); scene.add(bracelet);             // a thin cord with three little bells
+mesh(bracelet, new THREE.TorusGeometry(.05, .008, 4, 12), flat(0xb8902a, {metalness: .7, roughness: .4}), 0, 0, 0);
+for (let k = 0; k < 3; k++) mesh(bracelet, new THREE.SphereGeometry(.016, 6, 4), flat(0xd8b040, {metalness: .8, roughness: .3}), Math.cos(k * 2.1) * .055, -.02, Math.sin(k * 2.1) * .055);
+const sisHand = mesh(scene, jitterGeo(new THREE.IcosahedronGeometry(.05, 1), .01, 3), flat(0xf1c9a5), 0, 0, 0);
+const fatima = person(scene, {coat: 0x6a2b2b, hair: 0x9a9690, long: true, pants: 0x3a2a2a, seed: 41});
+const bottle = mesh(scene, new THREE.CylinderGeometry(.04, .05, .2, 6), flat(0x4a6a3a, {roughness: .3}), 0, 0, 0);
+const amina = person(scene, {coat: 0x4f5a3a, hair: 0x2a2220, long: true, seed: 53});
+const hamid = person(scene, {coat: 0x6a5a44, hair: 0xb0aaa0, seed: 61});
+const bucket = mesh(scene, new THREE.CylinderGeometry(.18, .14, .3, 8), flat(0x7a7a80, {metalness: .5}), 0, 0, 0);
+const COATS = [0x6a4a3a, 0x3e5a6a, 0x7a6a4a, 0x5a3a4a, 0x4a5a3a, 0x8a6a52, 0x3a3a4a, 0x6a6a62, 0x7a4a2a, 0x2f4a5a];
+const crowd = []; for (let i = 0; i < 24; i++) { const p = person(scene, {coat: COATS[i % 10], hair: i % 4 ? 0x1d1714 : 0x8a8680, long: i % 2 === 0, pants: 0x3a3a40, seed: 100 + i * 7}); if (i % 5 === 3) p.g.scale.setScalar(.8); crowd.push(p); }
+const ALL = [haru, sister, fatima, amina, hamid, ...crowd];
+function walk(p, ph, amt = 1) {                                       // swing the legs (stand pose children: leg, shoe, leg, shoe)
+  const c = p.g.children;
+  for (let s = 0; s < 2; s++) { const a = Math.sin(ph + s * PI) * .38 * amt; c[s * 2].rotation.x = a; c[s * 2 + 1].position.z = .04 - .4 * Math.sin(a); c[s * 2 + 1].position.y = .035 + Math.max(0, Math.cos(ph + s * PI)) * .04 * amt; }
+  p.body.position.y = .82 + Math.abs(Math.sin(ph)) * .025 * amt;
+  p.arms.forEach((a, i) => a.sh.rotation.x = Math.sin(ph + (1 - i) * PI) * .3 * amt);
+}
+function resetPerson(p) {
+  p.g.visible = false; p.g.rotation.set(0, 0, 0); p.body.rotation.set(0, 0, 0); p.body.position.y = .82; p.headPivot.rotation.set(0, 0, 0);
+  const c = p.g.children; for (let s = 0; s < 2; s++) { c[s * 2].rotation.x = 0; c[s * 2 + 1].position.set(c[s * 2 + 1].position.x, .035, .04); }
+  p.arms.forEach((a, i) => { a.sh.rotation.set(0, 0, (i ? 1 : -1) * -.1); a.el.rotation.set(-.15, 0, 0); });
+  p.eyes.forEach(e => e.scale.set(1, 1.35, .5));
+}
+const place = (p, x, z, face, y = 0) => { p.g.visible = true; p.g.position.set(x, y, z); p.g.rotation.y = face; };
+const headW = p => { p.g.updateMatrixWorld(true); return p.headPivot.localToWorld(V(0, .13, .02)); };
+const along = (p, d) => { p.g.updateMatrixWorld(true); return p.g.localToWorld(d); };
+const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+
+// ---------------------------------------------------------------- timing (from layout.json)
+const S = {n02: 5.56, n03: 10.17, n04: 15.32, n05: 20.06, n06: 24.04, n07: 26.26, n08: 33.3, n09: 36.95, s1: 39.27, n10: 42.19, n11: 46.72, n12: 51.67, n13: 53.51, n14: 60.5, n15: 62.73,
+  n17: 65.29, n18: 70.86, a1: 75.58, n19: 78.23, n20: 81.12, n21: 86.35, n22: 91.92, n23: 95.14, n24: 98.79, s2: 107.91, n25: 112.21, n26: 118.98, n27: 124.74, n28: 130.49,
+  n29: 132.79, n30: 138.17, n32: 140.99, n33: 145.96, s3: 147.76, n34: 149.82, n35: 151.78, n36: 154.59, n37: 158.47, n38: 161.11, n39: 166.43, s4: 175.23};
+const COUNT = [[151.78, 20], [152.84, 10], [153.56, 4], [155.33, 2], [159.73, 1]];   // how many feet are left, on the words
+const TUG = 174.1;
+// shot list: [start, name]; each shot is drawn by SHOT[name](t, k) where k runs 0..1 across the shot
+const CUTS = [[0, 'hook'], [5.4, 'street'], [10.0, 'tilt'], [15.1, 'doorbreath'], [19.85, 'hamid'], [22.45, 'black'], [23.5, 'hamidDoor'], [26.0, 'window'],
+  [33.1, 'flour'], [36.7, 'bed'], [39.1, 'wrist'], [42.0, 'acrossRoad'], [46.6, 'fatima'], [51.5, 'opens'], [53.3, 'sniff'], [60.2, 'aside'], [62.6, 'crossing'],
+  [65.15, 'bread'], [67.0, 'jug'], [68.85, 'knock'], [70.7, 'sleeve'], [75.45, 'amina'], [78.1, 'together'], [80.95, 'chain'], [86.2, 'needed'],
+  [91.6, 'roof'], [95.0, 'smoke'], [98.6, 'backs'], [107.7, 'sisRoof'], [111.9, 'lineup'], [118.8, 'strapHold'], [124.55, 'emptySteps'], [130.3, 'harulook'],
+  [132.5, 'forest'], [137.8, 'feet'], [140.75, 'trees'], [145.7, 'turn'], [147.5, 'lookback'], [149.7, 'forward'], [151.5, 'overhead'], [154.3, 'twoFeet'],
+  [158.1, 'strapGone'], [160.8, 'alone'], [166.1, 'treeline'], [172.3, 'tug'], [175.1, 'face'], [177.1, 'black'], [177.4, 'hookEnd'], [DUR + 1, 'end']];
+
+// path walk: the line leaves the village at dawn; Haru's position along the path at time t
+const HZ = t => t < 132.5 ? 20 : t < 166.1 ? lerp(40, 141, (t - 132.5) / (166.1 - 132.5)) : lerp(141, 160, ease((t - 166.1) / 6));
+function lineOnPath(t, n, gap = 1.05) {                            // Haru first, then the others behind, each holding the shoulder in front
+  const z0 = HZ(t);
+  const ph = t * 5.2;
+  place(haru, pathX(z0), z0, Math.atan(5 / 38 * Math.cos((z0 - PZ0) / 38))); walk(haru, ph);
+  const who = [sister, ...crowd];
+  for (let i = 0; i < Math.min(n, who.length); i++) {
+    const z = z0 - gap * (i + 1); const p = who[i];
+    place(p, pathX(z) + (i === 0 ? 0 : Math.sin(i * 1.7) * .1), z, Math.atan(5 / 38 * Math.cos((z - PZ0) / 38))); walk(p, ph + i * .9);
+    p.arms[1].sh.rotation.set(-1.25, 0, .25); p.arms[1].el.rotation.set(-.2, 0, 0);   // a hand on the shoulder in front
+  }
+}
+function pathMonsters(t, n, near = 4.2, lag = 3) {                 // dark shapes walking between the trees, beside the line
+  for (let i = 0; i < pathMon.length; i++) {
+    const m = pathMon[i]; m.g.visible = i < n; if (!m.g.visible) continue;
+    const z = HZ(t) - lag - i * 3.1, side = i % 2 ? 1 : -1;
+    m.g.position.set(pathX(z) + side * (near + (i % 3) * 1.3), 0, z); m.g.rotation.y = Math.atan(5 / 38 * Math.cos((z - PZ0) / 38));
+    pose(m, t, {walk: t * 2.6 + i, fog: .35, turn: -side * .35});
+  }
+}
+
+// ---------------------------------------------------------------- the shots
+const SH = {
+  hook(t, k) {                                         // alone on the mountain path, past the tree line; dark shapes stopped in the trees behind her
+    setEnv('dawn'); const z = 160; place(haru, pathX(z), z, 0); haru.headPivot.rotation.set(.05, 0, 0); haru.eyes.forEach(e => e.scale.set(1, 1.5, .5));
+    rowAtTreeline(t);
+    const h = headW(haru); return [V(h.x + .55, h.y - .05, h.z + 2.6 - k * .6), V(h.x - .05, h.y - .2, h.z - 6), 40];
+  },
+  street(t, k) {                                       // one outside every door
+    setEnv('day'); villageMon(t); return [V(19 - k * 2, 3.4, 2.6), V(-8, 1.6, -3.2), 40];
+  },
+  tilt(t, k) {                                         // taller than the door frame: tilt up from the claws to the teeth
+    setEnv('day'); villageMon(t); const m = doorMon[3]; const p = m.g.position;
+    return [V(p.x + 4.2, 1.0 + k * .4, p.z + 5.6), V(p.x, lerp(.4, 3.6, ease(k)), p.z), 46 - k * 6];
+  },
+  doorbreath(t, k) {                                   // breathing on the wood
+    setEnv('day'); villageMon(t); const m = doorMon[3]; pose(m, t, {fog: 1, bend: .12}); const hd = mHead(m);
+    const d = m.home.doorW; return [V(d.x - .55, 1.25, -3.7), V(hd.x, hd.y - .1, hd.z), 52 - k * 6];
+  },
+  hamid(t, k) {                                        // Mr. Hamid goes out to feed his goats
+    setEnv('day'); villageMon(t); HAMID.hinge.rotation.y = 1.6 * ease(k * 2);
+    const d = HAMID.doorW; place(hamid, d.x - .1 + k * .3, d.z + .3 + ease(k) * .6, 0); walk(hamid, t * 4.5, .7);
+    bucket.visible = true; bucket.position.copy(along(hamid, V(.3, .45, .15)));
+    return [V(d.x - 3.6, 1.7, d.z + 4.6), V(d.x + .6, 1.6, d.z + .6), 42];
+  },
+  black() { return null; },
+  hamidDoor(t, k) {                                    // his door is still open; the bucket on its side; it hasn't moved
+    setEnv('day'); villageMon(t); HAMID.hinge.rotation.y = 1.6; const d = HAMID.doorW;
+    bucket.visible = true; bucket.position.set(d.x + 1.5, .14, d.z + 1.4); bucket.rotation.set(0, 0, PI / 2);
+    return [V(d.x - 3.4 + k * .4, 1.4, d.z + 3.2), V(d.x + .1, 1.1, d.z + .2), 40];
+  },
+  window(t, k) {                                       // from inside, through the window: the road, and them at every door
+    setEnv('day'); villageMon(t); place(haru, 1.15, -4.62, 0); haru.headPivot.rotation.set(0, .1, 0);
+    return [V(1.5 - k * .1, 1.8, -6.0), V(1.3, 1.45, 0), 50];
+  },
+  flour(t, k) {                                        // flour for the winter
+    setEnv('day'); place(haru, -.6, -6.0, -2.2); place(sister, .2, -6.6, -2.5); sister.headPivot.rotation.set(.2, 0, 0);
+    return [V(.9, 1.5, -4.7), V(-1.6, .6, -6.3), 46 - k * 4];
+  },
+  bed(t, k) {                                          // the fever
+    setEnv('night'); lie(t); place(haru, .7, -7.0, PI / 2 + .3); haru.headPivot.rotation.set(.35, 0, 0);
+    return [V(-.9, 1.9, -8.9), V(1.3, .7, -7.4), 46 - k * 6];
+  },
+  wrist(t, k) {                                        // her hand on the bed frame; the bracelet knocks on the wood
+    setEnv('night'); lie(t); const tap = Math.max(0, Math.sin((t - 39.1) * 5)) * .02;
+    sisHand.visible = true; sisHand.position.set(1.95, .62 + tap, -8.45); bracelet.visible = true; bracelet.position.set(1.95, .6 + tap, -8.35); bracelet.rotation.set(PI / 2 - .3, 0, 0);
+    return [V(2.2, 1.15, -7.5 + k * .15), V(1.9, .62, -8.4), 36 - k * 4];
+  },
+  acrossRoad(t, k) {                                   // across the road: one lit window; Fatima
+    setEnv('night'); villageMon(t); fatL.intensity = 3; place(fatima, 1.8, 5.6, PI); fatima.headPivot.rotation.set(.05, 0, 0);
+    place(haru, 1.0, -4.65, .05); return [V(1.55, 1.75, -6.4), V(1.8, 1.6, 5), 34 - k * 6];
+  },
+  fatima(t, k) {                                       // she holds the bottle up; she won't open her door
+    setEnv('night'); villageMon(t); fatL.intensity = 3; place(fatima, 1.8, 5.6, PI);
+    fatima.arms[0].sh.rotation.set(-2.5, 0, .3); fatima.arms[0].el.rotation.set(-.4, 0, 0);
+    bottle.visible = true; bottle.position.copy(along(fatima, V(-.25, 1.95, .35)));
+    fatima.headPivot.rotation.set(0, Math.sin(t * 2.2) * .25 * clamp01((t - 49.4) / .5), 0);          // shakes her head
+    return [V(2.1, 1.75, 1.2 - k * .6), V(1.8, 1.65, 5.4), 30];
+  },
+  opens(t, k) {                                        // so I opened mine: from inside, the door swings and the doorway fills with fur
+    setEnv('night'); villageMon(t); const a = ease((t - 52.1) / .7); HARU.hinge.rotation.y = 1.5 * a;
+    place(haru, -.6, -4.6, 0); haru.arms[0].sh.rotation.set(-1.0, 0, 0);
+    return [V(-.9, 1.6, -7.2), V(-.6, 1.6, -3), 48];
+  },
+  sniff(t, k) {                                        // it bends down until its teeth are next to her ear
+    setEnv('night'); villageMon(t, [MHARU]); HARU.hinge.rotation.y = 1.5;
+    const hp = V(-.55, 0, -3.52); place(haru, hp.x, hp.z, 0); haru.headPivot.rotation.set(-.05, -.1, 0); haru.eyes.forEach(e => e.scale.set(1, 1.7, .5));
+    const m = MHARU; m.g.position.set(.12, 0, -.82); m.g.rotation.y = PI;
+    const b = .82 * ease((t - 53.6) / 2.6); pose(m, t, {bend: b, fog: 0, nod: Math.sin(t * 3.3) * .04 * b, tilt: 0, turn: 1.05 * b});
+    const h = headW(haru); return [V(-2.5 + k * .3, 1.95, -1.95 - k * .2), V(-.3, 1.82, -3.5), 40 - k * 4];
+  },
+  aside(t, k) {                                        // then it moved out of my way
+    setEnv('night'); villageMon(t, [MHARU]); HARU.hinge.rotation.y = 1.5;
+    place(haru, -.55, -3.52 + ease(k) * .4, 0); const m = MHARU; const s = ease((t - 60.6) / 1.4);
+    m.g.position.set(.12 + .9 * s, 0, -.82 - .6 * s); m.g.rotation.y = PI - .5 * Math.sin(s * PI); pose(m, t, {bend: .3 * (1 - s), walk: s < 1 && s > 0 ? t * 3 : undefined, fog: .7});
+    return [V(2.8, 1.6, -.6), V(-.4, 1.5, -3.0), 46];
+  },
+  crossing(t, k) {                                     // it had never moved for anyone: she crosses the road between them
+    setEnv('night'); villageMon(t, [MHARU]); MHARU.g.position.set(1.0, 0, -1.42); pose(MHARU, t, {fog: .7});
+    HARU.hinge.rotation.y = 1.5; place(haru, -.6 + k * .8, lerp(-2.6, 3.6, k), .1); walk(haru, t * 5);
+    return [V(-11, 6.5, 9), V(0, .8, 1), 38];
+  },
+  bread(t, k) {                                        // bread
+    setEnv('day'); villageMon(t); const d = frontRow[1].doorW; frontRow[1].hinge.rotation.y = .35;
+    place(haru, d.x + 1.3, d.z + 1.5, faceTo(d.x + 1.3, d.z + 1.5, d.x, d.z)); haru.arms[0].sh.rotation.set(-1.3, 0, 0);
+    bottle.visible = true; bottle.scale.set(2.2, .8, 2.2); bottle.material.color.set(0xc89a5a); bottle.position.copy(along(haru, V(-.2, 1.05, .45)));
+    return [V(d.x - 3.0, 1.6, d.z + 2.2), V(d.x + .6, 1.2, d.z + 1.0), 40];
+  },
+  jug(t, k) {                                          // water: tracking beside her, past them
+    setEnv('day'); villageMon(t); const x = lerp(-10, -4, k); place(haru, x, 1.0, PI / 2); walk(haru, t * 5);
+    return [V(x + .3, 1.5, 4.3), V(x + .3, 1.3, 0), 46];
+  },
+  knock(t, k) {                                        // medicine, left on a sill
+    setEnv('day'); villageMon(t); const h = frontRow[4]; place(haru, h.x + 1.3, h.zFront + 1.0, PI); haru.arms[1].sh.rotation.set(-1.4, 0, 0);
+    return [V(h.x + 4.4, 1.6, h.zFront + 2.6), V(h.x + 1.1, 1.3, h.zFront + .6), 44];
+  },
+  sleeve(t, k) {                                       // Mrs. Amina grabs my sleeve
+    setEnv('day'); villageMon(t); const d = AMINA.doorW; AMINA.hinge.rotation.y = 1.1;
+    place(haru, d.x + .9, d.z + .9, -PI / 2 - .2); place(amina, d.x - .2, d.z + .1, .6);
+    const g = ease((t - 72.2) / .4); amina.arms[1].sh.rotation.set(-1.4 * g, 0, -.6 * g); amina.arms[1].el.rotation.set(-.2, 0, 0);
+    const hand = along(amina, V(.42, .95, .55));
+    return [V(d.x + 1.9, 1.35, d.z + 2.6), V(d.x + .55, 1.1, d.z + .6), 40];
+  },
+  amina(t, k) {                                        // "Please. My daughter is two houses down."
+    setEnv('day'); villageMon(t); const d = AMINA.doorW; AMINA.hinge.rotation.y = 1.1; place(amina, d.x - .1, d.z - .45, .5); place(haru, d.x + .9, d.z + .9, -PI / 2 - .2);
+    amina.arms[1].sh.rotation.set(-1.4, 0, -.6); const h = headW(amina);
+    return [V(h.x + .5, h.y + .02, h.z + 1.25), h, 34];
+  },
+  together(t, k) {                                     // we crossed together; nothing touched her
+    setEnv('day'); villageMon(t); const x = lerp(9.3, 4.5, k), z = lerp(12.2, 12.6, k); place(haru, x, z, -PI / 2); place(amina, x + .7, z + .1, -PI / 2); walk(haru, t * 4.6); walk(amina, t * 4.6 + 1);
+    amina.arms[0].sh.rotation.set(-1.1, 0, .3);
+    return [V(x - 1, 2.2, z + 6.5), V(x - .5, 1.3, z), 40];
+  },
+  chain(t, k) {                                        // people visiting again: a chain of hands, past the monsters
+    setEnv('day'); villageMon(t); const x0 = lerp(-12, 2, k); place(haru, x0, .9, PI / 2); walk(haru, t * 4.4);
+    for (let i = 0; i < 5; i++) { const p = crowd[i]; place(p, x0 - .8 * (i + 1), .9 + Math.sin(i) * .15, PI / 2); walk(p, t * 4.4 + i); p.arms[1].sh.rotation.set(-1.2, 0, .2); }
+    return [V(x0 + 2.6, 2.0, 4.2), V(x0 - 1.6, 1.1, .4), 46];
+  },
+  needed(t, k) {                                       // people knocked on my door before sunrise
+    setEnv('dawn'); villageMon(t); HARU.hinge.rotation.y = 1.4;
+    place(haru, -.6, -3.7, 0); haru.headPivot.rotation.set(-.1, 0, 0);
+    for (let i = 0; i < 6; i++) { const p = crowd[i + 5]; place(p, -2.2 + i * .75, -1.9 + (i % 2) * .6, PI); }
+    const h = headW(haru); return [V(h.x + .2, h.y - .05, h.z + 1.25 + k * .2), h, 36];
+  },
+  roof(t, k) {                                         // from our roof you can see the village up on the mountain
+    setEnv('night'); villageMon(t); place(haru, -.6, -5.5, 0, HH + .13); place(sister, .3, -5.3, 0, HH + .13);
+    return [V(-.2, HH + 1.3, -8.4), V(0, 18, 120), 52 - k * 6];
+  },
+  smoke(t, k) {                                        // still smoke from their chimneys
+    setEnv('night'); place(haru, -.6, -5.5, 0, HH + .13);
+    return [V(0, HH + 1.6, -5), V(-6, 36, 222), lerp(9, 5.5, ease(k))];
+  },
+  backs(t, k) {                                        // every one of them facing our doors, with its back to the mountain
+    setEnv('night'); villageMon(t); place(haru, -.6, -5.5, 0, HH + .13); place(sister, .3, -5.3, 0, HH + .13);
+    const a = ease(k); return [V(lerp(-.4, 3, a), HH + 2.6 + a * 1.4, lerp(-5.9, -6.6, a)), V(lerp(0, 2, a), .5, lerp(3, 18, a)), 58];
+  },
+  sisRoof(t, k) {                                      // "If everyone holds on to you, we can all get up there."
+    setEnv('night'); place(haru, -.6, -5.5, 0, HH + .13); place(sister, .3, -5.3, -1.0, HH + .13); sister.headPivot.rotation.set(-.1, -.2, 0);
+    const h = headW(sister); return [V(h.x - .9, h.y, h.z + .75), h, 34];
+  },
+  lineup(t, k) {                                       // forty-one people in one line, each holding the shoulder in front
+    setEnv('dawn'); villageMon(t); place(haru, 4.2, .4, 0); place(sister, 4.2, -.65, 0);
+    crowd.forEach((p, i) => { place(p, 4.2 - (i + 1) * .95 * 0 - .0 + 0, 0, 0); const x = 3.2 - i * .9; place(p, x, -.65, PI / 2); p.arms[1].sh.rotation.set(-1.2, 0, .2); });
+    return [V(6.6, 2.4, 3.6), V(-2, 1.1, -.6), 46];
+  },
+  strapHold(t, k) {                                    // she held the strap of my backpack; the bracelet, every step
+    setEnv('dawn'); lineOnPath(132.6 + k * 3, 2, .85); holdStrap(true);
+    const p = along(haru, V(.12, 1.25, -.3)); return [along(haru, V(.75, 1.4, -1.0)), p, 34];
+  },
+  emptySteps(t, k) {                                   // every doorstep was empty, for the first time
+    setEnv('dawn'); const x = lerp(-16, 12, k); return [V(x - 2.5, 1.5, 2.6), V(x, .7, -3.4), 46];
+  },
+  harulook(t, k) {                                     // I didn't tell anyone
+    setEnv('dawn'); place(haru, 4.2, .4, -2.6); haru.headPivot.rotation.set(.1, 0, 0); place(sister, 4.8, -.1, -2.6);
+    const h = headW(haru); return [along(haru, V(.25, 1.62, 1.1 - k * .15)), h, 34];
+  },
+  forest(t, k) {                                       // nobody talked on the path
+    setEnv('dawn'); lineOnPath(t, 24); holdStrap(true); const z = HZ(t);
+    return [V(pathX(z + 7) + 2.5, 3.6, z + 7.5), V(pathX(z - 6), .9, z - 6), 44];
+  },
+  feet(t, k) {                                         // our feet on the stones
+    setEnv('dawn'); lineOnPath(t, 24); const z = HZ(t) - 6;
+    return [V(pathX(z) + 1.8, .6, z + 1.0 - k * .8), V(pathX(z), .1, z - .8), 44];
+  },
+  trees(t, k) {                                        // breathing between the trees
+    setEnv('dawn'); lineOnPath(t, 14); pathMonsters(t, 6, 4.4, -1); const z = HZ(t);
+    return [V(pathX(z + 5) - 2.6, 2.4, z + 5), V(pathX(z - 3) + 3.2, 1.9, z - 3), 46 - k * 6];
+  },
+  turn(t, k) {                                         // I looked back once
+    setEnv('dawn'); lineOnPath(t, 12); holdStrap(true); pathMonsters(t, 5); haru.headPivot.rotation.set(0, 1.2 * ease((t - 146.0) / .9), 0);
+    const h = headW(haru); return [along(haru, V(.15, 1.6, 1.0)), h, 36];
+  },
+  lookback(t, k) {                                     // the line is half as long; they walk beside it
+    setEnv('dawn'); lineOnPath(t, 10); holdStrap(true); pathMonsters(t, 7, 3.4, 2); haru.headPivot.rotation.set(0, 1.2, 0);
+    const h = headW(haru); const z = HZ(t); return [V(h.x + .45, h.y + .35, h.z - .1), V(pathX(z - 10), .9, z - 10), 62];
+  },
+  forward(t, k) {                                      // so I did
+    setEnv('dawn'); lineOnPath(t, 8); holdStrap(true); pathMonsters(t, 6);
+    const h = headW(haru); return [along(haru, V(-.1, 1.55, 1.1)), h, 38];
+  },
+  overhead(t, k) {                                     // twenty. ten. four.
+    setEnv('dawn'); lineOnPath(t, feetLeft(t) - 1); holdStrap(true); pathMonsters(t, 8, 3.2, 1);
+    const z = HZ(t); return [V(pathX(z - 4) + 1, 15, z + 2), V(pathX(z - 5), 0, z - 5), 46];
+  },
+  twoFeet(t, k) {                                      // then just two. mine, and hers.
+    setEnv('dawn'); lineOnPath(t, 1, .8); holdStrap(true); pathMonsters(t, 4, 5, 6); const z = HZ(t) - .4;
+    return [V(pathX(z) + 1.7, .4, z + .6), V(pathX(z), .2, z - .4), 42];
+  },
+  strapGone(t, k) {                                    // then the bracelet stopped
+    setEnv('dawn'); lineOnPath(t, 0); holdStrap(t < 159.9);
+    const p = along(haru, V(.12, 1.25, -.3)); return [along(haru, V(.75, 1.4, -1.0)), p, 34];
+  },
+  alone(t, k) {                                        // they never needed to come inside; they just needed someone to walk us out
+    setEnv('dawn'); lineOnPath(t, 0); pathMonsters(t, 9, 2.0, 5);
+    const h = headW(haru); return [along(haru, V(.2, 1.6, 2.6 - k * .6)), V(h.x, h.y - .3, h.z - 6), 40];
+  },
+  treeline(t, k) {                                     // at the tree line, they stopped. all of them.
+    setEnv('dawn'); lineOnPath(t, 0); rowAtTreeline(t);
+    const z = HZ(t); return [V(pathX(z) + 5, 2.0, z + 9), V(pathX(TREELINE - 2), 2.2, TREELINE - 2), 46];
+  },
+  tug(t, k) {                                          // silence; wind; a tug on the strap
+    setEnv('dawn'); place(haru, pathX(160), 160, 0); rowAtTreeline(t); const j = t > TUG ? Math.exp(-(t - TUG) * 6) * Math.sin((t - TUG) * 30) : 0;
+    haru.body.rotation.x = -.06 * Math.max(0, j) - (t > TUG ? .03 : 0); strap.rotation.x = .25 - .2 * (t > TUG ? 1 : 0); pack.position.z = -.24 - (t > TUG ? .05 : 0);
+    const p = along(haru, V(0, 1.15, -.2)); return [along(haru, V(1.5 - k * .2, 1.55, -1.3)), p, 40];
+  },
+  face(t, k) {                                         // "Haru. Wait for me." She doesn't turn around.
+    setEnv('dawn'); place(haru, pathX(160), 160, 0); rowAtTreeline(t); haru.eyes.forEach(e => e.scale.set(1, 1.8, .5)); strap.rotation.x = .05; pack.position.z = -.29;
+    const h = headW(haru); return [along(haru, V(.1, 1.65, 1.9 - k * .45)), V(h.x, h.y - .05, h.z), 36];
+  },
+  hookEnd(t, k) { return SH.hook(t, 0); },
+  end() { return null; },
+};
+function rowAtTreeline(t) {                            // they stopped at the tree line, in a row
+  pathMon.forEach((m, i) => { m.g.visible = true; const x = pathX(TREELINE) + (i - 4) * 2.3; m.g.position.set(x, 0, TREELINE - 1.5 - (i % 2) * .8); m.g.rotation.y = 0; pose(m, t, {fog: 0}); });
+}
+const mHead = m => { m.g.updateMatrixWorld(true); return m.head.localToWorld(V(0, .1, .3)); };
+function villageMon(t, except = []) { doorMon.forEach(m => { m.g.visible = true; if (!except.includes(m)) { m.g.position.set(m.home.doorW.x + .55, 0, m.home.zFront + 2.3); m.g.rotation.y = PI; pose(m, t, {fog: 0}); } }); }
+function lie(t) {                                       // the sister in bed, with the fever
+  place(sister, 1.6, -7.3, 0, .62); sister.g.rotation.set(-PI / 2, 0, PI); sister.g.position.set(1.6, .62, -8.25);
+  sister.headPivot.rotation.set(0, Math.sin(t * .9) * .15, 0); sister.eyes.forEach(e => e.scale.set(1, .25, .5));
+}
+function holdStrap(on) {                               // the sister's hand on the strap of the backpack, and the bracelet
+  sisHand.visible = bracelet.visible = on; if (!on) return;
+  const p = along(haru, V(.13, 1.28, -.48)); sisHand.position.copy(p); bracelet.position.copy(along(haru, V(.13, 1.24, -.55))); bracelet.rotation.set(.3, haru.g.rotation.y, 0);
+  sister.arms[0].sh.rotation.set(-1.45, 0, -.15);
+}
+const KEY = {street: 0, smoke: 0, emptySteps: .4, overhead: 0, forest: .3, treeline: .3};
+function feetLeft(t) { let n = 24; for (const [tt, c] of COUNT) if (t >= tt) n = c; return n; }
+
+// ---------------------------------------------------------------- render one frame
+function renderAt(t) {
+  let i = 0; while (i < CUTS.length - 1 && CUTS[i + 1][0] <= t) i++;
+  const [t0, name] = CUTS[i], t1 = CUTS[i + 1][0], k = clamp01((t - t0) / (t1 - t0));
+  // reset
+  ALL.forEach(resetPerson); [...doorMon, ...pathMon].forEach(m => m.g.visible = false);
+  [...backRow, ...frontRow].forEach(h => h.hinge.rotation.y = 0);
+  if (t >= S.n06 && t < S.n07 + 7) HAMID.hinge.rotation.y = 1.6;
+  bucket.visible = bottle.visible = sisHand.visible = bracelet.visible = false; bucket.rotation.set(0, 0, 0); bottle.scale.set(1, 1, 1); bottle.material.color.set(0x4a6a3a);
+  fatL.intensity = 0; strap.rotation.x = .25; pack.position.z = -.24; pack.visible = strap.visible = strap2.visible = t >= 118.8 || t < 5.4 || t > 177;
+  flame.scale.set(1, 1.8 + Math.sin(t * 13) * .25, 1); candleL.intensity = 2.0 + Math.sin(t * 11) * .25;
+  smokes.forEach(o => { const ph = ((t * .12 + o.k / 6 + o.i * .13) % 1); o.s.position.set(o.x + ph * 1.5, o.y + ph * 5, .3); o.s.scale.setScalar(.25 + ph * 1.1); o.s.position.y = o.y + ph * 3.5; });
+  // the shot
+  const sh = SH[name](t, k);
+  if (!sh) { renderer.toneMappingExposure = 0; render(t); return true; }
+  // camera (aimed after everything has moved)
+  const sh2 = SH[name](t, k); const [pos, look, fov] = sh2;
+  cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
+  const shake = ['lookback', 'overhead', 'alone'].includes(name) ? .006 : 0;
+  if (shake) cam.position.add(V(Math.sin(t * 7.1) * shake, Math.sin(t * 5.3) * shake, 0));
+  key.position.copy(pos).add(V(.3, .4, 0)); key.intensity = KEY[name] ?? (envNow === 'night' ? 1.6 : 1.0);
+  sun.target.position.copy(look); sun.position.copy(look).add(V(-30, 50, 40));
+  renderer.toneMappingExposure = name === 'face' && t > 176.95 ? Math.max(0, 1 - (t - 176.95) / .15) : 1;
+  grain.uniforms.vig.value = .62;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+window.dbg = () => { const r = v => v.toArray().map(x => +x.toFixed(2)); return {mhG: r(MHARU.g.position), hv: haru.g.visible, hp: r(haru.g.position), c0: r(crowd[0].g.position), sis: r(sister.g.position), cam: r(cam.position), mon3: r(mHead(doorMon[3])), monH: r(mHead(MHARU)), haru: r(headW(haru)), m3pos: r(doorMon[3].g.position)}; };
+</script>
+</body></html>
