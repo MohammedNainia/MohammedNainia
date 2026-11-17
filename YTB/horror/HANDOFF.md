@@ -4,6 +4,11 @@ Channel: PaperLit (YouTube @paperlit, channel UCEPxEir-yy6bpwdue24CLlA). **YouTu
 Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs unless asked. Never use the long dash in any text.
 
 ## Style and rules
+- FORMAT FROM NOW ON (user, Nov 17 2026): every reel is ONE complete story like "The Path" (YTB/horror/the_path):
+  9:16, 2:00 to 2:59 (stays a Short), Haru at the centre, a simple rule the world follows, Haru's own choice/flaw drives it,
+  a twist that recontextualises everything, a clear ending that leaves one unspoken question (the loop goes back to the hook shot).
+  Outcome-first hook spoken + on screen at frame 0. Script audited with writing-principles/storyteller before voicing.
+  Close-ups on the key moments; sound motifs set up early and paid off (e.g. the bracelet, the breathing).
 - ENGLISH ONLY until the user says otherwise (Darija / Facebook versions on hold).
 - Every reel needs a clear, understandable ending (a closer line that makes the threat obvious, e.g. "I live alone.")
   and close-ups on the key reveal so it reads at a glance on a phone.
