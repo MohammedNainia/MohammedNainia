@@ -16,6 +16,9 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
 - Loudness -14 LUFS (two-pass loudnorm in each post.py).
 
 ## Skills
+- writing-principles + storyteller (.claude/skills): use them to write and audit every script (causality, a flaw/choice for Haru, setups that pay off, no explaining feelings).
+- Hooks: state the outcome in the first line ("I walked my whole village to the mountain. I got there alone."), spoken AND on screen at frame 0.
+- Shorts can be up to 3:00: keep 9:16 one-video stories under 2:59 (compress in-line pauses, see the_path/voice/cut.py).
 - camera-cinematography (.claude/skills/camera-cinematography): use it when planning shots, lenses and camera moves for any scene.
 - bang-motion: HTML + GSAP motion graphics (openers, title cards, kinetic type, explainers; 9:16 or 16:9, renders to MP4). Use for intros/outros, series title cards, thumbnail-style text animation.
 - claude-drawing: code-painted images in 83 styles (ink wash, ukiyo-e, VHS, cave painting, pencil...), numpy + Pillow only, draw-on GIFs. Use for 2D story art, posters, the "photo"/drawing inserts.
@@ -37,7 +40,7 @@ Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs u
    Thumbnails: upload via a raw.githubusercontent.com URL (mcp.vidiq.com upload URL is blocked here).
 
 ## Done so far
-- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, https://www.youtube.com/watch?v=KngNLKLPzas), Part 2 "The Light Stopped" (16:9, 2:31, https://www.youtube.com/watch?v=X2a-0pQ_ov0, thumbnail "THEY WERE ON THE STAIRS / PART 2"), Part 3 "The Last Keeper" (final, 16:9, 2:01, https://www.youtube.com/watch?v=iHF9rADSaGI), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0), Baby Monitor Part 2 (Short, 57 s, https://www.youtube.com/watch?v=HEXrLwstn0g), Baby Monitor Part 3 / final (101 s, https://www.youtube.com/watch?v=Og5Wlfrve7c), Doorbell Camera (62 s, https://www.youtube.com/watch?v=3j97KUMR9LI): all posted. The Baby Monitor story is finished.
+- Floor 13 (Short), The Keeper's Rules Part 1 (16:9, 2:43, https://www.youtube.com/watch?v=KngNLKLPzas), Part 2 "The Light Stopped" (16:9, 2:31, https://www.youtube.com/watch?v=X2a-0pQ_ov0, thumbnail "THEY WERE ON THE STAIRS / PART 2"), Part 3 "The Last Keeper" (final, 16:9, 2:01, https://www.youtube.com/watch?v=iHF9rADSaGI), Mum? (Short), Baby Monitor (Short, 71 s, https://www.youtube.com/watch?v=VBFJkhn1cy0), Baby Monitor Part 2 (Short, 57 s, https://www.youtube.com/watch?v=HEXrLwstn0g), Baby Monitor Part 3 / final (101 s, https://www.youtube.com/watch?v=Og5Wlfrve7c), Doorbell Camera (62 s, https://www.youtube.com/watch?v=3j97KUMR9LI), The Path (9:16, 2:58, one complete story; see YTB/horror/the_path, scene three/scenes/the_path.html; rendered in 3 parts raw_a/b/c, joined into raw.mp4 before post.py): all posted. The Baby Monitor story is finished.
 - Darija versions on the Facebook Page قصص هارو المرعبة (YTB/horror/facebook): Part 1 https://www.facebook.com/reel/1300685672216645 , Part 2 https://www.facebook.com/reel/3061539507571879 , Part 3 https://www.facebook.com/reel/4490946704487451 .
   Darija voices come from the user's VoiceStudio (OmniVoice) via their local agent; one render serves both languages (fixed line slots, see baby_monitor2).
 - The Keeper's Rules is finished (3 parts).
