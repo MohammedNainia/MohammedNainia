@@ -1,0 +1,344 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// BLACK SKY (9:16, 177.7 s). Timed to YTB/horror/black_sky/voice/layout.json.
+// A town under a sky that has always been black. Whoever talks about the sun is taken; all that is left is a shadow burned into the ground.
+import {THREE, setup, ease, clamp01, lerp, flat, mesh, jitterGeo, canvasTex, person} from './lib.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .7});
+const DUR = 177.7;
+cam.far = 600; cam.updateProjectionMatrix();
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+let rs = 31; const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+const PI = Math.PI;
+
+// ---------------------------------------------------------------- the black sky, fog, lights
+renderer.setClearColor(0x020203);
+scene.fog = new THREE.Fog(0x05060a, 18, 80);
+const hemi = new THREE.HemisphereLight(0x48506a, 0x2a2018, 1.0); scene.add(hemi);
+const moonless = new THREE.DirectionalLight(0x5a6a8a, .25); moonless.position.set(-20, 40, 30); scene.add(moonless);
+const key = new THREE.PointLight(0xffe6c8, 0, 10, 1.3); scene.add(key);
+// "it": a vast skin lying over the town, barely lit from below by the streetlamps
+const skyGeo = new THREE.PlaneGeometry(400, 400, 90, 90); skyGeo.rotateX(PI / 2);
+const skyBase = skyGeo.attributes.position.array.slice();
+const skin = new THREE.Mesh(skyGeo, flat(0x3a3440, {roughness: .7, emissive: 0x17141c, side: THREE.DoubleSide, fog: false}));
+skin.position.y = 30; scene.add(skin);
+const underGlow = new THREE.PointLight(0xffb070, 0, 140, .8); underGlow.position.set(0, 12, 0); scene.add(underGlow);
+function skyMove(t, amp) {                                  // slow folds; on a "turn" a huge ripple rolls across
+  const p = skyGeo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const x = skyBase[i], z = skyBase[i + 2];
+    p[i + 1] = 3.0 * Math.sin(x * .05 + t * .15) * Math.cos(z * .04 - t * .1) + amp * Math.exp(-((x - lerp(-80, 80, (t * .12) % 1)) ** 2) / 700) * 14
+             + .5 * Math.sin((x + z) * .13 + t * .3);
+  }
+  skyGeo.attributes.position.needsUpdate = true; skyGeo.computeVertexNormals();
+}
+
+// ---------------------------------------------------------------- the street
+mesh(scene, jitterGeo(new THREE.PlaneGeometry(200, 200, 40, 40).rotateX(-PI / 2), .1, 3), flat(0x2a2826), 0, 0, 0);
+const road = mesh(scene, new THREE.BoxGeometry(80, .04, 8.2), flat(0x3b3a38), 0, .01, 0);
+for (let x = -40; x < 40; x += .9) for (let k = 0; k < 2; k++) mesh(scene, new THREE.BoxGeometry(.8, .03, .4), flat(k ? 0x45433f : 0x403e3a), x + k * .45, .035, -3.85 + rnd() * .02, false);
+const wallCols = [0x6e6258, 0x5f6670, 0x786a5c, 0x66605a, 0x5c5a66], doorCols = [0x3a2a22, 0x2a3a3a, 0x40302a, 0x2a2e3a];
+const winLit = new THREE.MeshBasicMaterial({color: 0xffb460});
+const winDark = new THREE.MeshBasicMaterial({color: 0x0a0b10});
+function wallWithHoles(parent, mat, w, h, d, holes) {
+  const hs = holes.slice().sort((a, b) => a.x - b.x); let x0 = -w / 2;
+  const seg = (a, b, y0, y1) => { if (b - a > .01 && y1 - y0 > .01) mesh(parent, new THREE.BoxGeometry(b - a, y1 - y0, d), mat, (a + b) / 2, (y0 + y1) / 2, 0); };
+  for (const o of hs) { seg(x0, o.x - o.w / 2, 0, h); seg(o.x - o.w / 2, o.x + o.w / 2, 0, o.y); seg(o.x - o.w / 2, o.x + o.w / 2, o.y + o.h, h); x0 = o.x + o.w / 2; }
+  seg(x0, w / 2, 0, h);
+}
+const HW = 6, HD = 6, HH = 4.2;
+function house(x, side, i, open) {                     // side -1: north row (door faces +z); +1: south row (door faces -z)
+  const g = new THREE.Group(); g.position.set(x, 0, side * 4.4); g.rotation.y = side < 0 ? 0 : PI; scene.add(g);
+  const m = flat(wallCols[i % 5]);
+  const front = new THREE.Group(); g.add(front);
+  wallWithHoles(front, m, HW, HH, .25, [{x: -1.5, y: 0, w: 1.1, h: 2.2}, {x: 1.5, y: 1.2, w: 1.1, h: 1.1}]);
+  const back = new THREE.Group(); back.position.z = -HD; g.add(back); mesh(back, new THREE.BoxGeometry(HW, HH, .25), m, 0, HH / 2, 0);
+  for (const sx of [-1, 1]) mesh(g, new THREE.BoxGeometry(.25, HH, HD), m, sx * HW / 2, HH / 2, -HD / 2);
+  const roof = new THREE.Group(); roof.position.set(0, HH, -HD / 2); g.add(roof);
+  for (const s of [-1, 1]) { const r = mesh(roof, new THREE.BoxGeometry(HW + .5, .18, HD / 2 / Math.cos(.6) + .3), flat(0x2a1e1a), 0, Math.tan(.6) * HD / 4, s * HD / 4); r.rotation.x = s * .6; }
+  mesh(roof, new THREE.BoxGeometry(HW, Math.tan(.6) * HD / 2, .2), m, 0, Math.tan(.6) * HD / 4, -HD / 2 + .1).scale.set(1, 1, 1);
+  mesh(g, new THREE.BoxGeometry(.6, 1.4, .6), flat(0x3a302a), 1.8, HH + 1.6, -HD / 2 - 1);               // chimney
+  const hinge = new THREE.Group(); hinge.position.set(-2.05, 0, -.05); g.add(hinge);
+  const door = mesh(hinge, new THREE.BoxGeometry(1.1, 2.2, .08), flat(doorCols[i % 4]), .55, 1.1, 0);
+  mesh(hinge, new THREE.SphereGeometry(.04, 6, 4), flat(0xb8a46a, {metalness: .7}), .95, 1.05, .06);
+  const glass = mesh(g, new THREE.BoxGeometry(1.1, 1.1, .04), open ? new THREE.MeshBasicMaterial({color: 0xffb460, transparent: true, opacity: 0}) : (i % 3 ? winLit : winDark), 1.5, 1.75, -.1, false);
+  const curtain = mesh(g, new THREE.PlaneGeometry(.55, 1.1), flat(0x6a3a30, {side: THREE.DoubleSide}), 1.22, 1.75, -.18, false); curtain.visible = !open;
+  return {g, hinge, door, glass, curtain, x, side, i, doorW: g.localToWorld(V(-1.5, 0, 0)), winW: g.localToWorld(V(1.5, 1.75, 0))};
+}
+const XS = [-24, -18, -12, -6, 0, 6, 12, 18];
+const north = XS.map((x, i) => house(x, -1, i, x === 0 || x === 6));
+const south = XS.map((x, i) => house(x, 1, i + 3, false));
+[...north, ...south].forEach(h => { h.g.updateMatrixWorld(true); h.doorW = h.g.localToWorld(V(-1.5, 0, 0)); h.winW = h.g.localToWorld(V(1.5, 1.75, 0)); });
+const HOME = north[4], KENJI = north[5];
+// streetlamps
+const lamps = [];
+for (const x of [-27, -21, -15, -9, -3, 3, 9, 15, 21]) for (const s of [-1, 1]) {
+  if ((x / 6 + (s > 0 ? .5 : 0)) % 1 !== 0 && s > 0) continue;
+  const lx = s > 0 ? x + 3 : x, lz = s * 3.6;
+  mesh(scene, new THREE.CylinderGeometry(.06, .09, 4.2, 6), flat(0x1a1a1c, {metalness: .6}), lx, 2.1, lz);
+  mesh(scene, new THREE.BoxGeometry(.5, .12, .5), flat(0x1a1a1c), lx, 4.25, lz);
+  mesh(scene, new THREE.BoxGeometry(.36, .2, .36), new THREE.MeshBasicMaterial({color: 0xffd08a}), lx, 4.1, lz, false);
+  const L = new THREE.PointLight(0xffb868, 12, 15, 1.4); L.position.set(lx, 3.9, lz); scene.add(L); lamps.push(L);
+}
+// the school wall (where the chalk sun is drawn, and where Kenji's shadow is)
+const SCHOOL = V(-31, 0, -3.2);
+const schoolL = new THREE.PointLight(0xffb868, 8, 10, 1.4); schoolL.position.set(-29.5, 3.6, -1.5); scene.add(schoolL);
+mesh(scene, new THREE.BoxGeometry(10, 2.6, .4), flat(0x5a5650), SCHOOL.x, 1.3, SCHOOL.z - .2);
+mesh(scene, new THREE.BoxGeometry(6, 7, 6), flat(0x4e4a46), SCHOOL.x, 3.5, SCHOOL.z - 4);
+const chalkTex = canvasTex(512, 512, (g, w, h, k = 1) => {
+  g.clearRect(0, 0, w, h); if (k <= 0) return;
+  g.globalAlpha = k; g.strokeStyle = '#f2d040'; g.lineWidth = 16; g.lineCap = 'round';
+  g.beginPath(); g.arc(256, 256, 120, 0, 2 * PI); g.stroke();
+  for (let i = 0; i < 12; i++) { const a = i / 12 * 2 * PI; g.beginPath(); g.moveTo(256 + Math.cos(a) * 155, 256 + Math.sin(a) * 155); g.lineTo(256 + Math.cos(a) * 215, 256 + Math.sin(a) * 215); g.stroke(); }
+  g.fillStyle = 'rgba(242,208,64,.35)'; g.beginPath(); g.arc(256, 256, 110, 0, 2 * PI); g.fill();
+});
+let chalkK = -1;
+const chalk = mesh(scene, new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshStandardMaterial({map: chalkTex, transparent: true, roughness: 1}), SCHOOL.x + 1.2, 1.5, SCHOOL.z + .01, false);
+
+// ---------------------------------------------------------------- burned shadows (ash, sharp-edged like a flash burned them)
+function ashTex(draw) {
+  return canvasTex(512, 512, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.save(); g.fillStyle = '#000'; g.filter = 'blur(3px)'; draw(g); g.restore();
+    g.globalCompositeOperation = 'source-atop';
+    for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${40 + rnd() * 50},${35 + rnd() * 40},${30 + rnd() * 35},${rnd() * .5})`; g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 4, 2 + rnd() * 4); }
+    g.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(20,18,16,${rnd() * .5})`; g.beginPath(); g.arc(256 + (rnd() - .5) * 400, 256 + (rnd() - .5) * 460, 1 + rnd() * 3, 0, 7); g.fill(); }
+  });
+}
+const figure = (g, cx, top, s, armUp = 0) => {                 // a standing person seen flat (head at top)
+  g.beginPath(); g.arc(cx, top + 34 * s, 30 * s, 0, 7); g.fill();                                       // head
+  g.beginPath(); g.ellipse(cx, top + 88 * s, 32 * s, 22 * s, 0, 0, 7); g.fill();                        // hair/shoulders
+  g.fillRect(cx - 34 * s, top + 80 * s, 68 * s, 150 * s);                                               // body
+  g.fillRect(cx - 30 * s, top + 225 * s, 24 * s, 150 * s); g.fillRect(cx + 6 * s, top + 225 * s, 24 * s, 150 * s);   // legs
+  g.save(); g.translate(cx - 34 * s, top + 90 * s); g.rotate(.15 + armUp); g.fillRect(-20 * s, 0, 18 * s, 130 * s); g.restore();
+  g.save(); g.translate(cx + 34 * s, top + 90 * s); g.rotate(-.15 - armUp); g.fillRect(2 * s, 0, 18 * s, 130 * s); g.restore();
+};
+const kenjiShadowTex = ashTex(g => figure(g, 256, 60, 1.05));
+const haruShadowTex = ashTex(g => { figure(g, 256, 50, 1.05, .25); g.beginPath(); g.moveTo(222, 100); g.lineTo(206, 260); g.lineTo(306, 260); g.lineTo(290, 100); g.fill(); });   // long hair
+const mumShadowTex = ashTex(g => {                              // sitting on the floor, knees up, holding something
+  g.beginPath(); g.arc(200, 120, 32, 0, 7); g.fill(); g.fillRect(166, 150, 70, 150); g.fillRect(230, 250, 150, 50); g.fillRect(350, 250, 40, 150);
+  g.save(); g.translate(230, 180); g.rotate(-.5); g.fillRect(0, 0, 110, 22); g.restore(); g.fillRect(300, 140, 60, 44);
+});
+const shadowMat = tex => new THREE.MeshBasicMaterial({map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2});
+const kenjiShadow = new THREE.Group(); scene.add(kenjiShadow);      // on the wall and down onto the ground
+mesh(kenjiShadow, new THREE.PlaneGeometry(1.1, 2.2), shadowMat(kenjiShadowTex), SCHOOL.x - .6, 1.1, SCHOOL.z + .02, false);
+const ks2 = mesh(kenjiShadow, new THREE.PlaneGeometry(1.1, 1.6), shadowMat(kenjiShadowTex), SCHOOL.x - .6, .02, SCHOOL.z + .8, false); ks2.rotation.x = -PI / 2; ks2.material.opacity = .55;
+const MUMSHADOW = V(1.2, .02, -7.2);
+const mumShadow = mesh(scene, new THREE.PlaneGeometry(1.6, 1.6), shadowMat(mumShadowTex), MUMSHADOW.x, MUMSHADOW.y + .04, MUMSHADOW.z, false); mumShadow.rotation.x = -PI / 2; mumShadow.rotation.z = -.4;
+const HSPOT = V(-3, 0, .2);                                          // the middle of the street, where Haru screams
+const haruShadow = mesh(scene, new THREE.PlaneGeometry(1.25, 2.3), shadowMat(haruShadowTex), HSPOT.x, .05, HSPOT.z - .3, false); haruShadow.rotation.x = -PI / 2;
+// the photo: the two of them at the beach, the sky cut out
+const photoTex = canvasTex(400, 300, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = '#efe6d2'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#5a8aa8'; g.fillRect(14, 110, w - 28, 70); g.fillStyle = '#e2cc96'; g.fillRect(14, 180, w - 28, h - 194);
+  g.clearRect(14, 14, w - 28, 96);                                                                   // the sky: cut out
+  const fig = (x, s, col, hair) => { g.fillStyle = hair; g.beginPath(); g.arc(x, 150 - 44 * s, 15 * s, 0, 7); g.fill(); g.fillStyle = col; g.fillRect(x - 13 * s, 150 - 30 * s, 26 * s, 60 * s); };
+  fig(150, 1.4, '#7a5a6a', '#2a1d18'); fig(220, 1.0, '#e2a92b', '#16110e');
+});
+const photoMat = new THREE.MeshStandardMaterial({map: photoTex, transparent: true, alphaTest: .5, side: THREE.DoubleSide, roughness: .9});
+const photo = mesh(scene, new THREE.PlaneGeometry(.4, .3), photoMat, 0, 0, 0, false);
+// the clock: 07:00
+const clockTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h); g.font = 'bold 84px monospace'; g.fillStyle = '#ff4a3a'; g.textAlign = 'center'; g.fillText('07:00', w / 2, 96); });
+
+// ---------------------------------------------------------------- Haru's house inside (kitchen on the left, bed on the right)
+const room = new THREE.Group(); scene.add(room);
+mesh(room, new THREE.BoxGeometry(5.6, .04, 5.6), flat(0x5a4636), 0, .02, -7.2);
+mesh(room, new THREE.BoxGeometry(5.6, .1, 5.6), flat(0x3a302a), 0, HH - .05, -7.2);
+const table = mesh(room, new THREE.BoxGeometry(1.4, .08, .9), flat(0x6a4a32), -1.4, .78, -6.4);
+for (const [dx, dz] of [[-.6, -.35], [.6, -.35], [-.6, .35], [.6, .35]]) mesh(room, new THREE.BoxGeometry(.06, .76, .06), flat(0x5a3a26), -1.4 + dx, .38, -6.4 + dz);
+const cupM = flat(0xe8e2d4); const cups = [mesh(room, new THREE.CylinderGeometry(.06, .05, .11, 8), cupM, -1.6, .88, -6.3), mesh(room, new THREE.CylinderGeometry(.06, .05, .11, 8), cupM, -1.2, .88, -6.5)];
+const shards = []; for (let k = 0; k < 6; k++) shards.push(mesh(room, new THREE.TetrahedronGeometry(.035, 0), cupM, -1.0 + (rnd() - .5) * .4, .03, -5.9 + (rnd() - .5) * .3));
+const kitLamp = new THREE.PointLight(0xffc27a, 0, 7, 1.5); kitLamp.position.set(-1.4, 2.3, -6.4); scene.add(kitLamp);
+mesh(room, new THREE.ConeGeometry(.3, .25, 8, 1, true), flat(0x2a2a2a, {side: THREE.DoubleSide}), -1.4, 2.4, -6.4);
+mesh(room, new THREE.SphereGeometry(.08, 8, 6), new THREE.MeshBasicMaterial({color: 0xffe0a0}), -1.4, 2.3, -6.4, false);
+mesh(room, new THREE.BoxGeometry(1.2, .9, .6), flat(0x4a4a50), -2.3, .45, -9.4);                 // stove
+const bed = mesh(room, new THREE.BoxGeometry(1.2, .45, 2.2), flat(0x6a5040), 1.6, .23, -8.4);
+mesh(room, new THREE.BoxGeometry(1.1, .14, 2.0), flat(0xd8d2c4), 1.6, .52, -8.4);
+mesh(room, new THREE.BoxGeometry(.6, .1, .4), flat(0xeeeae0), 1.6, .62, -9.2);
+const clock = mesh(room, new THREE.BoxGeometry(.32, .16, .14), new THREE.MeshBasicMaterial({map: clockTex}), 2.35, .72, -9.4, false); clock.rotation.y = -.6;
+mesh(room, new THREE.BoxGeometry(.4, .6, .4), flat(0x5a4030), 2.35, .3, -9.4);
+const bedLamp = new THREE.PointLight(0xffb070, 0, 6, 1.5); bedLamp.position.set(2.2, 1.4, -9.0); scene.add(bedLamp);
+const sunWin = mesh(room, new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({color: 0xffd060}), 1.5, 1.75, -4.33, false); sunWin.rotation.y = PI; sunWin.visible = false;
+const memSun = new THREE.PointLight(0xffc860, 0, 10, 1.2); memSun.position.set(1.5, 1.8, -3.5); scene.add(memSun);
+// Kenji's room: a storeroom
+const store = new THREE.Group(); scene.add(store);
+for (let k = 0; k < 9; k++) { const b = mesh(store, jitterGeo(new THREE.BoxGeometry(.6 + rnd() * .4, .5 + rnd() * .3, .6), .03, k), flat([0x7a6448, 0x6a5a40, 0x8a7254][k % 3]), KENJI.x - 2 + (k % 3) * .9, .3 + Math.floor(k / 3) * .55, -8.8 + (k % 2) * .5); b.rotation.y = rnd() * .3; }
+const dustM = new THREE.MeshBasicMaterial({color: 0xbfb5a0, transparent: true, opacity: .5, depthWrite: false});
+const dust = []; for (let k = 0; k < 60; k++) dust.push(mesh(store, new THREE.SphereGeometry(.012, 4, 3), dustM, KENJI.x - 2 + rnd() * 4, rnd() * 2.6, -9 + rnd() * 4, false));
+const storeLight = new THREE.PointLight(0xa8b8d8, 0, 6, 1.4); storeLight.position.set(KENJI.x - 1.5, 2, -5); scene.add(storeLight);
+
+// ---------------------------------------------------------------- people
+const haru = person(scene, {coat: 0xe2a92b, long: true, pants: 0x3c3f4a, seed: 3});
+const mum = person(scene, {coat: 0x7a5a6a, long: true, hair: 0x2a1d18, pants: 0x3a3440, seed: 23});
+const mumSit = person(scene, {coat: 0x7a5a6a, long: true, hair: 0x2a1d18, pants: 0x3a3440, seed: 23, pose: 'sit'});
+const kenji = person(scene, {coat: 0x3a5a7a, pants: 0x2a2a30, seed: 33}); kenji.g.scale.setScalar(.95);
+const kenjiMum = person(scene, {coat: 0x5a6a50, long: true, hair: 0x2a2220, seed: 43});
+const teacher = person(scene, {coat: 0x4a4a5a, long: true, hair: 0x3a2a20, seed: 53});
+const neigh = person(scene, {coat: 0x6a4a4a, long: true, hair: 0x9a9690, seed: 63});
+const COATS = [0x4a3a32, 0x3e4a5a, 0x5a4a3a, 0x4a3a4a, 0x3a4a3a, 0x5a4a42, 0x3a3a4a, 0x4a4a46];
+const town = []; for (let i = 0; i < 10; i++) town.push(person(scene, {coat: COATS[i % 8], hair: i % 4 ? 0x1d1714 : 0x7a7670, long: i % 2 === 0, pants: 0x2a2a30, seed: 200 + i * 9}));
+const ALL = [haru, mum, mumSit, kenji, kenjiMum, teacher, neigh, ...town];
+function walk(p, ph, amt = 1) {
+  const c = p.g.children;
+  for (let s = 0; s < 2; s++) { const a = Math.sin(ph + s * PI) * .38 * amt; c[s * 2].rotation.x = a; c[s * 2 + 1].position.z = .04 - .4 * Math.sin(a); c[s * 2 + 1].position.y = .035 + Math.max(0, Math.cos(ph + s * PI)) * .04 * amt; }
+  p.body.position.y = .82 + Math.abs(Math.sin(ph)) * .025 * amt;
+  p.arms.forEach((a, i) => a.sh.rotation.x = Math.sin(ph + (1 - i) * PI) * .3 * amt);
+}
+function resetPerson(p) {
+  p.g.visible = false; p.g.rotation.set(0, 0, 0); p.g.position.y = 0; p.body.rotation.set(0, 0, 0); p.headPivot.rotation.set(0, 0, 0);
+  if (p.o.pose !== 'sit') { p.body.position.y = .82; const c = p.g.children; for (let s = 0; s < 2; s++) { c[s * 2].rotation.x = 0; c[s * 2 + 1].position.set(c[s * 2 + 1].position.x, .035, .04); }
+    p.arms.forEach((a, i) => { a.sh.rotation.set(0, 0, (i ? 1 : -1) * -.1); a.el.rotation.set(-.15, 0, 0); }); }
+  p.eyes.forEach(e => e.scale.set(1, 1.35, .5));
+}
+const place = (p, x, z, face, y = 0) => { p.g.visible = true; p.g.position.set(x, y, z); p.g.rotation.y = face; };
+const headW = p => { p.g.updateMatrixWorld(true); return p.headPivot.localToWorld(V(0, .13, .02)); };
+const along = (p, d) => { p.g.updateMatrixWorld(true); return p.g.localToWorld(d); };
+const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
+const front = (p, d, dy = 0, side = 0) => { const h = headW(p); return [along(p, V(side * 1.6, h.y - p.g.position.y + dy - .05, d * 1.75)), V(h.x, h.y - .12, h.z)]; };   // camera in front of a face
+
+// ---------------------------------------------------------------- the darkness that comes down
+const smokeM = new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: .92, depthWrite: false, fog: false});
+const smoke = []; for (let k = 0; k < 140; k++) smoke.push({m: mesh(scene, new THREE.IcosahedronGeometry(1, 1), smokeM, 0, -50, 0, false), a: rnd() * 2 * PI, r: rnd(), d: rnd(), s: .6 + rnd() * 1.4});
+function darkness(k) {                                        // k: 0 = still in the sky, 1 = on her
+  smoke.forEach(o => {
+    const y = lerp(30, 0, clamp01(k * 1.25 - o.d * .25)) + o.d * 3 * (1 - k);
+    const r = lerp(6, .4, clamp01(k)) * (.3 + o.r) + (1 - y / 30) * .8;
+    o.m.position.set(HSPOT.x + Math.cos(o.a + y * .2) * r, y, HSPOT.z + Math.sin(o.a + y * .2) * r);
+    o.m.scale.setScalar(o.s * (1 + (1 - y / 30) * .6)); o.m.visible = k > 0 && k < 1.15;
+  });
+}
+darkness(0);
+
+// ---------------------------------------------------------------- the shots
+const MEM = [37.6, 43.2];                                     // the remembered sun: a warm bedroom
+const CUTS = [[0, 'hook'], [5.4, 'clock'], [8.2, 'window'], [12.4, 'street'], [17.3, 'kitchen'], [20.4, 'ask'], [23.7, 'cup'], [24.6, 'hand'], [27.0, 'mumWhisper'],
+  [29.2, 'teacher'], [33.1, 'townsfolk'], [37.6, 'memory'], [43.2, 'talking'], [49.7, 'kenjiComes'], [52.8, 'kenjiClose'], [55.5, 'chalk'], [60.3, 'skyMoves'],
+  [69.0, 'wallBlank'], [73.4, 'kenjiShadow'], [80.4, 'knock'], [85.4, 'who'], [86.5, 'storeroom'], [91.8, 'understand'], [98.0, 'crane'],
+  [104.5, 'silent'], [109.2, 'whisperWin'], [112.6, 'bedNight'], [117.2, 'photo'], [123.0, 'mumSoft'], [126.7, 'roofTurn'], [130.5, 'oneCup'],
+  [134.3, 'mumShadow'], [140.7, 'neighbours'], [145.0, 'neighClose'], [148.7, 'holdPhoto'], [157.1, 'remember'], [159.0, 'walkOut'],
+  [164.3, 'scream1'], [166.0, 'peek'], [167.3, 'scream2'], [168.8, 'down'], [170.2, 'black'], [171.0, 'after'], [174.5, 'passBy'], [177.0, 'hookEnd'], [DUR + 1, 'end']];
+const SH = {
+  hook(t, k) {                                      // her shadow in the middle of the street, from above
+    haruShadow.visible = true; return [V(HSPOT.x + .15, 3.4 - k * .3, HSPOT.z + .25), V(HSPOT.x, 0, HSPOT.z - .3), 42];
+  },
+  clock(t, k) { place(haru, 1.6, -8.2, 0, .45); haru.g.rotation.set(-PI / 2, 0, 0); haru.g.position.set(1.6, .62, -8.9); haru.eyes.forEach(e => e.scale.set(1, t < 6.6 ? .15 : 1.3, .5)); bedLamp.intensity = 1.2;
+    return [V(1.55, 1.05, -8.55), V(2.3, .7, -9.35), 36 - k * 4]; },
+  window(t, k) { place(haru, 1.5, -4.9, 0); bedLamp.intensity = .8; return [V(1.9 - k * .1, 1.75, -6.6), V(1.5, 2.6, 6), 48]; },
+  street(t, k) { walkers(t, 6); return [V(-14 + k * 2, 2.4, 2.6), V(4, 3.5, -1.5), 52]; },
+  kitchen(t, k) { kitLamp.intensity = 2.2; place(mum, -2.1, -8.8, PI); mum.arms.forEach(a => a.sh.rotation.x = -.8); return [V(-.1, 1.7, -5.0), V(-2.1, 1.3, -8.6), 44 - k * 4]; },
+  ask(t, k) { kitLamp.intensity = 2.2; place(haru, -1.4, -5.6, PI); place(mum, -2.1, -8.8, PI); const [p, h] = front(haru, 1.0, .05, .15); return [p, h, 38]; },
+  cup(t, k) { kitLamp.intensity = 2.2; cups[1].visible = false; shards.forEach(s => s.visible = true); return [V(-.6, .45, -5.3), V(-1.0, .05, -5.9), 40]; },
+  hand(t, k) { kitLamp.intensity = 2.2; cups[1].visible = false; shards.forEach(s => s.visible = true);
+    place(haru, -1.4, -5.6, PI); place(mum, -1.4, -6.1, 0); const r = ease(k * 3); mum.arms[1].sh.rotation.set(-1.75 * r, 0, .5 * r); mum.arms[1].el.rotation.set(-.9 * r, 0, 0); mum.headPivot.rotation.set(-.15, 0, 0);
+    const h = headW(haru); return [V(h.x + 1.0, h.y + .05, h.z + .1), V(h.x + .1, h.y - .05, h.z - .25), 40]; },
+  mumWhisper(t, k) { kitLamp.intensity = 2.2; place(haru, -1.4, -5.6, PI); place(mum, -1.4, -6.1, 0); mum.arms[1].sh.rotation.set(-1.75, 0, .5); mum.arms[1].el.rotation.set(-.9, 0, 0);
+    mum.headPivot.rotation.set(-.35 * ease((t - 27.6) / .5), 0, 0); mum.eyes.forEach(e => e.scale.set(1, 1.7, .5)); const [p, h] = front(mum, .9, .05, -.25); return [p, h, 36]; },
+  teacher(t, k) { walkers(t, 3); place(teacher, -20.5, -2.4, PI / 2 + .3); place(haru, -18.8, -2.0, -PI / 2 - .2); teacher.arms[0].sh.rotation.set(-1.3, 0, -.4); teacher.eyes.forEach(e => e.scale.set(1, 1.7, .5));
+    const h = headW(teacher); return [V(h.x + 1.3, h.y, h.z + 1.6), V(h.x + .5, h.y - .25, h.z), 40]; },
+  townsfolk(t, k) { walkers(t, 8, true); place(haru, -6 + k * 1.5, .5, PI / 2); walk(haru, t * 4.5, .7); return [V(-1 + k, 1.7, 3.0), V(-6, 1.4, 0), 46]; },
+  memory(t, k) { sunWin.visible = true; memSun.intensity = 9; place(haru, 1.6, -6.0, PI); haru.headPivot.rotation.set(-.2, 0, 0); haru.eyes.forEach(e => e.scale.set(1, .2, .5));
+    const [p, h] = front(haru, .95, .1, .25); return [p, h, 38 - k * 4]; },
+  talking(t, k) { walkers(t, 8, true, true); place(haru, -2 + k * 2, -.6, PI / 2); walk(haru, t * 4, .5); haru.arms[1].sh.rotation.set(-.9, 0, .2);
+    return [V(2.5 + k, 2.2, 3.4), V(-2, 1.2, -.8), 48]; },
+  kenjiComes(t, k) { place(haru, SCHOOL.x + 2.4, SCHOOL.z + .8, -PI / 2 + .5); const kx = lerp(SCHOOL.x + 6, SCHOOL.x + 3.4, ease(k)); place(kenji, kx, SCHOOL.z + 1.4, -PI / 2 - .2); walk(kenji, t * 4.5, k < .9 ? .7 : 0);
+    return [V(SCHOOL.x + 1.2, 1.6, SCHOOL.z + 4.4), V(SCHOOL.x + 3, 1.1, SCHOOL.z + 1), 44]; },
+  kenjiClose(t, k) { place(haru, SCHOOL.x + 2.4, SCHOOL.z + .8, -PI / 2 + .5); place(kenji, SCHOOL.x + 3.2, SCHOOL.z + 1.3, -PI / 2 - .2); kenji.headPivot.rotation.set(.05, -.3, 0);
+    const [p, h] = front(kenji, .95, .05, .2); return [p, h, 36]; },
+  chalk(t, k) { chalkLevel(ease((t - 55.6) / 3.5)); place(haru, SCHOOL.x + 1.6, SCHOOL.z + .55, PI); place(kenji, SCHOOL.x + .5, SCHOOL.z + .6, PI); haru.arms[1].sh.rotation.set(-2.2, 0, .3); kenji.arms[0].sh.rotation.set(-1.9, 0, -.2);
+    return [V(SCHOOL.x + 1.4, 1.6, SCHOOL.z + 3.6 - k * .6), V(SCHOOL.x + 1.1, 1.3, SCHOOL.z), 44]; },
+  skyMoves(t, k) { underGlow.intensity = 30; return [V(-4, 1.4, 2.0), V(-2, 12, -6 + k * 2), 70]; },
+  wallBlank(t, k) { chalkLevel(0); return [V(SCHOOL.x + 1.2, 1.5, SCHOOL.z + 3.6 - k * .5), V(SCHOOL.x + 1.2, 1.4, SCHOOL.z), 40]; },
+  kenjiShadow(t, k) { chalkLevel(0); kenjiShadow.visible = true; walkers(t, 0); const a = ease(k);
+    return [V(SCHOOL.x - .4, lerp(1.8, 2.4, a), SCHOOL.z + lerp(2.6, 1.9, a)), V(SCHOOL.x - .6, lerp(1.2, .1, a), SCHOOL.z + lerp(0, .7, a)), 44]; },
+  knock(t, k) { const d = KENJI.doorW; const o = ease((t - 83.0) / .8); KENJI.hinge.rotation.y = 1.2 * o; place(haru, d.x + .3, d.z + 1.3, PI); place(kenjiMum, d.x, d.z - .4, 0); kenjiMum.g.visible = o > .1;
+    if (t < 82.4) haru.arms[1].sh.rotation.set(-1.4 + Math.abs(Math.sin(t * 9)) * .2, 0, 0);
+    return [V(d.x + 2.4, 1.6, d.z + 3.0), V(d.x + .1, 1.4, d.z + .2), 42]; },
+  who(t, k) { const d = KENJI.doorW; KENJI.hinge.rotation.y = 1.2; place(kenjiMum, d.x, d.z - .4, 0); place(haru, d.x + .3, d.z + 1.3, PI); kenjiMum.headPivot.rotation.set(0, 0, .12);
+    const [p, h] = front(kenjiMum, 1.0, 0, .2); return [p, h, 36]; },
+  storeroom(t, k) { storeLight.intensity = 1.6; dust.forEach((d, i) => d.position.y = (d.position.y + .0) % 2.6); return [V(KENJI.x - 1.5 + k * .3, 1.6, -4.8), V(KENJI.x - 1, .7, -8.6), 50]; },
+  understand(t, k) { place(haru, 1, .5, PI / 2 + .4); haru.headPivot.rotation.set(-.15 * ease(k), 0, 0); haru.eyes.forEach(e => e.scale.set(1, 1.7, .5)); const [p, h] = front(haru, 1.1 - k * .3, -.05, .2); return [p, h, 40]; },
+  crane(t, k) { walkers(t, 6); underGlow.intensity = 30; const a = ease(k); return [V(-2, lerp(6, 18, a), lerp(16, 22, a)), V(0, lerp(1, 22, a), -6), 50]; },
+  silent(t, k) { kitLamp.intensity = 2.2; place(haru, -1.4, -5.75, PI, 0); place(mum, -1.4, -7.0, 0); haru.headPivot.rotation.set(.35, 0, 0); mum.headPivot.rotation.set(.2, 0, 0);
+    return [V(.6, 1.6, -5.0), V(-1.4, 1.0, -6.4), 42]; },
+  whisperWin(t, k) { place(haru, 1.5, -4.75, 0); bedLamp.intensity = .6; const h = headW(haru); return [V(h.x + .55, h.y + .05, h.z + 1.15), h, 34]; },
+  bedNight(t, k) { lie(); bedLamp.intensity = .7; place(mumSit, 1.0, -8.2, PI / 2 + .2); mumSit.g.position.y = .02; mumSit.headPivot.rotation.set(.35, .3, 0);
+    return [V(-.6, 1.8, -6.3), V(1.4, .8, -8.4), 44]; },
+  photo(t, k) { lie(); bedLamp.intensity = .9; place(mumSit, 1.0, -8.2, PI / 2 + .2); photo.visible = true; photo.position.copy(along(mumSit, V(0, .95, .45))); photo.rotation.set(-1.0, mumSit.g.rotation.y, 0);
+    const p = photo.position; return [V(p.x + .15, p.y + .55, p.z + .1), p, 38 - k * 6]; },
+  mumSoft(t, k) { lie(); bedLamp.intensity = .9; place(mumSit, 1.0, -8.2, PI / 2 + .2); mumSit.headPivot.rotation.set(.3, .45, 0); mumSit.eyes.forEach(e => e.scale.set(1, .5, .5));
+    const h = headW(mumSit); return [V(h.x + .55, h.y + .05, h.z + .75), h, 34]; },
+  roofTurn(t, k) { underGlow.intensity = 30; return [V(4, 1.2, 3.0), V(.5, 8, -6), 60]; },
+  oneCup(t, k) { kitLamp.intensity = 2.2; cups[1].visible = false; return [V(-.8, 1.25, -5.8), V(-1.6, .85, -6.3), 34 - k * 4]; },
+  mumShadow(t, k) { mumShadow.visible = true; bedLamp.intensity = 2.4; photo.visible = true; photo.position.set(MUMSHADOW.x + .35, .05, MUMSHADOW.z + .1); photo.rotation.set(-PI / 2, 0, .3);
+    return [V(MUMSHADOW.x - .2, 2.3 - k * .3, MUMSHADOW.z + 1.6), V(MUMSHADOW.x, 0, MUMSHADOW.z - .1), 46]; },
+  neighbours(t, k) { const d = south[4].doorW; south[4].hinge.rotation.y = 1.2; place(neigh, d.x, d.z - .2, PI); place(town[0], d.x - .6, d.z + .3, PI); place(haru, d.x + .2, d.z - 1.6, 0);
+    neigh.headPivot.rotation.set(0, 0, -.12); return [V(d.x - 2.2, 1.7, d.z - 3.4), V(d.x, 1.4, d.z - .4), 40]; },
+  neighClose(t, k) { const d = south[4].doorW; south[4].hinge.rotation.y = 1.2; place(neigh, d.x, d.z - .2, PI); place(haru, d.x + .2, d.z - 1.6, 0); neigh.headPivot.rotation.set(0, 0, -.15);
+    const [p, h] = front(neigh, 1.0, .02, -.2); return [p, h, 34]; },
+  holdPhoto(t, k) { place(haru, 1.8, -7.0, -PI / 2 - .3); bedLamp.intensity = .9; haru.arms.forEach(a => { a.sh.rotation.set(-1.1, 0, 0); a.el.rotation.set(-.6, 0, 0); });
+    photo.visible = true; photo.position.copy(along(haru, V(0, 1.15, .45))); photo.rotation.set(-.5, haru.g.rotation.y, 0); const p = photo.position;
+    return [along(haru, V(.25, 1.65, -.15)), p, 38 - k * 8]; },
+  remember(t, k) { place(haru, 1.8, -7.0, -PI / 2 - .3); bedLamp.intensity = .9; haru.headPivot.rotation.set(.1, 0, 0); const [p, h] = front(haru, .85, 0, .1); return [p, h, 34]; },
+  walkOut(t, k) { const z = lerp(-3.4, HSPOT.z, ease(k)); place(haru, HSPOT.x + .2, z, PI); walk(haru, t * 4, k < .95 ? .7 : 0); HOME.hinge.rotation.y = 1.3;
+    return [V(HSPOT.x + 1, 5.5, 7), V(HSPOT.x, .8, -1), 46]; },
+  scream1(t, k) { place(haru, HSPOT.x, HSPOT.z, 0); screamPose(t); const h = headW(haru); return [V(h.x + .2, .9, h.z + 1.4), V(h.x, h.y + .2, h.z), 50]; },
+  peek(t, k) { place(haru, HSPOT.x, HSPOT.z, 0); screamPose(t); peekers(clamp01(k * 2)); return [V(HSPOT.x + 1, 1.7, 3.3), V(-9, 1.5, -4.4), 52]; },
+  scream2(t, k) { place(haru, HSPOT.x, HSPOT.z, 0); screamPose(t); peekers(1); const h = headW(haru); return [V(h.x + 1.7, h.y - .9, h.z + 2.3), V(h.x, h.y + .3, h.z), 44]; },
+  down(t, k) { place(haru, HSPOT.x, HSPOT.z, 0); screamPose(t); peekers(1); darkness(ease(k)); return [V(HSPOT.x + 4, 2.2, 3.4), V(HSPOT.x, 7, -.5), 64]; },
+  black() { return null; },
+  after(t, k) { haruShadow.visible = true; peekers(1 - clamp01((t - 172.6) / 1.6)); return [V(HSPOT.x + 3.5, 5.5, 3.4), V(HSPOT.x, 0, -.3), 48]; },
+  passBy(t, k) { haruShadow.visible = true; const x = lerp(HSPOT.x + 3.5, HSPOT.x - 3.5, k); place(neigh, x, HSPOT.z - .1, -PI / 2); walk(neigh, t * 4.2, .7);
+    return [V(HSPOT.x + .5, 1.5, HSPOT.z + 3.1), V(HSPOT.x, .2, HSPOT.z - .3), 50]; },
+  hookEnd(t, k) { return SH.hook(t, 0); },
+  end() { return null; },
+};
+function chalkLevel(k) { const q = Math.round(k * 30) / 30; if (q !== chalkK) { chalkK = q; chalkTex.redraw(q); } }
+function lie() { place(haru, 1.6, -8.4, 0, .62); haru.g.rotation.set(-PI / 2, 0, PI); haru.g.position.set(1.6, .62, -9.3); haru.eyes.forEach(e => e.scale.set(1, .15, .5)); }
+function walkers(t, n, avoid = false, flee = false) {          // people on their way to work, under the black sky
+  for (let i = 0; i < n; i++) {
+    const p = town[i]; const dir = i % 2 ? 1 : -1, sp = .9 + (i % 3) * .15;
+    const x = ((i * 7.3 + t * sp * dir) % 50 + 50) % 50 - 25, z = (i % 4 - 1.5) * 1.2;
+    place(p, x, z, dir > 0 ? PI / 2 : -PI / 2); walk(p, t * 4.6 + i, .8);
+    if (avoid) { p.headPivot.rotation.set(.25, 0, 0); }
+    if (flee && Math.abs(x - haru.g.position.x) < 4) { p.arms.forEach(a => { a.sh.rotation.set(-2.6, 0, 0); a.el.rotation.set(-1.4, 0, 0); }); }
+  }
+}
+function screamPose(t) { haru.headPivot.rotation.set(-.55, 0, 0); haru.arms.forEach((a, i) => { a.sh.rotation.set(.1, 0, (i ? 1 : -1) * -.35); a.el.rotation.set(-.1, 0, 0); }); haru.body.rotation.x = -.06 + Math.sin(t * 30) * .01; haru.eyes.forEach(e => e.scale.set(1, 1.8, .5)); }
+function peekers(k) {                                          // doors crack open, faces in the gaps, curtains pulled back
+  const H = [north[2], north[3], south[2], south[3], south[4], north[6]];
+  H.forEach((h, i) => { h.hinge.rotation.y = .9 * k; const p = town[i + 2]; if (k > .05) { const d = h.doorW; place(p, d.x + .2 * Math.sign(h.side), d.z - h.side * .1, h.side < 0 ? 0 : PI); p.arms[i % 2].sh.rotation.set(-2.4, 0, .4); p.arms[i % 2].el.rotation.set(-1.6, 0, 0); p.eyes.forEach(e => e.scale.set(1, 1.8, .5)); } });
+}
+
+// ---------------------------------------------------------------- render one frame
+function renderAt(t) {
+  let i = 0; while (i < CUTS.length - 1 && CUTS[i + 1][0] <= t) i++;
+  const [t0, name] = CUTS[i], t1 = CUTS[i + 1][0], k = clamp01((t - t0) / (t1 - t0));
+  ALL.forEach(resetPerson); [...north, ...south].forEach(h => h.hinge.rotation.y = 0);
+  kitLamp.intensity = bedLamp.intensity = memSun.intensity = storeLight.intensity = 0; underGlow.intensity = 10; sunWin.visible = false;
+  cups.forEach(c => c.visible = true); shards.forEach(s => s.visible = false); photo.visible = false; darkness(0);
+  kenjiShadow.visible = t >= 69 && t < 171; mumShadow.visible = t >= 130.5 && t < 171; haruShadow.visible = t >= 170.2 || t < 5.4;
+  chalkLevel(t < 55.5 ? 0 : t < 69 ? 1 : 0);
+  if (t >= 130.5) cups[1].visible = false;
+  // the sky: slow folds; a heavy turn on "something heavy turning over" and "something turned over"
+  const turn = (t > 63 && t < 69) ? Math.sin((t - 63) / 6 * PI) : (t > 126.7 && t < 130.5) ? Math.sin((t - 126.7) / 3.8 * PI) : (t > 164 && t < 170.2) ? clamp01((t - 164) / 4) : 0;
+  skyMove(t, turn);
+  const sh = SH[name](t, k);
+  if (!sh) { renderer.toneMappingExposure = 0; render(t); return true; }
+  const [pos, look, fov] = SH[name](t, k);
+  cam.position.copy(pos); cam.lookAt(look); cam.fov = fov; cam.updateProjectionMatrix();
+  if (['scream1', 'scream2', 'down'].includes(name)) cam.position.add(V(Math.sin(t * 23) * .01, Math.sin(t * 19) * .01, 0));
+  key.position.copy(pos).add(V(.3, .3, 0)); key.intensity = ['street', 'crane', 'skyMoves', 'roofTurn', 'townsfolk', 'talking', 'hook', 'hookEnd'].includes(name) ? 0 : 1.8;
+  if (['down', 'scream1', 'scream2', 'peek', 'after', 'walkOut'].includes(name)) underGlow.intensity = 30;
+  if (name === 'scream2') key.intensity = .7;
+  const memK = name === 'memory' ? 1 : 0;
+  renderer.toneMappingExposure = 1 + memK * .15;
+  grain.uniforms.vig.value = .68;
+  render(t);
+  return true;
+}
+window.renderAt = renderAt; window.DUR = DUR; window.ready = true;
+</script>
+</body></html>
