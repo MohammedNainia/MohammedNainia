@@ -37,6 +37,18 @@ original subject in that spirit and say so.
 6. Animate: build the scene as a function of frame `f` (breathing 1 px, cloth lagging the body, flicker on point lights),
    `save_gif(frames, path, scale, ms)`, `sheet(frames, path)` for sprite sheets. Always upscale with NEAREST (scale 4 to 8).
 
+## Path B (best quality for detailed characters): AI concept, then code cleanup
+Primitives alone look stiff for detailed, organic characters. When the user wants a high-detail character (the level of
+big hand-painted pixel games), do this instead and tell them it's an AI-generated base:
+1. Generate the concept with Artlist `generate_image` (2 variations): "detailed pixel art sprite of an original <character>,
+   full body, <pose and view>, <palette with one accent colour>, high-detail hand-painted 16-bit pixel art, crisp pixels,
+   clean dark outline, strong light from the upper left with a rim light, plain solid background, no text".
+   Describe an ORIGINAL design; never name or describe an existing game's character.
+2. `python scripts/snap.py concept.png sprite.png 40`: finds the fake pixel size, samples one colour per cell, cuts out the
+   background, reduces to a fixed palette (keeps small accents like a glowing eye), removes orphans, adds the outline.
+   Check the 1x result; if an accent colour is lost, raise the colour count.
+3. Animate or place it with pixkit (backgrounds, light, export), e.g. `compose(bg, (sprite, x, y))`.
+
 ## Limits (be honest with the user)
 Built from primitives, faces and hands stay simple at small sizes; this is a strong base for clean game-quality sprites,
 not hand-painted masterpieces. For more organic detail: render bigger (96 to 128 px characters) and hand-place detail with
