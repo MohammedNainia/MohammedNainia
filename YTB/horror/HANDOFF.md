@@ -4,6 +4,7 @@ Channel: PaperLit (YouTube @paperlit, channel UCEPxEir-yy6bpwdue24CLlA). **YouTu
 Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs unless asked. Never use the long dash in any text.
 
 ## Style and rules
+- POSTING TIME: the user's clock is GMT+00 (same as UTC). Post one Short a day around 22:00 GMT (best window 21:30 to 03:30 GMT, from channel stats Nov 13 to 18). Never 16:9 for horror.
 - FORMAT FROM NOW ON (user, Nov 17 2026): every reel is ONE complete story like "The Path" (YTB/horror/the_path):
   9:16, 2:00 to 2:59 (stays a Short), Haru at the centre, a simple rule the world follows, Haru's own choice/flaw drives it,
   a twist that recontextualises everything, a clear ending that leaves one unspoken question (the loop goes back to the hook shot).
