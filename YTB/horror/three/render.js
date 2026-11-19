@@ -36,6 +36,7 @@ const server = http.createServer((req, res) => {
 async function openPage(browser, port) {
   const page = await browser.newPage({ viewport: { width: W, height: H } });
   page.on('pageerror', e => console.error('page error:', e.message));
+  page.on('console', m => { if (m.text().startsWith('PT')) console.log(m.text()); });
   await page.goto(`http://127.0.0.1:${port}/scenes/${SCENE}.html${QUERY ? '?' + QUERY : ''}`);
   await page.waitForFunction('window.ready === true', null, { timeout: 600000 });
   return page;
@@ -46,7 +47,8 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
 
 (async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r)); const port = server.address().port;
-  const args = GPU ? ['--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--enable-zero-copy']
+  // ANGLE=vulkan / gl / d3d11 picks how Chromium talks to the graphics card (path tracing can be faster on one of them)
+  const args = GPU ? ['--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--enable-zero-copy', ...(process.env.ANGLE ? ['--use-angle=' + process.env.ANGLE] : [])]
                    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
   const browser = await chromium.launch({ headless: !GPU, args });   // a visible window is the reliable way to get the GPU
   const probe = await openPage(browser, port);
@@ -59,7 +61,9 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
   if (ONLY) {
     fs.mkdirSync(path.join(__dirname, 'frames'), { recursive: true });
     for (const i of ONLY) { const t0 = Date.now();
-      fs.writeFileSync(path.join(__dirname, 'frames', `f${String(i).padStart(4, '0')}.png`), await grab(probe, i / FPS, 'image/png'));
+      const img = await grab(probe, i / FPS, 'image/png'); const t1 = Date.now();
+      fs.writeFileSync(path.join(__dirname, 'frames', `f${String(i).padStart(4, '0')}.png`), img);
+      console.log(`  png copy + save: ${((Date.now() - t1) / 1000).toFixed(2)} s (after the page returned)`);
       console.log(`frame ${i}: ${((Date.now() - t0) / 1000).toFixed(1)} s`); }
     await browser.close(); server.close(); return;
   }
