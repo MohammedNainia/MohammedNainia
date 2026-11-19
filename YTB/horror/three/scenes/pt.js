@@ -80,7 +80,9 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
   return {
     // rebuild: true when what is visible changed (another shot); otherwise the BVH is just refitted to the new pose/lumps
     render({samples = 128, focus = null, fStop = 2.8, rebuild = false} = {}) {
-      const gl = renderer.getContext(), T = [performance.now()];
+      const gl = renderer.getContext(), T = [performance.now()], px = new Float32Array(4);
+      // gl.finish() does not wait in Chrome: read one pixel instead, which really waits for the GPU to finish
+      const sync = () => renderer.readRenderTargetPixels(pt.target, 0, 0, 1, 1, px);
       let g;
       if (!gen || rebuild) { build(); }
       else {                                      // same shot: re-bake the posed geometry, refit the BVH (no rebuild)
@@ -89,14 +91,14 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
         // the normals moved too: without this the shading stays in the old pose
         ptMat.attributesArray.updateFrom(g.attributes.normal, g.attributes.tangent, g.attributes.uv, g.attributes.color);
       }
-      gl.finish(); T.push(performance.now());
+      sync(); T.push(performance.now());
       renderer.getSize(size); pt.setSize(size.x, size.y);
       lens.copy(cam); lens.fStop = fStop; lens.apertureBlades = 6;
       lens.focusDistance = focus ? v.copy(focus).applyMatrix4(cam.matrixWorldInverse).length() : 1e4;
       lens.updateMatrixWorld(true); ptMat.physicalCamera.updateFrom(lens);
       pt.reset();
       for (let i = 0; i < samples * tiles * tiles; i++) pt.update();   // one update per tile per sample
-      gl.finish(); T.push(performance.now());
+      sync(); T.push(performance.now());
       quad.material.map = pt.target.texture; renderer.setRenderTarget(null); quad.render(renderer);
       gl.finish(); T.push(performance.now());
       const d = T.slice(1).map((t, i) => ((t - T[i]) / 1000).toFixed(2));
