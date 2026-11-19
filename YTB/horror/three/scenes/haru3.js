@@ -245,12 +245,22 @@ export function makeHaru3(o = {}) {
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;
   // ---- hands and shoes (small pieces on their bones)
+  // hands: wrist, rounded palm, four separate two-segment fingers curling a little (middle longest), a separate thumb
+  const FL = [.024, .029, .027, .021];                         // index (next to the thumb), middle, ring, little
   arms.forEach(a => rigid((x, y, z) => {
-    let d = sdEll(x, y, z, V(0, -.035, 0), V(.032, .045, .022));
-    for (let k = 0; k < 4; k++) d = smin(d, sdCapsule(x, y, z, V(-.018 + k * .012, -.06, .002), V(-.018 + k * .012, -.082, .004), .0085), .006);
-    d = smin(d, sdCapsule(x, y, z, V(-a.sd * .028, -.03, .01), V(-a.sd * .036, -.05, .018), .01), .008);
-    return d + lumps(x, y, z, .3);
-  }, V(0, -.05, 0), .07, 48, M.skin, a.hand).scale.setScalar(1.45));
+    let d = sdCapsule(x, y, z, V(0, .004, 0), V(0, -.02, 0), .015);                                  // wrist
+    d = smin(d, sdRoundBox(x, y, z, V(0, -.04, 0), V(.019, .017, .006), .0075), .012);                // palm
+    let fingers = 1e9;
+    for (let i = 0; i < 4; i++) {
+      const fx = a.sd * (-.0165 + i * .011), L = FL[i], b0 = V(fx, -.057, .001);
+      const k1 = V(fx * 1.06, -.057 - L * .55, .004), tip = V(fx * 1.1, -.057 - L, .011);
+      fingers = Math.min(fingers, smin(sdCapsule(x, y, z, b0, k1, .0056), sdCapsule(x, y, z, k1, tip, .0052), .003));
+    }
+    d = smin(d, fingers, .005);
+    const t0 = V(-a.sd * .016, -.03, .006), t1 = V(-a.sd * .03, -.046, .014), t2 = V(-a.sd * .034, -.062, .019);   // thumb, on the inner side (toward the body)
+    d = smin(d, smin(sdCapsule(x, y, z, t0, t1, .0075), sdCapsule(x, y, z, t1, t2, .0066), .003), .007);
+    return d + lumps(x, y, z, .25);
+  }, V(0, -.045, .005), .068, 104, M.skin, a.hand).scale.setScalar(1.45));
   legs.forEach(l => rigid((x, y, z) => {
     let d = sdEll(x, y, z, V(0, -.01, .03), V(.064, .04, .11));
     d = smin(d, sdRoundBox(x, y, z, V(0, -.043, .03), V(.058, .008, .1), .008), .01);
@@ -277,7 +287,7 @@ export function makeHaru3(o = {}) {
     whites.push(add(Sph(.016, 1, 1.08, .5), M.white, face, [x, EY + .002, zs - .002]));
     eyes.push(add(new THREE.SphereGeometry(.0105, 16, 12), M.eye, face, [x, EY, zs + .001]));
     lids.push(capTube([[x - .013, .0, zs + .001], [x, -.004, zs + .004], [x + .013, .0, zs + .001]], .0026, M.dark, face));
-    squeeze.push(capTube([[x - sd * .013, .008, zs + .001], [x + sd * .011, .0, zs + .004], [x - sd * .013, -.008, zs + .001]], .0028, M.dark, face));
+    squeeze.push(capTube([[x + sd * .013, .008, zs + .001], [x - sd * .011, .0, zs + .004], [x + sd * .013, -.008, zs + .001]], .0028, M.dark, face));   // > <: points toward the nose
     const b = G(face, [x, BROW_Y, onSkin(x, BROW_Y)]); capTube([[-.016, -.001, 0], [0, .0012, .0015], [.016, -.001, 0]], .0037, M.dark, b); brows.push(b);
   }
   add(Sph(.0105, 1, .92, .85), M.nose, face, [0, -.028, onSkin(0, -.028, .002)]);
