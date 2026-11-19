@@ -68,6 +68,7 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
       if (c.material.normalMap && !g.attributes.tangent && g.attributes.uv) g.computeTangents(); });
     gen = new DynamicPathTracingSceneGenerator(objs);
     const {bvh, textures, materials, lights} = gen.generate(), g = bvh.geometry;
+    console.log('PT triangles: ' + (g.index ? g.index.count / 3 : g.attributes.position.count / 3));
     ptMat.bvh.updateFrom(bvh);
     ptMat.attributesArray.updateFrom(g.attributes.normal, g.attributes.tangent, g.attributes.uv, g.attributes.color);
     ptMat.materialIndexAttribute.updateFrom(g.attributes.materialIndex);

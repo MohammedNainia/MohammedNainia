@@ -50,7 +50,9 @@ function vnoise(x, y, z) {
 const lumps = (x, y, z, a = 1) => a * (.0024 * vnoise(x * 26, y * 26, z * 26) + .0011 * vnoise(x * 70 + 3, y * 70, z * 70));
 
 // SDF -> one mesh. center/half: the cube to sample; res: samples per side.
+let DETAIL = 1;                    // mesh detail for the next makeHaru3 (o.detail): lower = fewer triangles, faster path tracing
 function meshSDF(sdf, center, half, res) {
+  res = Math.max(28, Math.round(res * DETAIL));
   const mc = new MarchingCubes(res, new THREE.MeshBasicMaterial(), false, false, 220000);
   const f = mc.field, h = res / 2, K = 4000;
   for (let z = 0; z < res; z++) for (let y = 0; y < res; y++) for (let x = 0; x < res; x++) {
@@ -102,6 +104,7 @@ const B = (parent, pos) => { const b = new THREE.Bone(); b.position.set(...pos);
 const segDist = (p, a, b) => { const ab = b.clone().sub(a), t = Math.min(1, Math.max(0, p.clone().sub(a).dot(ab) / ab.lengthSq())); return p.distanceTo(a.clone().add(ab.multiplyScalar(t))); };
 
 export function makeHaru3(o = {}) {
+  DETAIL = o.detail || 1;
   const M = {
     skin: clay3(o.skin || 0xe39a72, {bumpScale: .9, roughness: .66}), hood: clay3(o.hood || 0xcf9132), pants: clay3(o.pants || 0x5c5b60, {bumpScale: 1.8}),
     shoe: clay3(0xf0eee8, {bumpScale: 1.0}), hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),

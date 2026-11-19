@@ -7,6 +7,7 @@
 //   node render.js --dur 8 --fps 30 --out test.mp4
 //   node render.js --landscape --scene keeper_p1 --dur 150 --out ..\keeper\part1\raw.mp4   (16:9)
 //   --start 75 --dur 75   render only seconds 75..150 (split long videos so each file fits GitHub)   --maxrate 10M
+//   --step 12   stop motion: render each of the 12 poses per second once and reuse it for the repeated video frames
 //   --query "pt=512&p=4"  extra options for the page (here: path-traced, 512 samples, pose 4)
 // Needs: npm install (three + playwright), npx playwright install chromium, and ffmpeg on PATH (or set FFMPEG=C:\path\ffmpeg.exe).
 const { chromium } = require('playwright');
@@ -20,7 +21,10 @@ const [W, H] = flag('landscape') ? [1920, 1080] : [1080, 1920];   // --landscape
 const OUT = path.resolve(__dirname, opt('out', 'test.mp4'));
 const ONLY = opt('frames', null) ? opt('frames').split(',').map(Number) : null;
 const GPU = flag('gpu') || (!flag('cpu') && process.platform !== 'linux');
-const WORKERS = +opt('workers', GPU ? 2 : Math.max(1, os.cpus().length));
+const QUERY0 = opt('query', '');
+// path tracing fills the whole GPU: a second browser would only build the scene twice
+const WORKERS = +opt('workers', /(^|&)pt=/.test(QUERY0) ? 1 : GPU ? 2 : Math.max(1, os.cpus().length));
+const STEP = +opt('step', 0);       // --step 12: the scene moves 12 times a second (stop motion): render each pose once, repeat it
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 const SCENE = opt('scene', 'train_test');
 const QUERY = opt('query', '');                    // extra page options, e.g. --query "pt=512&p=4" (path tracer, pose 4)
@@ -72,12 +76,19 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp);
   const t0 = Date.now(); let done = 0;
   const pages = [probe]; for (let k = 1; k < WORKERS; k++) pages.push(await openPage(browser, port));
-  await Promise.all(pages.map(async (page, k) => {              // each browser renders every WORKERS-th frame
-    for (let i = k; i < N; i += WORKERS) {
-      fs.writeFileSync(path.join(tmp, `${String(i).padStart(5, '0')}.jpg`), await grab(page, (F0 + i) / FPS, 'image/jpeg'));
-      if (++done % 60 === 0) console.log(`  ${done}/${N} frames, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  // with --step, frames that fall in the same stop-motion pose share one render
+  const key = i => STEP ? Math.floor(((F0 + i) / FPS) * STEP + 1e-6) : i;
+  const todo = []; for (let i = 0; i < N; i++) if (i === 0 || key(i) !== key(i - 1)) todo.push(i);
+  if (STEP) console.log(`stop motion at ${STEP}/s: ${todo.length} poses to render for ${N} video frames`);
+  const name = i => path.join(tmp, `${String(i).padStart(5, '0')}.jpg`);
+  await Promise.all(pages.map(async (page, k) => {              // each browser renders every WORKERS-th pose
+    for (let j = k; j < todo.length; j += WORKERS) {
+      const i = todo[j];
+      fs.writeFileSync(name(i), await grab(page, (F0 + i) / FPS, 'image/jpeg'));
+      if (++done % 60 === 0) console.log(`  ${done}/${todo.length} renders, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     }
   }));
+  for (let i = 1; i < N; i++) if (!fs.existsSync(name(i))) fs.copyFileSync(name(i - 1), name(i));   // the repeats
   await browser.close(); server.close();
   console.log(`rendered ${N} frames in ${((Date.now() - t0) / 1000).toFixed(0)} s (${((Date.now() - t0) / N).toFixed(0)} ms/frame)`);
   await new Promise((res, rej) => spawn(FFMPEG, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(tmp, '%05d.jpg'),
