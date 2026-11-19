@@ -46,7 +46,10 @@ shoes magenta), lights off, orthographic front camera, figures spaced so they do
    sleeves hanging beside the body, two separate legs and shoes, sloping vs square shoulders, hair crown shape.
 4. **Check the side and back views and the normal render**: pieces that look fine from the front can poke through the hair
    from behind (they did: hood side bulges, drawstrings). Measure views 2 and 4 too.
-Stop when the front has at most 2 parts off by > 2% and nothing pokes through in any view.
+   `measure.py` also reports `poke_px`: garment pixels visible through the hair (garment with hair on both sides in a row).
+   It must be 0 in the back views (`--view 3` and `--view 4`). In the front view the garment between the hair panels is normal,
+   and in the side view the near arm can sit in front of the hair, so for those two look at a close-up instead of trusting the count.
+Stop when the front has at most 2 parts off by > 2% and poke_px is 0 in every view.
 
 ## Lessons from Haru (Nov 2026)
 - Heights matched within 1% after one round once the legs were lengthened; widths needed 4 rounds.

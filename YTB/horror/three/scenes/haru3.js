@@ -128,8 +128,8 @@ export function makeHaru3(o = {}) {
     let d = sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8;                 // narrower at the top: sloping shoulders
     d = smax(d, .5 - y, .03);                                                                                   // flat-bottomed, like a real hoodie
     d = smin(d, sdTorusY(x, y, z, V(0, .505, 0), .15, .03, 1.03, .82), .025);
-    d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.065), V(0, .74, .67), .125, .058), .035);
-    d = smin(d, sdEll(x, y, z, V(0, .97, -.1), V(.09, .07, .05)), .04);
+    d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);
+    d = smin(d, sdEll(x, y, z, V(0, .95, -.085), V(.085, .065, .045)), .04);
     for (const a of arms) {
       const U = a.U.clone().add(V(0, -DY, 0)), F = a.F.clone().add(V(0, -DY, 0)), Hh = a.H.clone().add(V(0, -DY, 0));
       const cuffDir = Hh.clone().sub(F).normalize(), cuff = Hh.clone().sub(cuffDir.clone().multiplyScalar(.012));
@@ -187,7 +187,7 @@ export function makeHaru3(o = {}) {
     const fr = V(x + .006, y - .085, z - .01).applyAxisAngle(V(0, 0, 1), .14).applyAxisAngle(V(1, 0, 0), -.5);        // the swept fringe
     d = smin(d, sdEll(fr.x, fr.y, fr.z, V(0, 0, 0), V(.15, .06, .14)), .02);
     for (const sd of [-1, 1]) d = smin(d, sdRoundCone(x, y, z, V(sd * .106, -.02, -.01), V(sd * .114, -.31, .0), .05, .045), .03);   // side panels
-    const bz = (z + .085) / .6; d = smin(d, sdRoundCone(x / 1.05, y, bz, V(0, -.03, 0), V(0, -.27, 0), .13, .125) * .6, .03);   // the back
+    const bz = (z + .095) / .72; d = smin(d, sdRoundCone(x / 1.05, y, bz, V(0, -.03, 0), V(0, -.28, 0), .13, .125) * .72, .03);   // the back
     d = smax(d, -sdEll(x, y, z, V(0, -.04, .08), V(.104, .14, .085)), .025);                                        // the face opening
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;

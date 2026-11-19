@@ -78,8 +78,18 @@ def measure(m, fg, view):
     face = m['skin'].copy(); face[t0:] = False; f0, f1 = band(face, .2)
     hands = m['skin'].copy(); hands[:t0 + int(.6 * (t1 - t0))] = False; hands[p1:] = False; hd0, hd1 = band(hands, .05, 3)
     tops = m['top'].copy(); tt0, _ = band(tops, .08)
+    # poke check: garment pixels showing THROUGH the hair (garment with hair on both sides in the same row, above the hair's end)
+    poke = 0
+    for y in range(top, h1 + 1):
+        hx = np.where(m['hair'][y])[0]
+        if len(hx) < 2: continue
+        row = m['top'][y, hx.min():hx.max() + 1]
+        if row.any():
+            inside = row.copy(); hrow = m['hair'][y, hx.min():hx.max() + 1]
+            left = np.maximum.accumulate(hrow); right = np.maximum.accumulate(hrow[::-1])[::-1]
+            poke += int((inside & left & right).sum())
     return {
-        'height_px': int(Hh),
+        'height_px': int(Hh), 'poke_px': poke,
         'hair_bottom': f(h1), 'face_top': f(f0), 'chin': f(f1),
         'top_top': f(tt0), 'top_hem': f(t1), 'hands_bottom': f(hd1),
         'pants_hem': f(p1), 'shoes_top': f(s0),
