@@ -1,0 +1,21 @@
+TOOTH FAIRY: real foley from the Artlist SFX catalog (subscription downloads, no AI credits). Replaces the numpy-synth sounds.
+Each sound gets the room it is in: dry for the bedroom, short reverb for the tiled bathroom, long for the hallway.
+
+bed      Calm City - Small Apartment Room Tone (85921)                  whole video, low; cut to silence at the blackout
+drone    Horror Nights - Drone, Slow, Dark (40584)                       creeps in from "That night", peaks at "Open wide"
+plate    Coin Dropped On Stone (99073) on the plate / pillow beats        h02, h03
+clicks   Chattering Teeth Toy Rattle (72990), slowed and pitched down     h06 "teeth shaken in a jar" + creature presence
+steps    These Boots - Footsteps Wooden Floor, Hesitate (111557), slowed  the creature entering the bedroom
+door     Wooden bedroom door, squeaky knob, opens softly (27081)          bedroom door at night
+breath   Creatures - Screamy Whisper, Exhale (49620), very low            h07/h08, the face over her
+run      Steps Hardwood - Barefoot, Running (75730)                       h09 run to the hall light
+sizzle   (synth, short) fingers pulling back from the light              h09
+lock     Pushing Wooden Door Lock (102880)                                she locks the bathroom; later it turns by itself
+bulb     Fluorescent Light Bulb, Switch On, Buzz, Click (103901)          bathroom bulb hum + the flicker
+taps     On the Threshold - Interior Door Knocking Subtle (113279)        "tapped on the door all night", slowed, irregular
+          + Special Doors - Wood Door Knocking, Six Variations (89927)   for variety
+cutoff   Ohm - Electric Switch Off (96391)                                every light goes out
+creak    Squeaks & Creaks - Turning Door Lock (39328)                     the lock turns by itself
+pull     Break & Fall - Flesh Squish (104265), short and quiet            each tooth, in the dark (kept subtle)
+coin     Single Coin Drops on Wooden Surface (109710) + on Stone (99073)  one coin per tooth on the tile, one by one, faster
+morning  coins shifting: Coin Collector - Coins Dropping (99727)          the coin-covered floor
