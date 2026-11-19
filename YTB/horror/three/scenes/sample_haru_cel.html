@@ -1,0 +1,99 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#ece4d8}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+// Code-only sample 1: Haru built from shapes, cel-shaded (3 tones) with an inked outline, walking. 2:1 isometric camera.
+import * as THREE from 'three';
+const W = 560, H = 560;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(W, H); renderer.setClearColor(0xece4d8); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const s = 1.0, cam = new THREE.OrthographicCamera(-s, s, s, -s, .1, 50);
+const pitch = 30 * Math.PI / 180, yaw = 45 * Math.PI / 180, R = 10;
+cam.position.set(R * Math.cos(pitch) * Math.sin(yaw), R * Math.sin(pitch) + .8, R * Math.cos(pitch) * Math.cos(yaw));
+cam.lookAt(0, .8, 0);
+
+// 3-tone ramp: the cel look
+const ramp = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]), 3, 1);
+ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.needsUpdate = true;
+const toon = c => new THREE.MeshToonMaterial({color: c, gradientMap: ramp});
+const ink = new THREE.MeshBasicMaterial({color: 0x1d1820, side: THREE.BackSide});
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(4, 8, 2); scene.add(sun);
+
+// a part = shape + its inverted-hull outline
+function part(geo, mat, parent, pos = [0, 0, 0], line = .018) {
+  const g = new THREE.Group(); g.position.set(...pos);
+  const m = new THREE.Mesh(geo, mat); g.add(m);
+  if (line) {
+    const o = new THREE.Mesh(geo, ink); geo.computeBoundingSphere();
+    const r = geo.boundingSphere.radius; o.scale.setScalar((r + line) / r); o.position.copy(geo.boundingSphere.center).multiplyScalar(-(o.scale.x - 1));
+    g.add(o);
+  }
+  parent.add(g); return g;
+}
+const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 6, 14);
+const C = {skin: toon(0xf3d2b8), hood: toon(0xd9a43c), hoodD: toon(0xb8862c), pants: toon(0x55545c), shoe: toon(0xf4f2ee), hair: toon(0x1c1b22), sole: toon(0xc9c4bc)};
+
+// skeleton
+const root = new THREE.Group(); scene.add(root);
+const hips = new THREE.Group(); hips.position.y = .82; root.add(hips);
+const chest = new THREE.Group(); chest.position.y = .02; hips.add(chest);
+// hoodie body (oversized), pocket, hood bunched at the neck
+part(cap(.17, .3).scale(1, 1, .72), C.hood, chest, [0, .25, 0]);
+part(new THREE.BoxGeometry(.2, .08, .04), C.hoodD, chest, [0, .14, .11], .01);
+part(new THREE.TorusGeometry(.1, .04, 8, 16).rotateX(Math.PI / 2 + .5), C.hood, chest, [0, .5, -.06], .012);
+// head
+const neck = new THREE.Group(); neck.position.y = .56; chest.add(neck);
+const head = part(new THREE.SphereGeometry(.15, 20, 16).scale(1, 1.05, 1), C.skin, neck, [0, .14, 0]);
+const eye = new THREE.MeshBasicMaterial({color: 0x111111});
+for (const x of [-.045, .045]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.019, 8, 8), eye); e.position.set(x, -.025, .14); head.add(e); }
+const blush = new THREE.MeshBasicMaterial({color: 0xf0a8a0, transparent: true, opacity: .55});
+for (const x of [-.07, .07]) { const b = new THREE.Mesh(new THREE.CircleGeometry(.018, 12), blush); b.position.set(x, -.065, .13); b.lookAt(x * 3, -.04, 1); head.add(b); }
+// hair: cap, bangs, long panel down the back (sways)
+part(new THREE.SphereGeometry(.16, 20, 16, 0, Math.PI * 2, 0, Math.PI * .5).scale(1.02, 1.1, 1.04), C.hair, head, [0, .01, -.005], .012);
+const hairBack = new THREE.Group(); hairBack.position.set(0, -.02, -.1); head.add(hairBack);
+part(new THREE.BoxGeometry(.28, .55, .06).translate(0, -.24, 0), C.hair, hairBack, [0, 0, 0], .012);
+for (const x of [-.15, .15]) part(new THREE.BoxGeometry(.05, .42, .1).translate(0, -.21, 0), C.hair, head, [x, 0, .0], .01);
+
+// limbs
+function limb(parent, pos, r1, l1, r2, l2, m1, m2) {
+  const a = new THREE.Group(); a.position.set(...pos); parent.add(a);
+  part(cap(r1, l1).translate(0, -l1 / 2 - r1 * .5, 0), m1, a);
+  const b = new THREE.Group(); b.position.y = -l1 - r1 * .4; a.add(b);
+  part(cap(r2, l2).translate(0, -l2 / 2 - r2 * .5, 0), m2, b);
+  return [a, b, l2 + r2];
+}
+const arms = [-1, 1].map(sd => { const [a, b, l] = limb(chest, [sd * .2, .46, 0], .065, .2, .058, .18, C.hood, C.hood);
+  part(new THREE.SphereGeometry(.045, 10, 8), C.skin, b, [0, -l - .02, 0], .01); a.rotation.z = sd * .12; return [a, b]; });
+const legs = [-1, 1].map(sd => { const [a, b, l] = limb(hips, [sd * .085, 0, 0], .075, .32, .06, .3, C.pants, C.pants);
+  const f = new THREE.Group(); f.position.y = -l - .02; b.add(f);
+  part(new THREE.BoxGeometry(.11, .07, .2).translate(0, 0, .04), C.shoe, f, [0, 0, 0], .012);
+  part(new THREE.BoxGeometry(.112, .02, .2).translate(0, -.035, .04), C.sole, f, [0, 0, 0], 0);
+  return [a, b, f]; });
+
+// ground shadow
+const sh = new THREE.Mesh(new THREE.CircleGeometry(.28, 24), new THREE.MeshBasicMaterial({color: 0x6a5a48, transparent: true, opacity: .28}));
+sh.rotation.x = -Math.PI / 2; sh.scale.set(1, .7, 1); sh.position.y = .002; scene.add(sh);
+// floor grid lines (2:1 tiles)
+const lines = new THREE.LineBasicMaterial({color: 0xd2c6b4});
+for (let i = -6; i <= 6; i++) {
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i * .7, 0, -5), new THREE.Vector3(i * .7, 0, 5)]), lines));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-5, 0, i * .7), new THREE.Vector3(5, 0, i * .7)]), lines));
+}
+
+root.rotation.y = 0;  // facing down-right toward the viewer
+window.renderAt = t => {           // t in 0..1 = one walk cycle
+  const p = t * Math.PI * 2, sw = Math.sin(p);
+  hips.position.y = .82 + Math.abs(Math.cos(p)) * .03 - .02;
+  hips.rotation.y = sw * .12; chest.rotation.y = -sw * .2; chest.rotation.x = .05;
+  legs.forEach(([a, b, f], i) => { const q = i ? sw : -sw, ph = p + (i ? 0 : Math.PI);
+    a.rotation.x = -q * .4; b.rotation.x = Math.max(0, Math.sin(ph - .6)) * .9 + .05; f.rotation.x = q * .25 - b.rotation.x * .4 + .2; });
+  arms.forEach(([a, b], i) => { const q = i ? -sw : sw; a.rotation.x = -q * .45; b.rotation.x = -.25 - Math.max(0, q) * .3; });
+  neck.rotation.y = sw * .08; neck.rotation.x = -.03;
+  hairBack.rotation.x = .12 + Math.cos(p * 2) * .04; hairBack.rotation.z = sw * .05;
+  renderer.render(scene, cam);
+};
+window.renderAt(0);
+</script></body></html>
