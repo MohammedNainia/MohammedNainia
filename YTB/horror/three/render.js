@@ -7,6 +7,7 @@
 //   node render.js --dur 8 --fps 30 --out test.mp4
 //   node render.js --landscape --scene keeper_p1 --dur 150 --out ..\keeper\part1\raw.mp4   (16:9)
 //   --start 75 --dur 75   render only seconds 75..150 (split long videos so each file fits GitHub)   --maxrate 10M
+//   --query "pt=512&p=4"  extra options for the page (here: path-traced, 512 samples, pose 4)
 // Needs: npm install (three + playwright), npx playwright install chromium, and ffmpeg on PATH (or set FFMPEG=C:\path\ffmpeg.exe).
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), http = require('http'), os = require('os'), { spawn } = require('child_process');
@@ -22,6 +23,7 @@ const GPU = flag('gpu') || (!flag('cpu') && process.platform !== 'linux');
 const WORKERS = +opt('workers', GPU ? 2 : Math.max(1, os.cpus().length));
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 const SCENE = opt('scene', 'train_test');
+const QUERY = opt('query', '');                    // extra page options, e.g. --query "pt=512&p=4" (path tracer, pose 4)
 
 // tiny static server for this folder (ES modules need http://, not file://)
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
@@ -34,8 +36,8 @@ const server = http.createServer((req, res) => {
 async function openPage(browser, port) {
   const page = await browser.newPage({ viewport: { width: W, height: H } });
   page.on('pageerror', e => console.error('page error:', e.message));
-  await page.goto(`http://127.0.0.1:${port}/scenes/${SCENE}.html`);
-  await page.waitForFunction('window.ready === true', null, { timeout: 120000 });
+  await page.goto(`http://127.0.0.1:${port}/scenes/${SCENE}.html${QUERY ? '?' + QUERY : ''}`);
+  await page.waitForFunction('window.ready === true', null, { timeout: 600000 });
   return page;
 }
 const grab = (page, t, type) => page.evaluate(([t, type]) => {
@@ -56,7 +58,9 @@ const grab = (page, t, type) => page.evaluate(([t, type]) => {
 
   if (ONLY) {
     fs.mkdirSync(path.join(__dirname, 'frames'), { recursive: true });
-    for (const i of ONLY) fs.writeFileSync(path.join(__dirname, 'frames', `f${String(i).padStart(4, '0')}.png`), await grab(probe, i / FPS, 'image/png'));
+    for (const i of ONLY) { const t0 = Date.now();
+      fs.writeFileSync(path.join(__dirname, 'frames', `f${String(i).padStart(4, '0')}.png`), await grab(probe, i / FPS, 'image/png'));
+      console.log(`frame ${i}: ${((Date.now() - t0) / 1000).toFixed(1)} s`); }
     await browser.close(); server.close(); return;
   }
 

@@ -29,7 +29,7 @@ function bumpToNormal(tex, strength = 2) {
   normalCache.set(tex, n); return n;
 }
 
-export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], envIntensity = .3, softboxes = null, bounces = 6} = {}) {
+export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], envIntensity = .5, softboxes = null, bounces = 6} = {}) {
   // 1. materials: bump -> normal map (same strength feel), keep everything else
   scene.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) {
     if (m.bumpMap && !m.normalMap) { m.normalMap = bumpToNormal(m.bumpMap); const k = Math.min(1.2, m.bumpScale * .45); m.normalScale.set(k, -k); m.needsUpdate = true; }
@@ -48,6 +48,10 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
   const lens = new PhysicalCamera(); pt.camera = lens;
   const sky = new GradientEquirectTexture(256); sky.topColor.set(env[0]); sky.bottomColor.set(env[1]); sky.exponent = .7; sky.update();
   ptMat.envMapInfo.updateFrom(sky); ptMat.environmentIntensity = envIntensity;
+  // the sky only lights the scene; what the camera sees behind it is the scene's own backdrop colour (not dimmed with the light)
+  const bgc = scene.background && scene.background.isColor ? scene.background : new THREE.Color(0xdcdcdc);
+  const back = new GradientEquirectTexture(64); back.topColor.copy(bgc); back.bottomColor.copy(bgc); back.update();
+  ptMat.backgroundMap = back;
   const quad = new FullScreenQuad(new THREE.MeshBasicMaterial({map: pt.target.texture}));
   let gen = null;
   const size = new THREE.Vector2(), v = new THREE.Vector3();
