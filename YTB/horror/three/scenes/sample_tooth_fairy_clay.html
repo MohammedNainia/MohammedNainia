@@ -1,0 +1,176 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#2a2320}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+// Code-only sample: Haru as a soft clay (stop-motion) puppet. Lumpy shapes, fingerprint bumps, matte sheen,
+// soft light, and "boiling" (the lumps shift every 2 frames, played at 12 fps).
+import * as THREE from 'three';
+const W = 540, H = 720;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(W, H); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1016);
+const cam = new THREE.PerspectiveCamera(30, W / H, .1, 50); cam.position.set(.5, 1.35, 4.3); cam.lookAt(0, 1.08, 0);
+
+// fingerprint / tool-mark bump texture (made once)
+const bc = document.createElement('canvas'); bc.width = bc.height = 512; const g = bc.getContext('2d');
+g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+let s = 3; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+for (let k = 0; k < 40; k++) { const cx = r() * 512, cy = r() * 512, n = 6 + r() * 8;          // fingerprint swirls
+  for (let i = 0; i < n; i++) { g.strokeStyle = `rgba(${r() < .5 ? 60 : 200},${r() < .5 ? 60 : 200},${r() < .5 ? 60 : 200},.35)`; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(cx, cy, 4 + i * 3, 3 + i * 2.2, r() * 3, 0, 6.3); g.stroke(); } }
+for (let k = 0; k < 900; k++) { g.fillStyle = `rgba(${r() < .5 ? 40 : 220},${r() < .5 ? 40 : 220},${r() < .5 ? 40 : 220},.12)`; g.beginPath(); g.arc(r() * 512, r() * 512, 1 + r() * 3, 0, 6.3); g.fill(); }
+const bump = new THREE.CanvasTexture(bc); bump.wrapS = bump.wrapT = THREE.RepeatWrapping; bump.repeat.set(2, 2);
+const clay = c => new THREE.MeshPhysicalMaterial({color: c, roughness: .9, metalness: 0, sheen: .35, sheenRoughness: .9,
+  sheenColor: new THREE.Color(c).lerp(new THREE.Color(0xffffff), .35), bumpMap: bump, bumpScale: 2.2, clearcoat: 0});
+const M = {skin: clay(0xf0c9a8), hood: clay(0xe0a33a), pants: clay(0x5a5862), shoe: clay(0xf2eee6), hair: clay(0x24222a),
+  eye: new THREE.MeshPhysicalMaterial({color: 0x0c0c0e, roughness: .15, clearcoat: 1}), floor: clay(0x8a6a50), wall: clay(0x6a4e44), cheek: clay(0xee9a8e)};
+
+// lumpy geometry: displace along normals by smooth noise; the noise seed changes per "boil" frame
+const lumpy = [];
+function lump(geo, amt = .012, freq = 6) {
+  geo = geo.toNonIndexed ? geo : geo; geo.computeVertexNormals();
+  const e = {geo, base: null, nrm: null, amt, freq}; lumpy.push(e); return geo;   // snapshot taken at the first boil (after any scale/translate)
+}
+const noise = (x, y, z, sd) => Math.sin(x * 1.7 + sd) * Math.sin(y * 2.3 + sd * 1.3) * Math.sin(z * 1.9 + sd * .7)
+  + .5 * Math.sin(x * 3.1 - sd * .9 + y * 1.2) * Math.sin(z * 2.7 + sd * 1.1);
+function boil(sd) {
+  for (const e of lumpy) {
+    const {geo, amt, freq} = e;
+    if (!e.base) { geo.computeVertexNormals(); e.base = geo.attributes.position.array.slice(); e.nrm = geo.attributes.normal.array.slice(); }
+    const {base, nrm} = e;
+    const p = geo.attributes.position.array;
+    for (let i = 0; i < p.length; i += 3) { const d = noise(base[i] * freq, base[i + 1] * freq, base[i + 2] * freq, sd) * amt;
+      p[i] = base[i] + nrm[i] * d; p[i + 1] = base[i + 1] + nrm[i + 1] * d; p[i + 2] = base[i + 2] + nrm[i + 2] * d; }
+    geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+  }
+}
+function add(geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+const S = (r, sx = 1, sy = 1, sz = 1, a, f) => lump(new THREE.SphereGeometry(r, 40, 30).scale(sx, sy, sz), a, f);
+const Cp = (r, l, a, f) => lump(new THREE.CapsuleGeometry(r, l, 10, 24), a, f);
+
+// set: a small clay room corner
+
+// ---- the set: a dark bedroom corner (clay)
+M.wall.color.set(0x2c3040); M.floor.color.set(0x3a3230);
+add(lump(new THREE.BoxGeometry(6, .2, 6, 30, 2, 30), .02, 2), M.floor, scene, [0, -.1, 0]);
+add(lump(new THREE.BoxGeometry(6, 4, .2, 30, 20, 2), .03, 1.5), M.wall, scene, [0, 2, -1.3]);
+M.wall.bumpScale = .6; M.floor.bumpScale = .6;
+const DS = THREE.DoubleSide;
+// ---- materials for the creature
+const ash = clay(0x8f8c84), ashD = clay(0x5e5a54), gum = clay(0x6a1e22), mouthIn = clay(0x1a0608), nail = clay(0x3a3430);
+const tooth = c => new THREE.MeshPhysicalMaterial({color: c, roughness: .35, clearcoat: .6, bumpMap: bump, bumpScale: .3});
+const T = [tooth(0xf4efe2), tooth(0xe8dfc4), tooth(0xd8cba0), tooth(0xfaf6ee)];
+const wingMat = new THREE.MeshPhysicalMaterial({color: 0xb8ad98, roughness: .7, transmission: .35, thickness: .02, side: DS,
+  transparent: true, opacity: .85, bumpMap: bump, bumpScale: 1.5});
+const eyeMat = new THREE.MeshPhysicalMaterial({color: 0xd8dccc, roughness: .2, clearcoat: 1});
+let rs = 11; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+
+// ---- the Tooth Fairy: tall, starved, hunched; a grin full of children's teeth; torn wet-paper wings; a crown of teeth
+const tf = new THREE.Group(); scene.add(tf);
+const pelvis = new THREE.Group(); pelvis.position.y = .95; tf.add(pelvis);
+add(S(.11, 1.1, .7, .8, .006, 9), ash, pelvis);
+// legs: thin, bent, long feet with claw toes
+for (const sd of [-1, 1]) {
+  const th = new THREE.Group(); th.position.set(sd * .09, -.02, 0); th.rotation.set(-.55, 0, sd * .08); pelvis.add(th);
+  add(Cp(.045, .4, .005, 9), ash, th, [0, -.24, 0]);
+  const sh = new THREE.Group(); sh.position.y = -.48; sh.rotation.x = 1.0; th.add(sh);
+  add(S(.05, 1, 1, 1, .004, 10), ash, sh); add(Cp(.035, .42, .004, 10), ash, sh, [0, -.24, 0]);
+  const ft = new THREE.Group(); ft.position.y = -.47; ft.rotation.x = -.45; sh.add(ft);
+  add(S(.05, .9, .5, 2.4, .004, 10), ash, ft, [0, 0, .08]);
+  for (const k of [-1, 0, 1]) add(new THREE.ConeGeometry(.012, .08, 8).rotateX(Math.PI / 2), nail, ft, [k * .025, -.01, .21]);
+}
+// spine and torso: thin, curved forward, ribs showing
+const spine = new THREE.Group(); spine.position.y = .05; spine.rotation.x = .55; pelvis.add(spine);
+add(Cp(.1, .42, .006, 9).scale(1.05, 1, .7), ash, spine, [0, .28, 0]);
+for (let i = 0; i < 6; i++) add(lump(new THREE.TorusGeometry(.098 - i * .002, .006, 8, 30, Math.PI * 1.1).rotateX(Math.PI / 2).rotateZ(-Math.PI * .05), .002, 14).scale(1.08, 1, .74), ashD, spine, [0, .32 + i * .055, .006]);
+for (let i = 0; i < 7; i++) add(S(.02, 1, .8, 1, .002, 14), ashD, spine, [0, .12 + i * .07, -.075]);       // vertebrae bumps
+add(S(.05, 1.2, .9, 1, .004, 10), ash, spine, [0, .52, .0]);
+// coin pouch at the hip
+add(S(.035, 1, 1.2, .8, .004, 10), clay(0x4a3a2a), pelvis, [.12, -.06, .05]);
+// neck and head: long neck pushing forward; elongated bald skull
+const neck = new THREE.Group(); neck.position.y = .62; neck.rotation.x = .2; spine.add(neck);
+add(Cp(.035, .16, .004, 10), ash, neck, [0, .1, 0]);
+const head = new THREE.Group(); head.position.set(0, .22, .03); head.rotation.x = -.95; neck.add(head);
+add(S(.12, .92, 1.25, 1.0, .006, 9), ash, head, [0, .02, 0]);
+// sunken eye pits with tiny milky eyes
+for (const x of [-.045, .045]) { add(S(.028, 1.2, .8, .5, .003, 12), ashD, head, [x, .07, .1]); add(new THREE.SphereGeometry(.009, 10, 8), eyeMat, head, [x, .07, .112]); }
+// the grin: wide lips stretched ear to ear, dark mouth, gums, rows of mismatched small teeth
+const mouth = new THREE.Group(); mouth.position.set(0, -.05, .085); mouth.scale.setScalar(1.25); head.add(mouth);
+add(S(.1, 1, .42, .35, .003, 12), mouthIn, mouth, [0, 0, .005]);
+add(lump(new THREE.TorusGeometry(.1, .016, 10, 40), .003, 12).scale(1, .45, 1), gum, mouth, [0, 0, .012]);
+const teeth = [];
+for (const row of [1, -1]) for (let i = 0; i < 17; i++) {
+  const a = (i / 16 - .5) * 2.5, x = Math.sin(a) * .095, z = Math.cos(a) * .03 - .01;
+  const h = .014 + rnd() * .014, w = .009 + rnd() * .006;
+  const tg = new THREE.BoxGeometry(w, h, .008, 2, 3, 1); tg.translate(0, -row * h / 2, 0);
+  const tm = add(tg, T[Math.floor(rnd() * 4)], mouth, [x, row * .03 + (rnd() - .5) * .004, z + .014], [(rnd() - .5) * .3, -a * .9, (rnd() - .5) * .35]);
+  teeth.push(tm);
+}
+// crown of teeth (it wants to look like the storybook fairy)
+for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2;
+  add(new THREE.ConeGeometry(.012, .04 + rnd() * .02, 6), T[i % 4], head, [Math.sin(a) * .085, .16, Math.cos(a) * .075 - .01], [Math.cos(a) * .3, 0, -Math.sin(a) * .3]); }
+// arms: very long, reaching; fingers with too many joints and dark nails
+const arms = [];
+for (const sd of [-1, 1]) {
+  const up = new THREE.Group(); up.position.set(sd * .12, .5, 0); spine.add(up);
+  add(S(.045, 1, 1, 1, .004, 10), ash, up);
+  add(Cp(.03, .36, .004, 10), ash, up, [0, -.2, 0]);
+  const fo = new THREE.Group(); fo.position.y = -.4; up.add(fo);
+  add(S(.035, 1, 1, 1, .003, 12), ash, fo); add(Cp(.026, .36, .004, 10), ash, fo, [0, -.2, 0]);
+  const hd = new THREE.Group(); hd.position.y = -.4; fo.add(hd);
+  add(S(.035, 1.1, .9, .5, .003, 12), ash, hd, [0, -.02, 0]);
+  const fingers = [];
+  for (let k = 0; k < 4; k++) {
+    let p = new THREE.Group(); p.position.set((k - 1.5) * .018, -.045, 0); p.rotation.z = (k - 1.5) * .12; hd.add(p); const chain = [p];
+    for (let j = 0; j < 4; j++) {                                    // four joints each: one too many
+      add(Cp(.007, .055, .001, 20), ash, p, [0, -.035, 0]);
+      const q = new THREE.Group(); q.position.y = -.07; p.add(q); p = q; chain.push(q);
+    }
+    add(new THREE.ConeGeometry(.007, .035, 6).rotateX(Math.PI), nail, p, [0, -.012, 0]);
+    fingers.push(chain);
+  }
+  arms.push({up, fo, hd, fingers, sd});
+}
+// wings: torn, wet paper; ragged edges and holes
+function wing(sd) {
+  const sh = new THREE.Shape(); sh.moveTo(0, 0);
+  const pts = []; for (let i = 0; i <= 14; i++) { const a = i / 14 * Math.PI * .95, r = (.75 + rnd() * .15) * (1 - .35 * Math.sin(a * 2));
+    pts.push([Math.sin(a) * r * .9 + (rnd() - .5) * .05, Math.cos(a) * r * .8 + (rnd() - .5) * .05]);
+    if (i % 3 === 1) pts.push([Math.sin(a) * r * .62, Math.cos(a) * r * .55]); }      // tears into the edge
+  for (const [x, y] of pts) sh.lineTo(x, y); sh.lineTo(0, 0);
+  for (let h = 0; h < 4; h++) { const cx = .2 + rnd() * .35, cy = -.1 + rnd() * .5, rr = .03 + rnd() * .05, hole = new THREE.Path();
+    hole.absellipse(cx, cy, rr, rr * .7, 0, Math.PI * 2, false, rnd()); sh.holes.push(hole); }
+  const g = new THREE.ShapeGeometry(sh, 24); const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 7) * .03 + Math.sin(pos.getY(i) * 9) * .02);   // crumpled
+  g.computeVertexNormals(); g.scale(sd, 1, 1);
+  const m = new THREE.Mesh(g, wingMat); m.castShadow = true; return m;
+}
+const wings = [-1, 1].map(sd => { const w = new THREE.Group(); w.position.set(sd * .06, .48, -.08); w.rotation.set(-.3, sd * .5, sd * -.15); w.scale.setScalar(.62); spine.add(w); w.add(wing(sd)); return w; });
+
+// ---- light: cold moonlight from a window, a faint warm nightlight, a rim
+const key = new THREE.DirectionalLight(0x9fb4e0, 2.0); key.position.set(-2.5, 4, 2.5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; key.shadow.camera.left = key.shadow.camera.bottom = -2.5; key.shadow.camera.right = key.shadow.camera.top = 2.5; scene.add(key);
+scene.add(new THREE.HemisphereLight(0x5a6890, 0x1a1210, .55));
+const warm = new THREE.PointLight(0xffb070, 1.6, 4); warm.position.set(.8, .5, 1.2); scene.add(warm);
+const rim = new THREE.DirectionalLight(0xd0dcff, 1.6); rim.position.set(2, 2.5, -3); scene.add(rim);
+
+window.renderAt = t => {
+  const f = Math.round(t * 24), p = t * Math.PI * 2;
+  boil(Math.floor(f / 2) * 1.7);
+  tf.rotation.y = .2; pelvis.position.y = .95 + Math.sin(p) * .01;
+  spine.rotation.x = .55 + Math.sin(p) * .03;
+  head.rotation.z = Math.sin(p) * .14; head.rotation.x = -.95 + Math.sin(p * 2) * .03;    // the slow curious tilt
+  arms.forEach(({up, fo, hd, fingers, sd}) => {
+    up.rotation.set(-1.05 - (sd > 0 ? .2 : 0), 0, sd * .25); fo.rotation.set(-.35, 0, -sd * .1); hd.rotation.x = -.2;
+    fingers.forEach((ch, k) => ch.forEach((q, j) => { if (j) q.rotation.x = .25 + .22 * Math.sin(p * 2 + k * .7 + j * .4 + (sd > 0 ? 1 : 0)); }));
+  });
+  wings.forEach((w, i) => { w.rotation.z = (i ? -.15 : .15) + Math.sin(p * 2 + i) * .06; });
+  renderer.render(scene, cam);
+};
+window.renderAt(0);
+</script></body></html>
