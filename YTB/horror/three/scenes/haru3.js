@@ -245,16 +245,16 @@ export function makeHaru3(o = {}) {
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;
   // ---- hands and shoes (small pieces on their bones)
-  // hands: wrist, rounded palm, four separate two-segment fingers curling a little (middle longest), a separate thumb
-  const FL = [.024, .029, .027, .021];                         // index (next to the thumb), middle, ring, little
+  // hands: wrist, rounded palm, three separate two-segment fingers curling a little (middle longest), a separate thumb
+  const FL = [.026, .029, .024];                               // cartoon hand: three fingers (next to the thumb first) + a thumb
   arms.forEach(a => rigid((x, y, z) => {
     let d = sdCapsule(x, y, z, V(0, .004, 0), V(0, -.02, 0), .015);                                  // wrist
     d = smin(d, sdRoundBox(x, y, z, V(0, -.04, 0), V(.019, .017, .006), .0075), .012);                // palm
     let fingers = 1e9;
-    for (let i = 0; i < 4; i++) {
-      const fx = a.sd * (-.0165 + i * .011), L = FL[i], b0 = V(fx, -.057, .001);
+    for (let i = 0; i < 3; i++) {
+      const fx = a.sd * (-.0135 + i * .0135), L = FL[i], b0 = V(fx, -.057, .001);
       const k1 = V(fx * 1.06, -.057 - L * .55, .004), tip = V(fx * 1.1, -.057 - L, .011);
-      fingers = Math.min(fingers, smin(sdCapsule(x, y, z, b0, k1, .0056), sdCapsule(x, y, z, k1, tip, .0052), .003));
+      fingers = Math.min(fingers, smin(sdCapsule(x, y, z, b0, k1, .0064), sdCapsule(x, y, z, k1, tip, .006), .003));
     }
     d = smin(d, fingers, .005);
     const t0 = V(-a.sd * .016, -.03, .006), t1 = V(-a.sd * .03, -.046, .014), t2 = V(-a.sd * .034, -.062, .019);   // thumb, on the inner side (toward the body)
