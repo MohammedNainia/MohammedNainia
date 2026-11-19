@@ -210,7 +210,7 @@ export function makeHaru3(o = {}) {
   const tube = (pts, r) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => V(...p))), 24, r, 8, false);
   const capTube = (pts, r, mat, parent) => { const g = G(parent); add(tube(pts, r), mat, g); for (const p of [pts[0], pts[pts.length - 1]]) add(new THREE.SphereGeometry(r, 10, 8), mat, g, p); return g; };
   const Sph = (r, sx, sy, sz) => new THREE.SphereGeometry(r, 24, 16).scale(sx, sy, sz);
-  const face = G(hs, [0, -.018, .117]);
+  const face = G(hs, [0, -.02, .117]); face.scale.setScalar(1.18);
   const eyes = [], whites = [], lids = [], squeeze = [], brows = [];
   for (const sd of [-1, 1]) {
     const x = sd * .046;
@@ -218,7 +218,7 @@ export function makeHaru3(o = {}) {
     eyes.push(add(new THREE.SphereGeometry(.0165, 16, 12), M.eye, face, [x, .002, .004]));
     lids.push(capTube([[x - .02, .0, .004], [x, -.006, .008], [x + .02, .0, .004]], .0035, M.dark, face));
     squeeze.push(capTube([[x - sd * .02, .012, .004], [x + sd * .016, .0, .008], [x - sd * .02, -.012, .004]], .0038, M.dark, face));
-    const b = G(face, [x, .042, .0]); capTube([[-.024, -.002, 0], [0, .004, .004], [.024, -.002, 0]], .0042, M.dark, b); brows.push(b);
+    const b = G(face, [x, .042, .0]); capTube([[-.024, -.002, 0], [0, .004, .004], [.024, -.002, 0]], .0052, M.dark, b); brows.push(b);
   }
   add(Sph(.016, 1, .9, .8), M.nose, face, [0, -.03, .014]);
   const mouth = G(face, [0, -.068, .006]);
@@ -232,7 +232,7 @@ export function makeHaru3(o = {}) {
   };
   const tears = G(face);
   for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) add(Sph(.0065 - i * .001, 1, 1.4, .6), M.tear, tears, [sd * .052, -.024 - i * .018, .006]);
-  const sweat = G(hs, [.105, .07, .07]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
+  const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
 
   const Pp = {root, hips, chest, neck, head, face, arms, legs, M};
   Pp.eyes = s => { const open = s === 'open' || s === 'wide';
@@ -244,9 +244,10 @@ export function makeHaru3(o = {}) {
   Pp.expr = name => {
     Pp.tears(false); Pp.sweat(false);
     const E = {neutral: ['open', 0, 0, 'line'], nervous: ['open', .5, .2, 'wobble'], curious: ['open', .25, .4, 'sad'], smile: ['open', -.1, .2, 'smile'],
-      scared: ['wide', .5, 1, 'sad'], scream: ['squeeze', -.6, -.2, 'open'], cry: ['open', .8, .1, 'wobble'], whisper: ['open', .35, .3, 'o']}[name] || ['open', 0, 0, 'line'];
+      scared: ['wide', .5, 1, 'open'], scream: ['squeeze', -.6, -.2, 'open'], cry: ['open', .8, .1, 'wobble'], whisper: ['open', .35, .3, 'o']}[name] || ['open', 0, 0, 'line'];
     Pp.eyes(E[0]); Pp.brows(E[1], E[2]); Pp.mouth(E[3]);
     if (name === 'nervous') Pp.sweat(true); if (name === 'cry') Pp.tears(true);
+    mouths.open.scale.setScalar(name === 'scared' ? .62 : 1);
     if (name === 'curious') { brows[0].rotation.z = .1; brows[1].rotation.z = .45; brows[1].position.y += .008; }
   };
   Pp.rest = () => { arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
