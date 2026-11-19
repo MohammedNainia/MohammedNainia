@@ -1,0 +1,402 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE TOOTH FAIRY (9:16, 88.6 s), dark clay stop-motion. Timed to YTB/horror/tooth_fairy/voice/layout.json.
+// Animation is held on twos (12 poses a second) and the clay "boils" every other pose, like real stop-motion.
+import {THREE, setup, ease, clamp01, lerp, canvasTex} from './lib.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, makeFairy, fairyArm, curl, bump} from './clay.js';
+const {scene, cam, renderer, render} = setup({bloom: .55});
+const DUR = 88.6, PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
+cam.near = .01; cam.far = 60; cam.updateProjectionMatrix();
+let rs = 7; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const box = (w, h, d, a = .01, f = 2, seg = 12) => lump(new THREE.BoxGeometry(w, h, d, seg, seg, seg), a, f);
+
+// ================================================================ materials (dark palette)
+const M = {
+  wallB: clay(0x2a2e3c), floorB: clay(0x3a2c26), wood: clay(0x4a3226), woodD: clay(0x2e2019), sheet: clay(0xc8c2b8, {bumpScale: .6}),
+  blanket: clay(0x3e4a6a, {bumpScale: 1.4}), pillow: clay(0xd8d2c6, {bumpScale: .6}), lampSh: clay(0xe8c890, {emissive: 0x000000}),
+  hall: clay(0x3a3430), tileW: clay(0xb8b8b0), grout: clay(0x50504c), porcelain: gloss(0xdedad2), metal: gloss(0x8a8a88, {roughness: .3}),
+  coin: gloss(0xa8884a, {roughness: .45, clearcoat: .3}), coinD: clay(0x5a4422), tooth: gloss(0xf8f4ea), blood: gloss(0x6a0a0e, {roughness: .2}),
+  glass: new THREE.MeshPhysicalMaterial({color: 0xdfe8f0, roughness: .05, transmission: .9, thickness: .02, transparent: true, opacity: .45}),
+  water: new THREE.MeshPhysicalMaterial({color: 0x9ab0c8, roughness: .05, transmission: .8, transparent: true, opacity: .4}),
+  bulb: new THREE.MeshBasicMaterial({color: 0xfff2d0}), win: new THREE.MeshBasicMaterial({color: 0x28406e}),
+  hallLamp: new THREE.MeshBasicMaterial({color: 0xffc780}), black: new THREE.MeshBasicMaterial({color: 0x000000}),
+};
+
+// ================================================================ BEDROOM (origin). Bed head against the back wall (z = -2).
+const bed = G(scene);
+add(box(4, .1, 4.4, .01, 1.5), M.floorB, bed, [0, -.05, -.2]);
+add(box(4, 3, .1, .015, 1.2), M.wallB, bed, [0, 1.5, -2.05]);
+const lw = add(box(.1, 3, 4.4, .015, 1.2), M.wallB, bed, [-1.65, 1.5, -.2]); lw.castShadow = false;
+const rwA = add(box(.1, 3, 1.9, .015, 1.2), M.wallB, bed, [1.65, 1.5, -1.1]);
+const rwB = add(box(.1, 3, 1.4, .015, 1.2), M.wallB, bed, [1.65, 1.5, 1.3]);
+add(box(.1, .8, .9, .01, 1.2), M.wallB, bed, [1.65, 2.6, .15]);
+// window on the left wall: cold night outside
+add(new THREE.PlaneGeometry(.8, 1.0), M.win, bed, [-1.59, 1.45, -.75], [0, PI / 2, 0]);
+for (const [w, h, y, z] of [[.06, 1.1, 1.45, -.75], [.06, .06, 1.45, -.75]]) add(box(.04, h, w === .06 && h === .06 ? .86 : w, .002, 8), M.woodD, bed, [-1.585, y, z]);
+add(box(.05, .06, .9, .003, 8), M.woodD, bed, [-1.585, .95, -.75]); add(box(.05, .06, .9, .003, 8), M.woodD, bed, [-1.585, 1.95, -.75]);
+// the bed
+add(box(1.05, .32, 2.15, .008, 3), M.wood, bed, [0, .18, -.95]);
+add(box(1.1, .75, .08, .008, 3), M.wood, bed, [0, .45, -2.0]);                            // headboard
+add(box(.98, .12, 2.05, .008, 3), M.sheet, bed, [0, .4, -.95]);
+const pillowP = G(bed, [-.38, .46, -1.68]);                                                // pivot at one end, so it can be lifted
+const pillow = add(S(.26, 1.55, .3, .75, .006, 6), M.pillow, pillowP, [.38, .04, 0]);
+const blanket = add(box(1.0, .13, 1.45, .012, 2.5), M.blanket, bed, [0, .53, -.5]);
+add(box(1.02, .05, .2, .01, 2.5), M.sheet, bed, [0, .6, -1.17]);                          // sheet turned over the blanket
+// bedside table, lamp, glass
+add(box(.42, .5, .4, .006, 4), M.wood, bed, [.8, .25, -1.72]);
+const lampBase = add(Cp(.05, .2, .003, 10), M.woodD, bed, [.88, .65, -1.8]);
+const lampShade = add(lump(new THREE.CylinderGeometry(.08, .13, .16, 20, 3, true), .003, 10), M.lampSh, bed, [.88, .86, -1.8]); lampShade.material.side = THREE.DoubleSide;
+const glass = G(bed, [.7, .5, -1.62]);
+add(new THREE.CylinderGeometry(.035, .03, .12, 18, 1, true), M.glass, glass, [0, .06, 0]);
+add(new THREE.CylinderGeometry(.032, .029, .08, 18), M.water, glass, [0, .045, 0]);
+// the bedroom door (right wall), hinged at z = .6
+const doorP = G(bed, [1.62, 0, .6]);
+add(box(.05, 2.2, .9, .006, 4), M.woodD, doorP, [0, 1.1, -.45]);
+add(S(.03), M.metal, doorP, [-.05, 1.05, -.8]);
+// HALLWAY: beyond the door, running along +x
+add(box(5, .1, 1.4, .01, 1.5), M.floorB, scene, [4.1, -.05, .15]);
+add(box(5, 3, .1, .015, 1.2), M.hall, scene, [4.1, 1.5, -.6]);
+add(box(5, 3, .1, .015, 1.2), M.hall, scene, [4.1, 1.5, .9]);
+add(box(.1, 3, 1.4, .01, 1.2), M.hall, scene, [6.6, 1.5, .15]);
+const hallFix = add(S(.07, 1.4, .7, .7, .002), M.hallLamp, scene, [3.2, 2.1, -.53]);
+
+// ================================================================ DINING (x = -20)
+const din = G(scene, [-20, 0, 0]);
+add(box(3, .1, 3, .01, 1.5), M.floorB, din, [0, -.05, 0]);
+add(box(1.3, .06, .9, .006, 4), M.wood, din, [0, .76, 0]);
+for (const [x, z] of [[-.58, -.38], [.58, -.38], [-.58, .38], [.58, .38]]) add(Cp(.03, .7), M.woodD, din, [x, .38, z]);
+const plate = add(lump(new THREE.CylinderGeometry(.13, .1, .025, 30, 2), .002, 14), M.porcelain, din, [.05, .8, .18]);
+add(lump(new THREE.CylinderGeometry(.035, .035, .002, 16), .002, 30), M.blood, din, [.07, .814, .19]);
+const dTooth = add(S(.012, 1, 1.3, .9, .001, 30), M.tooth, din, [.07, .822, .19], [0, 0, 1.2]);
+add(S(.006, 1, .6, 1, .001, 30), M.blood, din, [.078, .82, .19]);
+add(lump(new THREE.CylinderGeometry(.11, .09, .02, 26, 2), .002, 14), M.porcelain, din, [-.05, .79, -.25]);
+const pend = add(lump(new THREE.ConeGeometry(.14, .14, 20, 2, true), .003, 10), M.lampSh, din, [0, 1.75, 0]); pend.material = M.lampSh.clone(); pend.material.side = THREE.DoubleSide;
+add(new THREE.CylinderGeometry(.004, .004, 1.3), M.woodD, din, [0, 2.45, 0]);
+const pendBulb = add(new THREE.SphereGeometry(.035, 12, 10), M.bulb, din, [0, 1.7, 0]);
+const mumD = makePerson(mumOpts); din.add(mumD.root);
+
+// ================================================================ BATHROOM (x = 20). Door at z = +1.1, mirror on the back wall (z = -1.1).
+const bath = G(scene, [20, 0, 0]);
+const tileTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#4a4a46'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8c8be';
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) g.fillRect(x * 64 + 3, y * 64 + 3, 58, 58); });
+tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping; tileTex.repeat.set(6, 6);
+const tileMat = clay(0xffffff, {map: tileTex, bumpScale: .5});
+add(box(2.4, .1, 2.4, .006, 1.5), tileMat, bath, [0, -.05, 0]);
+for (const [x, z, ry, w] of [[0, -1.2, 0, 2.4], [-1.2, 0, PI / 2, 2.4], [1.2, 0, PI / 2, 2.4]]) add(box(w, 3, .1, .01, 1.2), tileMat, bath, [x, 1.5, z], [0, ry, 0]);
+add(box(.75, 3, .1, .01, 1.2), tileMat, bath, [-.82, 1.5, 1.2]); add(box(.55, 3, .1, .01, 1.2), tileMat, bath, [.92, 1.5, 1.2]);
+const bDoorP = G(bath, [-.45, 0, 1.18]);                                                    // hinged on the left, swings in
+add(box(.9, 2.2, .05, .006, 4), M.woodD, bDoorP, [.45, 1.1, 0]);
+const lockKnob = add(S(.03), M.metal, bDoorP, [.82, 1.05, -.05]);
+const lockTurn = G(bDoorP, [.82, 1.18, -.04]); add(box(.05, .014, .014, .001, 30), M.metal, lockTurn);
+// sink and mirror
+add(box(.6, .14, .42, .006, 4), M.porcelain, bath, [.3, .85, -1.0]); add(Cp(.06, .6), M.porcelain, bath, [.3, .45, -1.05]);
+add(Cp(.012, .12), M.metal, bath, [.3, 1.0, -1.15], [PI / 2.4, 0, 0]);
+const mirror = G(bath, [.3, 1.5, -1.14]);
+add(new THREE.PlaneGeometry(.55, .7), new THREE.MeshPhysicalMaterial({color: 0x2a3036, roughness: .15, metalness: .8}), mirror);
+for (const [w, h, x, y] of [[.65, .05, 0, .375], [.65, .05, 0, -.375], [.05, .8, -.3, 0], [.05, .8, .3, 0]]) add(box(w, h, .03, .002, 10), M.woodD, mirror, [x, y, .01]);
+// the bulb on a cord
+const bulbG = G(bath, [0, 2.05, 0]);
+add(new THREE.CylinderGeometry(.004, .004, .9), M.woodD, bulbG, [0, .45, 0]);
+const bulbM = add(new THREE.SphereGeometry(.045, 16, 12), M.bulb, bulbG);
+// coins on the floor (the morning after), instanced
+const coinGeo = new THREE.CylinderGeometry(.014, .014, .003, 18);
+const coins = new THREE.InstancedMesh(coinGeo, M.coin, 300); coins.castShadow = coins.receiveShadow = true; bath.add(coins);
+{ const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (let i = 0; i < 300; i++) { const a = rnd() * PI * 2, r = Math.sqrt(rnd()) * .9;
+    e.set((rnd() - .5) * .5, rnd() * 6, (rnd() - .5) * .5); q.setFromEuler(e);
+    m4.compose(V(Math.cos(a) * r - .1, .003 + rnd() * .006, Math.sin(a) * r * .9 - .1), q, V(1, 1, 1)); coins.setMatrixAt(i, m4); } }
+coins.visible = false;
+// the hero coin (macro): bitten
+const heroCoin = G(scene, [0, 0, 0]);
+{ const sh = new THREE.Shape(); sh.absarc(0, 0, .05, .5, PI * 2 - .1, false);
+  const bite = new THREE.Path(); sh.absarc(.05, .0, .018, PI * .9, PI * 1.6, true);
+  const g = new THREE.ExtrudeGeometry(sh, {depth: .008, bevelEnabled: true, bevelSize: .003, bevelThickness: .002, curveSegments: 30});
+  const c = add(g, M.coin, heroCoin, [0, 0, 0], [-PI / 2, 0, 0]);
+  for (let i = 0; i < 6; i++) add(S(.004, 1, .5, 1, .0005, 40), M.coinD, heroCoin, [.028 + Math.sin(i) * .01, .011, -.02 + i * .008]);   // tooth marks
+  for (let i = 0; i < 3; i++) add(lump(new THREE.TorusGeometry(.03 - i * .008, .0015, 6, 30), .0006, 40), M.coinD, heroCoin, [0, .011, 0], [PI / 2, 0, 0]); }
+heroCoin.position.set(-.05, .47, -1.62); heroCoin.visible = false; bed.add(heroCoin);
+
+// ================================================================ the storybook (Haru's idea of the fairy)
+const book = G(bed);
+const pageTex = canvasTex(512, 360, (g, w, h) => {
+  g.fillStyle = '#efe4c8'; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(120,90,60,.5)'; for (let i = 0; i < 9; i++) g.fillRect(28, 50 + i * 26, 190 - (i % 3) * 30, 6);
+  g.fillStyle = '#8a5a3a'; g.font = 'bold 22px serif'; g.fillText('The Tooth Fairy', 32, 34);
+  const cx = 380, cy = 190;                                    // the pretty fairy: wings, pink dress, wand, glitter
+  g.fillStyle = 'rgba(170,220,255,.8)'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 50, cy - 40, 48, 30, s * .5, 0, 7); g.fill(); g.beginPath(); g.ellipse(cx + s * 40, cy + 10, 34, 20, -s * .4, 0, 7); g.fill(); }
+  g.fillStyle = '#f2a0c8'; g.beginPath(); g.moveTo(cx, cy - 40); g.lineTo(cx - 40, cy + 70); g.lineTo(cx + 40, cy + 70); g.fill();
+  g.fillStyle = '#f6d2b4'; g.beginPath(); g.arc(cx, cy - 58, 22, 0, 7); g.fill();
+  g.fillStyle = '#f0c040'; g.beginPath(); g.arc(cx, cy - 70, 22, PI, 0); g.fill();
+  g.fillStyle = '#222'; g.beginPath(); g.arc(cx - 8, cy - 58, 2.5, 0, 7); g.arc(cx + 8, cy - 58, 2.5, 0, 7); g.fill();
+  g.strokeStyle = '#c04070'; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy - 52, 7, .2, PI - .2); g.stroke();
+  g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx + 30, cy - 10); g.lineTo(cx + 80, cy - 80); g.stroke();
+  g.fillStyle = '#ffe060'; g.beginPath(); for (let i = 0; i < 10; i++) { const a = i * PI / 5, r = i % 2 ? 7 : 17; g.lineTo(cx + 84 + Math.cos(a) * r, cy - 86 + Math.sin(a) * r); } g.fill();
+  for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,${200 + (i % 50)},${120 + (i % 120)},.9)`; g.fillRect(280 + (i * 37) % 210, 40 + (i * 53) % 290, 3, 3); }
+});
+const pageMat = new THREE.MeshStandardMaterial({map: pageTex, roughness: .9, emissive: 0xffffff, emissiveMap: pageTex, emissiveIntensity: .05});
+add(new THREE.PlaneGeometry(.42, .3), pageMat, book, [0, 0, 0], [-PI / 2, 0, 0]);
+add(box(.44, .015, .32, .001, 20), M.woodD, book, [0, -.01, 0]);
+book.visible = false;
+
+// ================================================================ the puppets
+const haru = makePerson(haruOpts); scene.add(haru.root);
+const mum = makePerson(mumOpts); scene.add(mum.root);
+const tf = makeFairy(); scene.add(tf.root);
+const claw = G(scene); const clawArm = fairyArm(claw, clay(0x8f8c84), clay(0x2e2a26));      // a lone arm for the pillow close-up
+const hTooth = add(S(.011, 1, 1.3, .9, .001, 30), M.tooth, haru.arms[1].hand, [0, -.06, .02]); hTooth.visible = false;
+const mGlass = G(mum.arms[1].hand, [0, -.08, .03]); add(new THREE.CylinderGeometry(.035, .03, .12, 18, 1, true), M.glass, mGlass); add(new THREE.CylinderGeometry(.032, .029, .08, 18), M.water, mGlass, [0, -.015, 0]);
+// smoke where its fingers touch the light
+const smoke = []; const smokeMat = new THREE.MeshBasicMaterial({color: 0x9a9690, transparent: true, opacity: .4, depthWrite: false});
+for (let i = 0; i < 24; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.02, 8, 6), smokeMat.clone()); s.visible = false; scene.add(s); smoke.push(s); }
+
+// ================================================================ lights
+const amb = new THREE.HemisphereLight(0x3a4870, 0x100c0a, .12); scene.add(amb);
+const moon = new THREE.DirectionalLight(0x8aa4e0, 1.4); moon.position.set(-4, 3.5, -.6); moon.target.position.set(.2, .4, -1); scene.add(moon, moon.target);
+moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, {left: -3, right: 3, top: 3, bottom: -3, near: .5, far: 12}); moon.shadow.radius = 4; moon.shadow.bias = -.0005;
+const bedLamp = new THREE.PointLight(0xffb070, 0, 3.5, 1.6); bedLamp.position.set(.88, .82, -1.8); scene.add(bedLamp);
+const hallL = new THREE.SpotLight(0xffb468, 0, 6, .9, .55, 1.4); hallL.position.set(3.2, 2.05, -.4); hallL.target.position.set(3.2, 0, .2); scene.add(hallL, hallL.target);
+hallL.castShadow = true; hallL.shadow.mapSize.set(1024, 1024); hallL.shadow.bias = -.0008;
+const dinL = new THREE.SpotLight(0xffb878, 0, 4, .75, .6, 1.3); dinL.position.set(-20, 1.68, 0); dinL.target.position.set(-20, .7, 0); scene.add(dinL, dinL.target);
+dinL.castShadow = true; dinL.shadow.mapSize.set(1024, 1024);
+const bathL = new THREE.PointLight(0xfff0d0, 0, 5, 1.3); bathL.position.set(20, 1.98, 0); scene.add(bathL);
+bathL.castShadow = true; bathL.shadow.mapSize.set(1024, 1024); bathL.shadow.bias = -.001;
+const dawn = new THREE.DirectionalLight(0xb8c4d8, 0); dawn.position.set(-4, 3, .5); dawn.target.position.set(0, .4, -1); scene.add(dawn, dawn.target);
+const bathDawn = new THREE.DirectionalLight(0xb0bccc, 0); bathDawn.position.set(23, 4, 2); bathDawn.target.position.set(20, 0, 0); scene.add(bathDawn, bathDawn.target);
+bathDawn.castShadow = true; bathDawn.shadow.mapSize.set(1024, 1024); Object.assign(bathDawn.shadow.camera, {left: -2, right: 2, top: 2, bottom: -2});
+const rimC = new THREE.PointLight(0x9fb8ff, 0, 3, 1.5); scene.add(rimC);                      // a cold kicker for close-ups
+function lights(o) {
+  moon.intensity = o.moon ?? 0; bedLamp.intensity = o.bedLamp ?? 0; hallL.intensity = o.hall ?? 0; dinL.intensity = o.din ?? 0;
+  bathL.intensity = o.bath ?? 0; dawn.intensity = o.dawn ?? 0; bathDawn.intensity = o.bathDawn ?? 0; amb.intensity = o.amb ?? .1; rimC.intensity = o.rim ?? 0;
+  M.win.color.set(o.winCol ?? 0x28406e); M.lampSh.emissive.set(o.bedLamp ? 0x7a4a18 : 0x000000);
+  M.hallLamp.color.set(o.hall ? 0xffc780 : 0x1a1410); M.bulb.color.set(o.bath || o.din ? 0xfff2d0 : 0x15140f);
+  pend.material.emissive.set(o.din ? 0x4a2a10 : 0);
+}
+
+// ================================================================ poses
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  P.chest.rotation.set(0, 0, 0); P.neck.rotation.set(0, 0, 0); P.head.rotation.set(0, 0, 0); P.back.rotation.set(0, 0, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  P.eyes('open'); P.brows(0); P.mouth('closed');
+}
+function lieInBed(P, z = -.06) {           // on her back, head on the pillow, face up
+  P.root.rotation.x = -PI / 2 + .08; P.root.position.set(0, .66, z);
+  P.arms.forEach(({up, fo}, i) => { up.rotation.z = (i ? 1 : -1) * .12; fo.rotation.x = -.6; });
+}
+function sitUpInBed(P) {                    // sitting up against the headboard, legs under the blanket
+  P.root.position.set(0, -.27, -1.42); P.hips.rotation.x = 0; P.chest.rotation.x = -.12;
+  P.legs.forEach(({th}) => th.rotation.x = -1.57);
+}
+function sitOnBed(P, x, z, ry) {             // sitting on the edge of the bed
+  P.root.position.set(x, -.37, z); P.root.rotation.y = ry; P.legs.forEach(({th, sh}) => { th.rotation.x = -1.5; sh.rotation.x = 1.5; });
+}
+function walk(P, t, speed = 1, amp = 1) {
+  const ph = t * PI * 2 * speed, sw = Math.sin(ph);
+  P.hips.position.y = .82 - (1 - Math.cos(.42 * amp * sw)) * .74 + Math.abs(Math.cos(ph)) * .012 * amp;
+  P.hips.rotation.y = sw * .08; P.chest.rotation.y = -sw * .14;
+  P.legs.forEach(({th, sh, ft}, i) => { const q = i ? -sw : sw, kn = Math.max(0, Math.sin(ph + (i ? PI : 0) - .6)) * (.9 + .5 * (amp - 1));
+    th.rotation.x = -q * .42 * amp; sh.rotation.x = kn; ft.rotation.x = -kn * .5 + q * .2; });
+  P.arms.forEach(({up, fo}, i) => { const q = i ? sw : -sw; up.rotation.x = -q * .4 * amp; fo.rotation.x = -.2 - Math.max(0, q) * .4 * amp; });
+}
+function fairyStand(F) {
+  F.root.position.set(0, 0, 0); F.root.rotation.set(0, 0, 0); F.pelvis.position.set(0, .95, 0);
+  F.legs.forEach(({th, sh, ft}, i) => { th.rotation.set(-.55, 0, (i ? 1 : -1) * .08); sh.rotation.set(1.0, 0, 0); ft.rotation.set(-.45, 0, 0); });
+  F.spine.rotation.set(.55, 0, 0); F.neck.rotation.set(.2, 0, 0); F.head.rotation.set(-.95, 0, 0); F.mouth.scale.set(1.25, 1.25, 1.25);
+  F.arms.forEach(a => { a.up.rotation.set(-.5, 0, a.sd * .25); a.fo.rotation.set(-.35, 0, 0); a.hd.rotation.set(-.2, 0, 0); curl(a, .25); });
+  F.wings.forEach((w, i) => w.rotation.set(-.2, (i ? 1 : -1) * .6, (i ? 1 : -1) * -.35));
+}
+function moveTo(obj, part, target) {         // shift obj so that the given part lands on target (world)
+  obj.updateMatrixWorld(true); const p = part.getWorldPosition(V(0, 0, 0)); obj.position.add(target.clone().sub(p));
+}
+const aim = (g, dir) => g.quaternion.setFromUnitVectors(V(0, -1, 0), dir.clone().normalize());
+
+// ================================================================ timeline
+const L = {}; // line starts (from layout.json)
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } };
+const HOOKCAM = [V(.16, 1.0, -1.42), V(0, .66, -1.66), 34];
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
+let black = false;
+
+function frame(t) {
+  const q = Math.floor(t * 12) / 12;                // stop-motion: poses on twos
+  boil(Math.floor(t * 6));
+  reset(haru); reset(mum); fairyStand(tf);
+  haru.root.visible = true; mum.root.visible = false; tf.root.visible = false; claw.visible = false;
+  hTooth.visible = false; mGlass.visible = false; glass.visible = false; heroCoin.visible = false; book.visible = false; coins.visible = false;
+  smoke.forEach(s => s.visible = false); pillowP.rotation.set(0, 0, 0); doorP.rotation.y = 0; bDoorP.rotation.y = 0; lockTurn.rotation.z = 0;
+  black = false;
+
+  if (t < 3.4) {                                     // HOOK: Haru in bed at night, mouth shut; she parts her lips: empty gums
+    lights({moon: 1.1, amb: .08, rim: .5}); rimC.position.set(-.4, 1.0, -1.3);
+    lieInBed(haru); glass.visible = true; haru.eyes('wide'); haru.brows(.6);
+    haru.mouth(q > 2.2 ? 'gums' : 'pressed', clamp01((q - 2.2) / .5));
+    C(HOOKCAM[0], HOOKCAM[1], HOOKCAM[2]);
+  } else if (t < 7.0) {                              // the tooth on the plate
+    lights({din: 3.2, amb: .05});
+    haru.root.visible = false; reset(mumD); mumD.root.visible = false;
+    C(V(-19.82, 1.02, .42), V(-19.93, .8, .19), 30);
+    cam.position.x += Math.sin(q * .4) * .004;
+  } else if (t < 11.2) {                             // Mum, across the table, lips pressed
+    lights({din: 3.2, amb: .05}); haru.root.visible = false;
+    reset(mumD); mumD.root.visible = true; sitOnBed(mumD, 0, -.62, 0); mumD.root.position.y = -.4;
+    mumD.mouth('pressed'); mumD.neck.rotation.x = .25; mumD.head.rotation.x = .15; mumD.brows(-.2);
+    mumD.arms.forEach(({up, fo}) => { up.rotation.x = -.5; fo.rotation.x = -.9; });
+    const k = ease((q - 7) / 4.2);
+    C(V(-20 + .05, 1.42 - k * .04, .32 - k * .22), V(-20, 1.38, -.6), 32);
+  } else if (t < 17.6) {                             // bedtime: Mum on the edge of the bed, the warning; the tooth goes under the pillow
+    lights({moon: .6, bedLamp: 2.2, amb: .08});
+    lieInBed(haru); haru.eyes('open'); haru.brows(.3);
+    mum.root.visible = true; sitOnBed(mum, .5, -1.05, -PI / 2); mum.mouth('closed'); mum.chest.rotation.x = .2; mum.neck.rotation.x = .2; mum.head.rotation.set(.25, 0, 0);
+    mum.arms[0].up.rotation.x = -.7;
+    if (q > 15.6) { mum.mouth('pressed'); }
+    pillowP.rotation.z = q > 11.6 && q < 12.6 ? .22 : 0;
+    const k = ease((q - 11.2) / 6.4);
+    C(V(1.15 - k * .2, 1.45, -.05 - k * .2), V(.12, .66, -1.4), 38);
+  } else if (t < 20.6) {                             // morning: the pillow lifts
+    lights({dawn: 1.2, moon: 0, amb: .12, winCol: 0x8aa0c0});
+    haru.root.visible = false; heroCoin.visible = true; heroCoin.position.set(.1, .475, -1.66);
+    pillowP.rotation.z = ease((q - 18.0) / 1.2) * .9;
+    C(V(.45, .95, -1.1), V(.1, .5, -1.62), 36);
+  } else if (t < 24.3) {                             // macro: the cold coin, bitten
+    lights({dawn: 1.2, amb: .12, winCol: 0x8aa0c0, rim: .6}); rimC.position.set(-.3, .7, -1.4);
+    haru.root.visible = false; heroCoin.visible = true; heroCoin.position.set(.1, .475, -1.66); pillowP.rotation.z = .9;
+    heroCoin.rotation.y = q * .05;
+    C(V(.18, .6, -1.54), V(.1, .475, -1.66), 30);
+  } else if (t < 30.4) {                             // the storybook fairy
+    lights({dawn: .9, amb: .14, winCol: 0x7a90b0, bedLamp: 1.0});
+    reset(haru); sitUpInBed(haru); haru.neck.rotation.x = .35; haru.head.rotation.x = .2;
+    haru.arms.forEach(({up, fo}, i) => { up.rotation.set(-.75, 0, (i ? 1 : -1) * .15); fo.rotation.x = -.9; });
+    book.visible = true; book.position.set(0, .86, -1.02); book.rotation.set(.75, 0, 0);
+    const k = ease((q - 24.3) / 6);
+    C(V(-.22, 1.42 - k * .08, -1.72 + k * .06), V(0, .86, -1.02), 34 - k * 6);
+  } else if (t < 34.6) {                             // the mirror: she wiggles the next tooth out herself
+    lights({bath: 2.0, amb: .06});
+    haru.root.position.set(20.3, 0, -.45); haru.root.rotation.y = PI;
+    const pull = q < 32.6, k = clamp01((q - 30.4) / 2.2);
+    haru.mouth(pull ? 'open' : 'smile', pull ? .7 : 1); haru.eyes(pull ? (Math.floor(q * 6) % 2 ? 'squeeze' : 'open') : 'open'); haru.brows(pull ? .7 : -.1);
+    const R = haru.arms[1];
+    R.up.rotation.set(-1.45, 0, -.25); R.fo.rotation.set(-1.45, 0, 0); R.hand.rotation.x = .2 + (pull ? Math.sin(q * 14) * .15 : 0);
+    if (!pull) { R.up.rotation.set(-1.0, 0, -.3); R.fo.rotation.set(-1.2, 0, 0); hTooth.visible = true; }
+    haru.head.rotation.x = pull ? -.12 : .05;
+    C(V(20.3, 1.5, -1.17), V(20.3, 1.42, 0), 36);
+  } else if (t < 41.5) {                             // that night: asleep; the door opens; something stands in it
+    lights({moon: 1.0, amb: .07, hall: q > 37 ? 1.4 : 0});
+    lieInBed(haru); haru.eyes('closed');
+    doorP.rotation.y = -ease((q - 37) / 1.6) * 1.1;
+    tf.root.visible = q > 38.2; tf.root.position.set(2.15, 0, .05); tf.root.rotation.y = -PI / 2;
+    tf.head.rotation.z = Math.sin(q * 1.3) * .2;
+    curl(tf.arms[0], .3, .15, q); curl(tf.arms[1], .3, .15, q + 1);
+    const k = ease((q - 34.6) / 6.9);
+    C(V(-1.25, 1.7, 1.25 - k * .15), V(.6, .7, -.7), 40);
+  } else if (t < 46.6) {                             // close: its fingers slide under the pillow, and keep sliding
+    lights({moon: .9, amb: .07, rim: .6}); rimC.position.set(.4, .9, -1.4);
+    lieInBed(haru); haru.eyes('squeeze'); haru.brows(.6);
+    claw.visible = true; const k = ease((q - 41.5) / 5);
+    const tip = V(.52 - k * .3, .53, -1.72); claw.position.copy(tip.clone().add(V(.68, .55, .25)));
+    aim(claw, tip.clone().sub(claw.position)); clawArm.up.rotation.set(0, 0, 0); clawArm.fo.rotation.set(-.15, 0, 0); clawArm.hd.rotation.set(-.25, 0, 0);
+    claw.position.add(V(0, 0, 0)); curl(clawArm, .08, .1, q);
+    C(V(.36, .74, -1.28), V(.05, .55, -1.68), 34);
+  } else if (t < 48.2) {                             // her eyes. They open.
+    lights({moon: 1.0, amb: .07, rim: .7}); rimC.position.set(.2, .95, -1.4);
+    lieInBed(haru); haru.eyes(q > 47.5 ? 'wide' : 'squeeze'); haru.brows(q > 47.5 ? .9 : .5);
+    C(V(.03, .86, -1.6), V(0, .66, -1.67), 22);
+  } else if (t < 50.6) {                             // what she sees: its face, a grin full of children's teeth, getting wider
+    lights({moon: .8, amb: .05, rim: 1.4});
+    haru.root.visible = false; tf.root.visible = true; fairyStand(tf);
+    tf.root.rotation.y = 0; tf.spine.rotation.x = 1.25; tf.neck.rotation.x = .5; tf.head.rotation.x = -1.35 + Math.sin(q * 2) * .03; tf.head.rotation.z = Math.sin(q * .9) * .15;
+    tf.mouth.scale.set(1.25 + ease((q - 48.4) / 2) * .35, 1.25 + ease((q - 48.4) / 2) * .15, 1.25);
+    moveTo(tf.root, tf.head, V(0, 1.15, -1.6));
+    rimC.position.set(.3, 1.35, -1.3);
+    C(V(0, .7, -1.62), V(0, 1.15, -1.6), 44); cam.up.set(0, 0, 1); cam.lookAt(0, 1.15, -1.6);
+  } else if (t < 57.0) {                             // she runs for the hall light; it stops at the edge, like the light is deep water
+    lights({hall: 2.2, moon: .4, amb: .05}); doorP.rotation.y = -1.1;
+    const run = clamp01((q - 50.6) / 2.6);
+    haru.root.position.set(lerp(1.0, 3.15, run), 0, .15); haru.root.rotation.y = run < 1 ? PI / 2 : PI / 2 - ease((q - 53.2) / .6) * PI;
+    if (run < 1) walk(haru, q, 1.9, 1.5); haru.eyes('wide'); haru.brows(.9); haru.mouth('open', .5);
+    tf.root.visible = q > 53.4; tf.root.position.set(5.45, 0, .15); tf.root.rotation.y = -PI / 2; tf.spine.rotation.x = .75;
+    const reach = ease((q - 53.6) / 1.4), back = ease((q - 55.4) / .5);
+    tf.arms[0].up.rotation.set(-1.4 * reach, 0, -.1); tf.arms[0].fo.rotation.set(-.1, 0, 0); curl(tf.arms[0], .2 - back * .6, .1, q);
+    tf.arms[0].up.rotation.x += back * 1.0;
+    if (q > 55.1 && q < 56.6) { const fp = V(4.35, 1.35, .15); smoke.forEach((s, i) => { const a = (q - 55.1) * 1.4 + i * .06; if (a > 1.5) return;
+      s.visible = true; s.position.set(fp.x + Math.sin(i * 2.3) * .06 - a * .05, fp.y + a * .35 + (i % 4) * .02, fp.z + Math.cos(i * 1.7) * .06); s.scale.setScalar(.6 + a * 2); s.material.opacity = .45 * (1 - a / 1.5); }); }
+    if (q < 53.2) C(V(lerp(1.6, 3.0, run * .8), 1.25, 1.5), V(lerp(1.4, 3.4, run), 1.0, .15), 40);
+    else C(V(2.3, 1.35, .75), V(3.9, 1.15, .1), 40);
+  } else if (t < 62.7) {                             // the bathroom: she locks the door, sits under the brightest bulb in the house
+    lights({bath: 2.6, amb: .05});
+    if (q < 59.3) {
+      haru.root.position.set(19.9, 0, .78); haru.root.rotation.y = 0; haru.eyes('wide'); haru.brows(.8);
+      haru.arms[1].up.rotation.set(-1.2, 0, -.35); haru.arms[1].fo.rotation.set(-.6, 0, 0);
+      lockTurn.rotation.z = q > 58.2 ? PI / 2 : 0;
+      C(V(20.45, 1.25, .75), V(20.38, 1.15, 1.15), 32);
+    } else {
+      haru.root.position.set(20.1, -.47, -.75); haru.root.rotation.y = 0;
+      haru.legs.forEach(({th, sh}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .08); sh.rotation.x = 2.3; });
+      haru.chest.rotation.x = .25; haru.neck.rotation.x = .1; haru.arms.forEach(({up, fo}, i) => { up.rotation.set(-1.0, 0, (i ? -1 : 1) * .2); fo.rotation.x = -1.3; });
+      haru.eyes('wide'); haru.brows(.8); lockTurn.rotation.z = PI / 2;
+      const k = ease((q - 59.3) / 3.4);
+      C(V(20.55, 1.9 - k * .2, .95 - k * .3), V(20.1, .55, -.7), 42);
+    }
+  } else if (t < 69.0) {                             // it taps on the door all night; the bulb flickers; every light goes out
+    const fl = q > 67.4 ? (Math.floor(q * 12) % 3 === 0 ? .15 : 1) : 1;
+    lights({bath: 2.6 * fl, amb: .05});
+    haru.root.position.set(20.1, -.47, -.75);
+    haru.legs.forEach(({th, sh}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .08); sh.rotation.x = 2.3; });
+    haru.chest.rotation.x = .25; haru.arms.forEach(({up, fo}, i) => { up.rotation.set(-1.0, 0, (i ? -1 : 1) * .2); fo.rotation.x = -1.3; });
+    haru.eyes('wide'); haru.brows(1); lockTurn.rotation.z = PI / 2;
+    const tap = [63.4, 64.3, 64.9, 66.0, 66.4, 67.2].some(k => q >= k && q < k + .17);
+    bDoorP.rotation.y = tap ? -.012 : 0;
+    if (q < 65.6) C(V(20.2, .55, .2), V(19.95, .6, 1.18), 40);                  // the door, low: shadows under the gap
+    else { haru.head.rotation.y = .3; C(V(20.35, .95, -.25), V(20.1, .82, -.72), 30); }
+    if (q > 68.9) black = true;
+  } else if (t < 73.2) {                             // black. The lock turns by itself. "Open wide."
+    black = true;
+  } else if (t < 74.4) {                             // one last flicker: it is on top of her
+    const on = [73.2, 73.62, 73.85].some(k => q >= k && q < k + .17);
+    lights({bath: on ? 2.4 : 0, amb: .02});
+    if (!on) black = true;
+    haru.root.rotation.x = -PI / 2; haru.root.position.set(19.95, .1, .05); haru.eyes('wide'); haru.brows(1); haru.mouth('open', 1);
+    haru.arms.forEach(({up}, i) => up.rotation.set(-.3, 0, (i ? 1 : -1) * .9));
+    tf.root.visible = true; fairyStand(tf); tf.root.rotation.y = PI;
+    tf.legs.forEach(({th, sh, ft}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .35); sh.rotation.x = 2.5; ft.rotation.x = -.6; });
+    tf.spine.rotation.x = 1.1; tf.neck.rotation.x = .3; tf.head.rotation.x = -1.2;
+    tf.arms.forEach(a => { a.up.rotation.set(-.9, 0, a.sd * .35); a.fo.rotation.set(-.6, 0, 0); curl(a, .45); });
+    tf.wings.forEach((w, i) => w.rotation.set(-.4, (i ? 1 : -1) * .2, (i ? 1 : -1) * -.9));
+    tf.mouth.scale.set(1.6, 1.4, 1.3);
+    moveTo(tf.root, tf.head, V(19.95, .52, -.88));
+    C(V(20.75, 1.75, -.15), V(19.95, .35, -.6), 44);
+  } else if (t < 80.9) {                             // black: one by one
+    black = true;
+  } else if (t < 82.8) {                             // morning: the floor covered in bitten coins
+    lights({bathDawn: 1.6, amb: .12}); haru.root.visible = false; coins.visible = true;
+    C(V(20.1 + (q - 80.9) * .05, 2.1, .9), V(19.95, 0, -.15), 42);
+  } else if (t < 85.2) {                             // the mirror. Lips shut. She opens them: no teeth.
+    lights({bathDawn: 1.3, amb: .12, rim: .5}); rimC.position.set(20.6, 1.6, -.6); coins.visible = true;
+    haru.root.position.set(20.3, 0, -.45); haru.root.rotation.y = PI; haru.eyes('open'); haru.brows(.4);
+    haru.mouth(q > 83.6 ? 'gums' : 'pressed', clamp01((q - 83.6) / .4));
+    const k = ease((q - 82.8) / 2.4);
+    C(V(20.3, 1.5, -1.17), V(20.3, 1.44 - k * .02, 0), 30 - k * 10);
+  } else {                                           // night: Mum sets a glass of water by Haru's bed; push in to the hook
+    lights({moon: 1.1, amb: .08, rim: .5}); rimC.position.set(-.4, 1.0, -1.3);
+    lieInBed(haru); haru.eyes('wide'); haru.brows(.6); haru.mouth('pressed');
+    const k1 = clamp01((q - 85.2) / 1.6);
+    mum.root.visible = q < 87.4; mum.root.position.set(.78, 0, -1.12); mum.root.rotation.y = PI - .3;
+    mum.chest.rotation.x = .35 * Math.sin(k1 * PI); mum.arms[1].up.rotation.x = -.9 * Math.sin(k1 * PI); mum.arms[1].fo.rotation.x = -.4;
+    mGlass.visible = k1 < .55; glass.visible = k1 >= .55;
+    const k = ease((q - 86.6) / 2.0);
+    C(V(lerp(1.0, HOOKCAM[0].x, k), lerp(1.4, HOOKCAM[0].y, k), lerp(-.5, HOOKCAM[0].z, k)), V(lerp(.45, 0, k), lerp(.7, .66, k), lerp(-1.4, -1.66, k)), lerp(42, 34, k));
+  }
+  if (!(t >= 48.2 && t < 50.6)) cam.up.set(0, 1, 0);
+}
+
+window.renderAt = t => {
+  frame(t);
+  if (black) renderer.render(emptyScene, cam); else render(t);
+};
+window.dbg = t => { frame(t); haru.root.updateMatrixWorld(true); return {cam: cam.position.toArray(), head: haru.head.getWorldPosition(V(0, 0, 0)).toArray(), tf: tf.head.getWorldPosition(V(0, 0, 0)).toArray()}; };
+window.renderAt(0); window.ready = true;
+</script></body></html>
