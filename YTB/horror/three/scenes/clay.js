@@ -119,8 +119,8 @@ export const haruOpts = {};
 export const mumOpts = {top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
 
 // ---------------------------------------------------------------- the Tooth Fairy
-export function makeFairy() {
-  const ash = clay(0x8f8c84), ashD = clay(0x5e5a54), gum = clay(0x6a1e22), mouthIn = clay(0x1a0608, {bumpScale: 0}), nail = clay(0x2e2a26);
+export function makeFairy(opt = {}) {
+  const ash = clay(opt.skin || 0x8f8c84), ashD = clay(opt.skinD || 0x5e5a54), gum = clay(0x6a1e22), mouthIn = clay(0x1a0608, {bumpScale: 0}), nail = clay(0x2e2a26);
   const T = [gloss(0xf4efe2), gloss(0xe8dfc4), gloss(0xd8cba0), gloss(0xfaf6ee)];
   const wingMat = new THREE.MeshPhysicalMaterial({color: 0xa89e8a, roughness: .55, transmission: .3, thickness: .02, side: THREE.DoubleSide,
     transparent: true, opacity: .8, bumpMap: bump, bumpScale: 1.5});
@@ -153,7 +153,7 @@ export function makeFairy() {
     const tg = new THREE.BoxGeometry(w, h, .008, 2, 3, 1); tg.translate(0, -row * h / 2, 0);
     add(tg, T[Math.floor(rnd() * 4)], mouth, [x, row * .03 + (rnd() - .5) * .004, z + .014], [(rnd() - .5) * .3, -a * .9, (rnd() - .5) * .35]);
   }
-  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2;
+  if (opt.crown !== false) for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2;
     add(new THREE.ConeGeometry(.012, .04 + rnd() * .02, 6), T[i % 4], head, [Math.sin(a) * .085, .16, Math.cos(a) * .075 - .01], [Math.cos(a) * .3, 0, -Math.sin(a) * .3]); }
   const arms = [-1, 1].map(sd => { const up = G(spine, [sd * .12, .5, 0]); return Object.assign(fairyArm(up, ash, nail), {sd}); });
   function wing(sd) {
@@ -168,7 +168,7 @@ export function makeFairy() {
     g.computeVertexNormals(); g.scale(sd, 1, 1);
     const m = new THREE.Mesh(g, wingMat); m.castShadow = true; return m;
   }
-  const wings = [-1, 1].map(sd => { const w = G(spine, [sd * .06, .5, -.08]); w.rotation.set(-.2, sd * .6, sd * -.35); w.scale.setScalar(.6); w.add(wing(sd)); return w; });
+  const wings = opt.wings === false ? [] : [-1, 1].map(sd => { const w = G(spine, [sd * .06, .5, -.08]); w.rotation.set(-.2, sd * .6, sd * -.35); w.scale.setScalar(.6); w.add(wing(sd)); return w; });
   return {root, pelvis, spine, neck, head, mouth, arms, legs, wings};
 }
 export function fairyArm(up, ash, nail) {             // shoulder group in; long arm, hand, four fingers with four joints each

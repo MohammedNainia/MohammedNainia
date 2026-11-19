@@ -1,0 +1,310 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THANKSGIVING (9:16, 93.4 s), dark clay stop-motion. Timed to YTB/horror/thanksgiving/voice/layout.json.
+// The family fattens Haru for the thing under the table. Poses held on twos; the clay boils every other pose.
+import {THREE, setup, ease, clamp01, lerp, canvasTex} from './lib.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, makeFairy, curl} from './clay.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render} = setup({bloom: .6, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+const DUR = 93.4, PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
+cam.near = .01; cam.far = 40; cam.updateProjectionMatrix();
+let rs = 9; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const box = (w, h, d, a = .01, f = 2, seg = 10) => lump(new THREE.BoxGeometry(w, h, d, seg, seg, seg), a, f);
+
+// ================================================================ materials
+const M = {
+  wall: clay(0x3a2a24), wallD: clay(0x2a1e1a), floor: clay(0x3e2a20), wood: clay(0x5a3a26), woodD: clay(0x34221a),
+  cloth: clay(0xa89c84, {bumpScale: .8, side: THREE.DoubleSide}), plate: gloss(0xd8d2c4, {roughness: .4}), gold: gloss(0xb08a3a, {roughness: .35}),
+  turkey: clay(0x8a4a1e, {bumpScale: 1.4}), turkeyD: clay(0x5a2a10), potato: clay(0xe8dcb0), gravy: gloss(0x4a2a14), pie: clay(0xc8862e), cranb: gloss(0x7a0a1a),
+  candle: clay(0xeee4c8), flame: new THREE.MeshBasicMaterial({color: 0xffc26a}), win: new THREE.MeshBasicMaterial({color: 0x1a2a48}),
+  frame: clay(0x241812), photo: clay(0x6a5a48), napkin: clay(0xeae4d6, {side: THREE.DoubleSide}), food: clay(0xc89a5a), metal: gloss(0x9a9a98, {roughness: .3}),
+};
+
+// ================================================================ the dining room: table along x at the origin; front door far left; kitchen counter right
+const room = G(scene);
+add(box(9, .1, 6, .01, 1.2), M.floor, room, [0, -.05, 0]);
+add(box(9, 3, .1, .015, 1), M.wall, room, [0, 1.5, -2.3]);
+add(box(.1, 3, 6, .015, 1), M.wall, room, [-4.2, 1.5, 0]);
+add(box(.1, 3, 6, .015, 1), M.wall, room, [3.8, 1.5, 0]);
+add(box(9, .12, .06, .004, 6), M.woodD, room, [0, .9, -2.24]);                          // dado rail
+// window (night) on the back wall, with the frame
+add(new THREE.PlaneGeometry(1.0, 1.2), M.win, room, [-1.6, 1.6, -2.24]);
+for (const [w, h, x, y] of [[1.1, .06, -1.6, 2.2], [1.1, .06, -1.6, 1.0], [.06, 1.26, -2.13, 1.6], [.06, 1.26, -1.07, 1.6], [.04, 1.2, -1.6, 1.6]]) add(box(w, h, .05, .002, 8), M.woodD, room, [x, y, -2.22]);
+// family photos on the wall
+for (let i = 0; i < 4; i++) { add(box(.28, .22, .03, .002, 10), M.frame, room, [.4 + i * .42, 1.75 + (i % 2) * .12, -2.23]); add(new THREE.PlaneGeometry(.22, .16), M.photo, room, [.4 + i * .42, 1.75 + (i % 2) * .12, -2.21]); }
+// front door (far left, side wall)
+const doorG = G(room, [-4.13, 0, 1.4]);
+add(box(.06, 2.2, .95, .006, 4), M.woodD, doorG, [0, 1.1, 0]);
+add(S(.035), M.gold, doorG, [.06, 1.05, -.35]);
+// kitchen counter (right, back corner)
+add(box(1.6, .9, .6, .008, 3), M.wood, room, [2.7, .45, -1.95]);
+add(box(1.64, .05, .64, .004, 6), M.wallD, room, [2.7, .92, -1.95]);
+const tk2 = G(room, [2.6, .95, -1.9]);
+add(S(.16, 1.3, .8, 1, .004, 8), M.turkey, tk2, [0, .1, 0]);
+
+// ---- the table: top + a tablecloth skirt to the floor (hollow, so the camera can go under it)
+const table = G(room);
+add(box(2.3, .06, 1.05, .004, 4), M.woodD, table, [0, .74, 0]);
+const cloth = G(table);                                                     // the cloth rises as one piece
+const clothTop = add(box(2.42, .02, 1.17, .004, 4), M.cloth, cloth, [0, .78, 0]);
+function skirt(w, x, z, ry) {
+  const g = new THREE.PlaneGeometry(w, .78, 40, 10), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const X = p.getX(i), Y = p.getY(i); p.setZ(i, Math.sin(X * 22) * .012 * (1 - (Y + .39) / .78) + Math.sin(X * 9) * .006); }
+  g.computeVertexNormals(); lump(g, .002, 10);
+  return add(g, M.cloth, cloth, [x, .39, z], [0, ry, 0]);
+}
+skirt(2.42, 0, .585, 0); skirt(2.42, 0, -.585, PI); skirt(1.17, 1.21, 0, PI / 2); skirt(1.17, -1.21, 0, -PI / 2);
+// on the table: turkey, potatoes, gravy, cranberry, pie, candles, plates
+const onTable = G(table, [0, .79, 0]);
+const turkey = G(onTable, [.15, 0, 0]); add(lump(new THREE.CylinderGeometry(.24, .22, .02, 30), .002, 12), M.plate, turkey);
+add(S(.15, 1.35, .75, 1, .004, 10), M.turkey, turkey, [0, .1, 0]); for (const z of [-.08, .08]) add(Cp(.04, .12, .003), M.turkeyD, turkey, [.2, .1, z], [0, 0, 1.2]);
+add(S(.09, 1, .55, 1, .004, 12), M.potato, onTable, [-.45, .04, -.15]); add(lump(new THREE.CylinderGeometry(.1, .08, .06, 20), .002, 12), M.plate, onTable, [-.45, .02, -.15]);
+add(lump(new THREE.CylinderGeometry(.06, .05, .05, 18), .002, 12), M.gravy, onTable, [-.75, .03, .1]);
+add(lump(new THREE.CylinderGeometry(.06, .06, .03, 18), .002, 12), M.cranb, onTable, [.55, .02, -.2]);
+add(lump(new THREE.CylinderGeometry(.13, .11, .04, 26), .002, 12), M.pie, onTable, [.7, .02, .15]);
+const flames = [], candles = G(onTable);
+for (const x of [-.2, .45]) { add(Cp(.018, .16), M.candle, candles, [x, .1, 0]); add(Cp(.03, .01), M.gold, candles, [x, .01, 0]); flames.push(add(S(.012, 1, 1.8, 1, .001, 30), M.flame, candles, [x, .2, 0])); }
+const plates = {};
+for (const [k, x, z] of [['haru', 0, .38], ['aki', 0, -.38], ['mum', -.62, -.38], ['unc', .62, -.38], ['gma', -.95, 0], ['gpa', .95, 0], ['mei', -.62, .38]]) {
+  const g = G(onTable, [x, 0, z]); add(lump(new THREE.CylinderGeometry(.1, .08, .018, 24), .002, 14), M.plate, g); plates[k] = g;
+  add(new THREE.BoxGeometry(.008, .003, .14), M.metal, g, [-.13, 0, 0]); add(new THREE.BoxGeometry(.008, .003, .16), M.metal, g, [.13, 0, 0]);
+}
+const pile = add(S(.07, 1.1, .7, 1, .004, 12), M.food, plates.haru, [0, .035, 0]);           // Haru's food pile (shrinks/grows)
+const meiPile = add(S(.06, 1.1, .7, 1, .004, 12), M.potato, plates.mei, [0, .03, 0]); meiPile.visible = false;
+// chairs
+function chair(x, z, ry) { const g = G(room, [x, 0, z]); g.rotation.y = ry;
+  add(box(.42, .05, .4, .003, 6), M.wood, g, [0, .45, 0]); add(box(.42, .55, .04, .003, 6), M.wood, g, [0, .74, -.19]);
+  for (const [a, b] of [[-.18, -.17], [.18, -.17], [-.18, .17], [.18, .17]]) add(Cp(.02, .42), M.woodD, g, [a, .22, b]); return g; }
+const chairs = {haru: chair(0, .78, PI), aki: chair(0, -.78, 0), mum: chair(-.62, -.78, 0), unc: chair(.62, -.78, 0), gma: chair(-1.42, 0, PI / 2), gpa: chair(1.42, 0, -PI / 2), mei: chair(-.62, .78, PI)};
+add(lump(new THREE.TorusGeometry(.012, .004, 6, 12), .001, 30), M.photo, chairs.aki, [.17, .3, .17], [0, PI / 2, 0]);    // teeth marks on the leg
+for (let i = 0; i < 5; i++) add(S(.006, 1, .5, 1, .0005, 40), clay(0x1a1008), chairs.aki, [.19, .18 + i * .025, .175]);
+
+// ================================================================ people
+const greyHair = 0xb8b2a8;
+const haru = makePerson(haruOpts); scene.add(haru.root);
+const gma = makePerson({top: 0x5a1e2a, pants: 0x2a2024, shoe: 0x2a2020, hair: greyHair, longHair: false, bun: true, pocket: false, hood: false, scale: 1.0, skin: 0xe8c4a8}); scene.add(gma.root);
+const gpa = makePerson({top: 0x4a3a28, pants: 0x2a2a2e, shoe: 0x1e1a18, hair: greyHair, longHair: false, pocket: false, hood: false, scale: 1.08, skin: 0xe2bc9e}); scene.add(gpa.root);
+const mum = makePerson(Object.assign({}, mumOpts, {scale: 1.04})); scene.add(mum.root);
+const unc = makePerson({top: 0x2a3a2e, pants: 0x26262c, shoe: 0x1e1a18, hair: 0x2a2420, longHair: false, pocket: false, hood: false, scale: 1.1}); scene.add(unc.root);
+const mei = makePerson({top: 0xd87a9a, pants: 0x5a5a6a, hair: 0x241c1a, scale: .66, hood: false}); scene.add(mei.root);
+const spoon = G(gma.arms[1].hand, [0, -.07, .03]); add(Cp(.008, .12), M.metal, spoon, [0, 0, 0], [PI / 2.5, 0, 0]); add(S(.025, 1, .4, 1.3, .001, 20), M.metal, spoon, [0, -.02, .07]);
+const knife = G(gpa.arms[1].hand, [0, -.07, .02]); add(new THREE.BoxGeometry(.01, .2, .03), M.metal, knife, [0, -.08, 0]);
+const hFork = G(haru.arms[1].hand, [0, -.06, .02]); add(new THREE.BoxGeometry(.006, .14, .01), M.metal, hFork, [0, -.05, 0]);
+const forks = [mum, unc, gma, gpa].map(P => { const f = G(P.arms[1].hand, [0, -.06, .02]); add(new THREE.BoxGeometry(.006, .14, .01), M.metal, f, [0, -.05, 0]); return f; });
+const napkinG = G(scene); add(S(.06, 1.2, .35, 1, .003, 14), M.napkin, napkinG);
+
+// ================================================================ the thing under the table (no wings, no crown; a napkin under its chin)
+const thing = makeFairy({wings: false, crown: false, skin: 0x9a958a, skinD: 0x5a564e}); scene.add(thing.root);
+const bib = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(-.12, 0), new THREE.Vector2(.12, 0), new THREE.Vector2(0, -.2)])), M.napkin);
+bib.position.set(0, -.12, .07); thing.head.add(bib);
+// grey fingers for the ankle close-up: a lone hand under the table
+const ankleHand = G(scene);
+for (let k = 0; k < 4; k++) { let p = G(ankleHand, [0, 0, k * .022]); p.rotation.y = (k - 1.5) * .08;
+  for (let j = 0; j < 4; j++) { add(Cp(.008, .06, .001, 20), clay(0x9a958a), p, [.04, 0, 0], [0, 0, PI / 2]); p = G(p, [.075, 0, 0]); p.rotation.z = -.12; }
+  add(new THREE.ConeGeometry(.008, .035, 6).rotateZ(-PI / 2), clay(0x2e2a26), p, [.015, 0, 0]); }
+
+// ================================================================ lights (dark: candlelight on the table, a cold window, black corners)
+const amb = new THREE.HemisphereLight(0x3a3040, 0x0a0606, .2); scene.add(amb);
+const chand = new THREE.PointLight(0xffb070, 0, 4.5, 1.5); chand.position.set(.1, 2.15, .05); chand.castShadow = true; chand.shadow.mapSize.set(1024, 1024); chand.shadow.bias = -.001; scene.add(chand);
+const candleL = new THREE.PointLight(0xff9a48, 0, 2.6, 1.6); candleL.position.set(.1, 1.05, 0); scene.add(candleL);
+const moon = new THREE.DirectionalLight(0x7088c0, 0); moon.position.set(-1.6, 2.2, -5); moon.target.position.set(-1, .5, .5); scene.add(moon, moon.target);
+moon.castShadow = true; moon.shadow.mapSize.set(1024, 1024); Object.assign(moon.shadow.camera, {left: -4, right: 4, top: 3, bottom: -3});
+const under = new THREE.PointLight(0xa02818, 0, 1.6, 1.5); under.position.set(0, .2, 0); scene.add(under);           // dull red under the table
+const kitchenL = new THREE.SpotLight(0xffd8a0, 0, 4, .6, .6, 1.4); kitchenL.position.set(2.6, 2.4, -1.6); kitchenL.target.position.set(2.6, .9, -1.9); scene.add(kitchenL, kitchenL.target);
+const rimC = new THREE.PointLight(0xffc890, 0, 2.5, 1.5); scene.add(rimC);
+const doorL = new THREE.SpotLight(0x9fb4e0, 0, 5, .7, .6, 1.3); doorL.position.set(-3.2, 2.6, 2.4); doorL.target.position.set(-3.9, .8, 1.4); scene.add(doorL, doorL.target);
+function lights(o) {
+  const fl = 1 + Math.sin(T * 17) * .06 + Math.sin(T * 7.3) * .05;
+  chand.intensity = (o.chand ?? 1) * 1.1; candleL.intensity = (o.candle ?? 1) * 1.6 * fl; moon.intensity = (o.moon ?? .6) * 1.2;
+  amb.intensity = (o.amb ?? .2); doorL.intensity = o.door ?? 0; under.intensity = o.under ?? 0; kitchenL.intensity = o.kitchen ?? 0; rimC.intensity = o.rim ?? 0;
+  flames.forEach(f => f.visible = (o.candle ?? 1) > 0);
+}
+let T = 0;
+
+// ================================================================ poses
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  P.chest.rotation.set(0, 0, 0); P.neck.rotation.set(0, 0, 0); P.head.rotation.set(0, 0, 0); P.back.rotation.set(0, 0, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  P.eyes('open'); P.brows(0); P.mouth('closed'); P.root.visible = true;
+}
+function sit(P, chairG, sc = 1) {         // sit on a chair (seat .47), facing the table
+  const p = chairG.position, ry = chairG.rotation.y;
+  P.root.rotation.y = ry; P.root.position.set(p.x, .47 - .82 * sc, p.z);
+  P.root.position.add(V(Math.sin(ry), 0, Math.cos(ry)).multiplyScalar(-.04));
+  P.legs.forEach(({th, sh}) => { th.rotation.x = -1.5; sh.rotation.x = 1.5; });
+}
+function handsFolded(P) { P.arms.forEach(({up, fo}, i) => { up.rotation.set(-.45, 0, (i ? -1 : 1) * .25); fo.rotation.set(-1.25, 0, 0); }); }
+function walk(P, t, speed = 1, amp = 1) {
+  const ph = t * PI * 2 * speed, sw = Math.sin(ph);
+  P.hips.position.y = .82 - (1 - Math.cos(.42 * amp * sw)) * .74 + Math.abs(Math.cos(ph)) * .012 * amp;
+  P.legs.forEach(({th, sh, ft}, i) => { const q = i ? -sw : sw, kn = Math.max(0, Math.sin(ph + (i ? PI : 0) - .6)) * (.9 + .5 * (amp - 1));
+    th.rotation.x = -q * .42 * amp; sh.rotation.x = kn; ft.rotation.x = -kn * .5 + q * .2; });
+  P.arms.forEach(({up, fo}, i) => { const q = i ? sw : -sw; up.rotation.x = -q * .4 * amp; fo.rotation.x = -.2 - Math.max(0, q) * .4 * amp; });
+}
+function thingPose() {
+  const F = thing; F.root.visible = true; F.root.position.set(0, 0, 0); F.root.rotation.set(0, 0, 0); F.pelvis.position.set(0, .95, 0);
+  F.legs.forEach(({th, sh, ft}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .3); sh.rotation.set(2.4, 0, 0); ft.rotation.set(-.6, 0, 0); });
+  F.spine.rotation.set(1.2, 0, 0); F.neck.rotation.set(.2, 0, 0); F.head.rotation.set(-1.0, 0, 0); F.mouth.scale.set(1.6, 1.5, 1.4);
+  F.arms.forEach(a => { a.up.rotation.set(-1.0, 0, a.sd * .5); a.fo.rotation.set(-.4, 0, 0); a.hd.rotation.set(-.2, 0, 0); curl(a, .3); });
+}
+function faceTo(P, v, k = 1) {                // turn P's head toward a world point
+  P.root.updateMatrixWorld(true); const hp = P.head.getWorldPosition(V(0, 0, 0));
+  let a = Math.atan2(v.x - hp.x, v.z - hp.z) - P.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a));
+  P.head.rotation.y = Math.max(-1.2, Math.min(1.2, a)) * k;
+}
+function moveTo(obj, part, target) { obj.updateMatrixWorld(true); const p = part.getWorldPosition(V(0, 0, 0)); obj.position.add(target.clone().sub(p)); }
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } };
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
+let black = false;
+const HOOK = [V(.62, 1.12, -.12), V(-.05, .98, .6), 36];
+
+// family at the table: everyone in their seat, hands folded, watching Haru
+function family(q, o = {}) {
+  reset(gma); reset(gpa); reset(mum); reset(unc); reset(haru); mei.root.visible = false;
+  sit(haru, chairs.haru); sit(gma, chairs.gma); sit(mum, chairs.mum); sit(unc, chairs.unc);
+  if (o.gpaAtCounter) { gpa.root.position.set(2.62, 0, -1.45); gpa.root.rotation.y = PI; gpa.arms[1].up.rotation.set(-.9, 0, .1); gpa.arms[1].fo.rotation.set(-.6, 0, 0); gpa.arms[1].hand.rotation.x = Math.sin(q * 9) * .25; }
+  else sit(gpa, chairs.gpa, 1.08);
+  for (const P of [gma, gpa, mum, unc]) if (!(o.gpaAtCounter && P === gpa)) { handsFolded(P); P.mouth('smile'); P.neck.rotation.x = .1; }
+  // they watch her: heads turned toward Haru
+  for (const P of [gma, mum, unc, gpa]) { const hp = P.root.position; P.head.rotation.y = Math.atan2(-hp.x, .8 - hp.z) - P.root.rotation.y; P.head.rotation.y = Math.atan2(Math.sin(P.head.rotation.y), Math.cos(P.head.rotation.y)) * .7; }
+  // Haru eats
+  const R = haru.arms[1], bite = Math.max(0, Math.sin(q * 2.6));
+  R.up.rotation.set(-.6 - bite * .5, 0, -.15); R.fo.rotation.set(-1.1 - bite * .9, 0, 0); haru.arms[0].up.rotation.set(-.5, 0, .15); haru.arms[0].fo.rotation.set(-1.0, 0, 0);
+  haru.mouth(bite > .7 ? 'open' : 'closed', .5); haru.neck.rotation.x = .2;
+}
+
+function frame(t) {
+  T = t; const q = Math.floor(t * 12) / 12;
+  boil(Math.floor(t * 6));
+  black = false; thing.root.visible = false; ankleHand.visible = false; napkinG.visible = false; spoon.visible = false; knife.visible = false;
+  cloth.position.y = 0; onTable.position.y = .79; onTable.rotation.set(0, 0, 0); chairs.haru.position.set(0, 0, .78); chairs.haru.rotation.set(0, PI, 0);
+  pile.scale.setScalar(1); meiPile.visible = false; forks.forEach(f => f.visible = false); hFork.visible = true; doorG.rotation.y = 0;
+  family(q);
+
+  if (t < 3.9) {                                     // HOOK: her plate, heaped, and Grandma's spoon adding more; the cloth stirs by her legs
+    lights({chand: .9, candle: 1, moon: .4, rim: .8}); rimC.position.set(-.4, 1.3, 1.0);
+    gma.arms[1].up.rotation.set(-1.25, 0, -.65); gma.arms[1].fo.rotation.set(-.5, 0, 0); spoon.visible = true;
+    pile.scale.setScalar(1.3 + Math.sin(q * 3) * .03);
+    C(HOOK[0], HOOK[1], HOOK[2]);
+    faceTo(haru, cam.position, .5);
+  } else if (t < 11.0) {                             // they watch her eat; nobody touches their food
+    lights({chand: 1, candle: 1, moon: .5});
+    const k = ease((q - 3.9) / 7);
+    C(V(.4 + k * .1, 1.75, 1.55 - k * .2), V(0, 1.0, -.55), 48);
+  } else if (t < 16.4) {                             // the rule: Grandma fills the plate again
+    lights({chand: 1, candle: 1, moon: .4});
+    gma.arms[1].up.rotation.set(-1.25, 0, -.65); gma.arms[1].fo.rotation.set(-.5, 0, 0); spoon.visible = true;
+    pile.scale.setScalar(.7 + ease((q - 12) / 3) * .6);
+    C(V(.35, 1.25, .95), V(-.3, .88, .3), 36);
+  } else if (t < 19.2) {                             // Grandma: "Eat, sweetheart."
+    lights({chand: 1, candle: 1, moon: .4, rim: .9}); rimC.position.set(-.9, 1.4, .5);
+    gma.mouth(Math.floor(q * 8) % 2 ? 'open' : 'smile', .4);
+    C(V(-.75, 1.3, .55), V(-1.38, 1.18, 0), 30); faceTo(gma, cam.position);
+  } else if (t < 23.3) {                             // so she keeps eating
+    lights({chand: 1, candle: 1, moon: .4, rim: .6}); rimC.position.set(.4, 1.4, 1.2);
+    C(V(.2, 1.25, .1), V(0, 1.2, .78), 32);
+  } else if (t < 28.4) {                             // under the table: grey fingers slide over her sock
+    lights({chand: .25, candle: .2, moon: 0, under: 1.4, amb: .06});
+    ankleHand.visible = true; const k = ease((q - 24.4) / 3.4);
+    ankleHand.position.set(-.38 + k * .3, .13, .3); ankleHand.rotation.set(0, -.15, -.1);
+    C(V(-.48, .22, -.15), V(.0, .12, .38), 42);
+  } else if (t < 31.8) {                             // Grandpa is across the room, carving the turkey
+    family(q, {gpaAtCounter: true}); knife.visible = true;
+    lights({chand: .9, candle: 1, moon: .4, kitchen: 2.2});
+    haru.head.rotation.y = -.9; haru.neck.rotation.x = 0; haru.eyes('wide'); haru.brows(.8);
+    C(V(-1.15, 1.32, 1.55), V(1.2, 1.1, -.8), 42);
+  } else if (t < 38.2) {                             // grace: they bow, to the floor
+    lights({chand: .8, candle: 1, moon: .4});
+    const bow = ease((q - 32.2) / .8);
+    for (const P of [gma, gpa, mum, unc]) { P.chest.rotation.x = .45 * bow; P.neck.rotation.x = .6 * bow; P.eyes(bow > .5 ? 'closed' : 'open'); P.mouth('closed'); }
+    haru.eyes('wide'); haru.brows(.7); haru.mouth('closed'); haru.arms[1].up.rotation.set(-.4, 0, -.1); haru.arms[1].fo.rotation.set(-1.0, 0, 0);
+    C(V(.25, 2.25, 1.55), V(0, .8, -.15), 44);
+  } else if (t < 45.2) {                             // Aki's chair: a plate set anyway; teeth marks on the leg
+    lights({chand: .9, candle: 1, moon: .4, rim: .8}); rimC.position.set(.4, .6, -.4);
+    C(V(-.08, 1.5, .45), V(0, .84, -.62), 36);
+  } else if (t < 48.0) {                             // she hides food in her napkin, under the table
+    lights({chand: .9, candle: 1, moon: .4, rim: .7}); rimC.position.set(.3, .9, 1.2);
+    napkinG.visible = true; napkinG.position.set(.08, .63, .62);
+    haru.arms[1].up.rotation.set(-.2, 0, -.1); haru.arms[1].fo.rotation.set(-1.2, 0, 0); haru.eyes('open'); haru.head.rotation.y = .3; haru.neck.rotation.x = .3;
+    C(V(.45, .85, 1.25), V(.05, .62, .62), 34);
+  } else if (t < 52.9) {                             // Grandma opens the napkin; the food goes back on the plate
+    lights({chand: 1, candle: 1, moon: .4, rim: .8}); rimC.position.set(-.6, 1.4, .8);
+    gma.mouth(Math.floor(q * 8) % 2 ? 'open' : 'smile', .4);
+    gma.arms[1].up.rotation.set(-1.2, 0, -.7); gma.arms[1].fo.rotation.set(-.6, 0, 0);
+    napkinG.visible = true; napkinG.position.set(-.55, .85, .3); napkinG.scale.set(1.3, 1, 1.3); pile.scale.setScalar(.8 + ease((q - 50) / 2) * .5);
+    haru.eyes('wide'); haru.brows(.8); haru.mouth('closed');
+    C(V(-.25, 1.3, .95), V(-1.1, 1.0, 0), 36); faceTo(gma, haru.head.getWorldPosition(V(0, 0, 0)));
+  } else if (t < 57.6) {                             // she runs for the front door. Locked.
+    lights({chand: .9, candle: 1, moon: .7, door: 2.4});
+    const run = clamp01((q - 53.1) / 2.2);
+    haru.root.position.set(lerp(0, -3.75, run), 0, lerp(1.1, 1.4, run)); haru.root.rotation.set(0, -PI / 2, 0); haru.hips.position.y = .82;
+    haru.legs.forEach(({th, sh}) => { th.rotation.x = 0; sh.rotation.x = 0; });
+    if (run < 1) walk(haru, q, 1.9, 1.5); else { haru.arms[1].up.rotation.set(-1.3, 0, -.3); haru.arms[1].fo.rotation.set(-.4, 0, 0); doorG.rotation.y = Math.sin(q * 30) * .006; }
+    haru.eyes('wide'); haru.brows(1); haru.mouth('open', .6); hFork.visible = false;
+    C(V(-2.2, 1.3, 2.4), V(-3.6, 1.0, 1.3), 42);
+  } else if (t < 61.6) {                             // nobody chased her. They just sat back down.
+    lights({chand: 1, candle: 1, moon: .7, rim: .6, door: 1.8}); rimC.position.set(-3.4, 1.6, 2.0);
+    haru.root.position.set(-3.75, 0, 1.4); haru.root.rotation.set(0, PI / 2 + .6, 0); haru.hips.position.y = .82; haru.legs.forEach(({th, sh}) => { th.rotation.x = 0; sh.rotation.x = 0; });
+    haru.arms.forEach(({up, fo}) => { up.rotation.set(0, 0, 0); fo.rotation.set(-.2, 0, 0); }); haru.eyes('wide'); haru.brows(1); hFork.visible = false;
+    C(V(-4.0, 1.35, 2.25), V(-.2, .95, 0), 40);
+  } else if (t < 64.6) {                             // the tablecloth starts to rise
+    lights({chand: .8, candle: 1, moon: .5, under: 2.2});
+    haru.root.visible = false;
+    const r = ease((q - 61.8) / 2.6) * .5;
+    cloth.position.y = r; onTable.position.y = .79 + r; onTable.rotation.z = Math.sin(q * 5) * .02 * (r > .05);
+    C(V(1.75, .95, 1.75), V(0, .62, 0), 40);
+  } else if (t < 74.7) {                             // under the risen cloth: the mouth, a napkin tucked under its chin. "Is she ready?"
+    lights({chand: .55, candle: .8, moon: .4, under: 2.0, rim: 1.0}); rimC.position.set(0, .7, 1.4); rimC.color.set(0xff9070);
+    haru.root.visible = false; cloth.position.y = .5; onTable.position.y = .79 + .5;
+    thingPose(); moveTo(thing.root, thing.head, V(0, .52, .25));
+    const k = ease((q - 64.8) / 9);
+    C(V(0, .3, 1.55 - k * .5), V(0, .48, .2), 40 - k * 10);
+    thing.head.rotation.z = Math.sin(q * .9) * .1;
+  } else if (t < 76.4) {                             // Grandma: "She's ready."
+    lights({chand: 1, candle: 1, moon: .4, rim: .9}); rimC.color.set(0xffc890); rimC.position.set(-.9, 1.4, .5);
+    gma.mouth(Math.floor(q * 8) % 2 ? 'open' : 'smile', .4); gma.eyes('closed');
+    haru.root.visible = false;
+    C(V(-.8, 1.3, .6), V(-1.38, 1.18, 0), 28); faceTo(gma, cam.position);
+  } else if (t < 77.6) {                             // her chair scrapes back on its own toward the table; she goes under
+    lights({chand: .8, candle: 1, moon: .5, under: 3.0, door: 1.6, rim: 1.2}); rimC.position.set(-1.6, .8, 1.8);
+    const k = ease((q - 76.4) / 1.1);
+    haru.root.position.set(-3.75 + k * 3.7, 0, 1.4 - k * .6); haru.root.rotation.set(-k * 1.3, PI / 2, 0); haru.eyes('wide'); haru.brows(1); haru.mouth('open', 1);
+    haru.arms.forEach(({up}) => up.rotation.set(-2.6, 0, 0)); hFork.visible = false;
+    cloth.position.y = .5 * (1 - k); onTable.position.y = .79 + cloth.position.y;
+    C(V(-1.6, .55, 2.2), V(-1.2, .4, .9), 44);
+  } else if (t < 80.6) {                             // black: scream, cutlery
+    black = true;
+  } else if (t < 86.3) {                             // for the first time all day, they pick up their forks
+    lights({chand: 1.1, candle: 1, moon: .4});
+    haru.root.visible = false; chairs.haru.position.set(0, 0, .55);
+    forks.forEach(f => f.visible = true);
+    const lift = ease((q - 81.0) / 1.5);
+    for (const P of [gma, gpa, mum, unc]) { P.mouth('smile'); P.eyes('open'); P.arms[1].up.rotation.set(-.6 - lift * .6, 0, -.1); P.arms[1].fo.rotation.set(-1.2 - lift * .3, 0, 0); P.head.rotation.y *= .3; }
+    const k = ease((q - 80.6) / 5.7);
+    C(V(0, 1.75, 1.45 - k * .2), V(0, 1.0, -.4), 56 - k * 6);
+    for (const P of [gma, gpa, mum, unc]) faceTo(P, cam.position);
+    if (q > 86.1) black = true;
+  } else {                                           // next Thanksgiving: Haru's chair empty, a plate set anyway; Mei gets the spoon
+    lights({chand: 1, candle: 1, moon: .5, under: .3});
+    haru.root.visible = false; pile.visible = true; pile.scale.setScalar(.5);
+    reset(mei); sit(mei, chairs.mei, .66); mei.root.visible = true; meiPile.visible = true; meiPile.scale.setScalar(.9 + ease((q - 88.5) / 1.5) * .5);
+    mei.arms.forEach(({up, fo}) => { up.rotation.set(-.4, 0, 0); fo.rotation.set(-1.0, 0, 0); }); mei.neck.rotation.x = .2;
+    gma.arms[1].up.rotation.set(-1.15, 0, -.35); gma.arms[1].fo.rotation.set(-.6, 0, 0); spoon.visible = q > 88;
+    gma.mouth(q > 88.4 && q < 90.8 && Math.floor(q * 8) % 2 ? 'open' : 'smile', .4); gma.head.rotation.y = .9;
+    cloth.position.y = Math.max(0, Math.sin(q * 9)) * .006 * (q > 91);
+    const k = ease((q - 86.3) / 7);
+    C(V(lerp(.3, -.0, k), lerp(1.45, 1.12, k), lerp(-.5, -.12, k)), V(lerp(-.3, -.67, k), lerp(.95, .98, k), lerp(.5, .6, k)), lerp(44, 36, k));
+  }
+}
+
+window.renderAt = t => { frame(t); if (black) renderer.render(emptyScene, cam); else render(t); };
+window.dbg = t => { frame(t); scene.updateMatrixWorld(true); const w = o => o.getWorldPosition(V(0, 0, 0)).toArray().map(v => +v.toFixed(2));
+  return {cam: cam.position.toArray().map(v => +v.toFixed(2)), haru: w(haru.head), gma: w(gma.head), gpa: w(gpa.head), thing: w(thing.head), mei: w(mei.head)}; };
+window.renderAt(0); window.ready = true;
+</script></body></html>
