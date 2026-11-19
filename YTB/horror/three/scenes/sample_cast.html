@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#ddd}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// The cast lineup: renderAt(0) everyone front on, renderAt(1) three-quarter view, renderAt(10 + i) a close-up of character i.
+import {THREE, setup} from './lib.js';
+import {makeChar, CAST} from './characters.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: Math.round(1920 * PS), h: Math.round(1080 * PS)});
+grain.uniforms.vig.value = .12; renderer.toneMappingExposure = 1.05; scene.background = new THREE.Color(0xdcdcdc);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({color: 0xdedede, roughness: 1}));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b4ae, 1.25));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0); key.position.set(-3, 6, 7); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 9; key.shadow.blurSamples = 20; key.shadow.bias = -.0004;
+Object.assign(key.shadow.camera, {left: -3, right: 3, top: 3, bottom: -1, near: .5, far: 20}); scene.add(key);
+const fill = new THREE.DirectionalLight(0xe8eeff, .7); fill.position.set(5, 3, 5); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, .6); rim.position.set(0, 4, -6); scene.add(rim);
+renderer.shadowMap.type = THREE.VSMShadowMap;
+const t0 = performance.now();
+const names = Object.keys(CAST);
+const cast = names.map((n, i) => { const P = makeChar(n); P.root.position.x = (i - 1.5) * .85; P.expr('neutral'); scene.add(P.root); return P; });
+console.log('PT cast built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
+window.renderAt = t => {
+  cast.forEach(P => P.root.rotation.y = t >= 1 && t < 2 ? -.6 : 0);
+  if (t >= 10) { const P = cast[Math.round(t - 10)]; P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3());
+    cam.fov = 8; cam.position.set(h.x, h.y + .05, h.z + 4.2); cam.lookAt(h.x, h.y + .02, h.z); }
+  else { cam.fov = 17; cam.position.set(0, 1.0, 9.6); cam.lookAt(0, .95, 0); }
+  cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t);
+};
+window.renderAt(0); window.ready = true;
+</script></body></html>

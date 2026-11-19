@@ -50,12 +50,32 @@ function vnoise(x, y, z) {
 const lumps = (x, y, z, a = 1) => a * (.0024 * vnoise(x * 26, y * 26, z * 26) + .0011 * vnoise(x * 70 + 3, y * 70, z * 70));
 
 // SDF -> one mesh. center/half: the cube to sample; res: samples per side.
+// Speed: the surface only needs exact values near it. A coarse pass (every B-th sample) finds blocks that are clearly
+// inside or outside (further from the surface than the block's own size + a safety margin) and fills them without
+// evaluating the shape; only the blocks near the surface are sampled at full resolution (about 5-10x fewer evaluations).
+let DETAIL = 1;                    // mesh detail for the next makeHaru3 (o.detail): lower = fewer triangles, faster path tracing
+let GEO_CACHE = null, GEO_KEY = '', GEO_N = 0;   // reuse of identical meshes between copies of the same character
+const CACHE = new Map();
+export const MESH_OPTS = {band: true};          // band: false = sample every grid point (slow; only to verify the fast path)
 function meshSDF(sdf, center, half, res) {
+  res = Math.max(28, Math.round(res * DETAIL));
+  const ck = GEO_CACHE ? GEO_KEY + '#' + (GEO_N++) + '@' + res : null;
+  if (ck && CACHE.has(ck)) return CACHE.get(ck);                    // shared geometry (skin weights included)
   const mc = new MarchingCubes(res, new THREE.MeshBasicMaterial(), false, false, 220000);
-  const f = mc.field, h = res / 2, K = 4000;
-  for (let z = 0; z < res; z++) for (let y = 0; y < res; y++) for (let x = 0; x < res; x++) {
-    const px = center.x + (x - h) / h * half, py = center.y + (y - h) / h * half, pz = center.z + (z - h) / h * half;
-    f[x + y * res + z * res * res] = 80 - sdf(px, py, pz) * K;
+  const f = mc.field, h = res / 2, K = 4000, step = half / h, B = 4;
+  const P = i => (i - h) * step;                                    // grid index -> offset from the centre
+  const blockR = Math.sqrt(3) * (B / 2) * step, margin = 1.5 * blockR + 3 * step + .006;   // generous: shapes are not exact distances
+  for (let bz = 0; bz < res; bz += B) for (let by = 0; by < res; by += B) for (let bx = 0; bx < res; bx += B) {
+    const cx = Math.min(bx + B / 2, res - 1), cy = Math.min(by + B / 2, res - 1), cz = Math.min(bz + B / 2, res - 1);
+    const dc = sdf(center.x + P(cx), center.y + P(cy), center.z + P(cz));
+    const x1 = Math.min(bx + B, res), y1 = Math.min(by + B, res), z1 = Math.min(bz + B, res);
+    if (MESH_OPTS.band && Math.abs(dc) > margin) {                                     // clearly inside or outside: one value for the block
+      const v = 80 - dc * K;
+      for (let z = bz; z < z1; z++) for (let y = by; y < y1; y++) { const o = y * res + z * res * res; f.fill(v, o + bx, o + x1); }
+    } else {
+      for (let z = bz; z < z1; z++) for (let y = by; y < y1; y++) for (let x = bx; x < x1; x++)
+        f[x + y * res + z * res * res] = 80 - sdf(center.x + P(x), center.y + P(y), center.z + P(z)) * K;
+    }
   }
   mc.update();
   const n = mc.count, pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
@@ -70,6 +90,7 @@ function meshSDF(sdf, center, half, res) {
   mc.geometry.dispose();
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (ck) CACHE.set(ck, g);
   return g;
 }
 
@@ -102,10 +123,18 @@ const B = (parent, pos) => { const b = new THREE.Bone(); b.position.set(...pos);
 const segDist = (p, a, b) => { const ab = b.clone().sub(a), t = Math.min(1, Math.max(0, p.clone().sub(a).dot(ab) / ab.lengthSq())); return p.distanceTo(a.clone().add(ab.multiplyScalar(t))); };
 
 export function makeHaru3(o = {}) {
+  DETAIL = o.detail || 1;
+  GEO_CACHE = true; GEO_KEY = JSON.stringify(Object.assign({}, o, {detail: DETAIL})); GEO_N = 0;      // same options = same meshes: built once, copied after
+  // ---- options (defaults = Haru). top: hoodie | sweater | cardigan; bottom: pants | skirt; hairStyle: haru | bun | horseshoe | curlybob
+  const TOP = o.top || 'hoodie', BOTTOM = o.bottom || 'pants', HAIR = o.hairStyle || 'haru';
+  const LEG = o.legs === undefined ? .152 : o.legs;          // extra leg length (adults: more)
+  const HEAD = o.head || 1.37, BELLY = o.belly || 0, AGE = o.age || 0, HEIGHT = o.height || 1;
   const M = {
     skin: clay3(o.skin || 0xe39a72, {bumpScale: .9, roughness: .66}), hood: clay3(o.hood || 0xcf9132), pants: clay3(o.pants || 0x5c5b60, {bumpScale: 1.8}),
-    shoe: clay3(0xf0eee8, {bumpScale: 1.0}), hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),
-    eye: gloss(0x0a0a0c), white: gloss(0xf6f4ee), dark: clay3(0x2a1a16, {bumpScale: .3}), nose: clay3(0xd98a62, {bumpScale: .6}),
+    shoe: clay3(o.shoe || 0xf0eee8, {bumpScale: 1.0}), skirt: clay3(o.skirt || 0x4d4a5c, {bumpScale: 1.6}), button: gloss(o.button || 0xe8e0cc),
+    crease: clay3(new THREE.Color(o.skin || 0xe39a72).multiplyScalar(.62).getHex(), {bumpScale: .3}), rim: gloss(o.rim || 0x2a2522), lens: new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: .05, transmission: .9, transparent: true, opacity: .25}),
+    hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),
+    eye: gloss(0x0a0a0c), white: gloss(0xf6f4ee), dark: clay3(o.brow || 0x2a1a16, {bumpScale: .3}), nose: clay3(0xd98a62, {bumpScale: .6}),
     mouthIn: clay3(0x4a1418, {bumpScale: .2}), tongue: clay3(0xd06a70, {bumpScale: .4}), teeth: gloss(0xfaf6ee),
     tear: new THREE.MeshPhysicalMaterial({color: 0xcfe8ff, roughness: .05, clearcoat: 1, transparent: true, opacity: .75}),
     sweat: new THREE.MeshPhysicalMaterial({color: 0x9fd0ff, roughness: .05, clearcoat: 1, transparent: true, opacity: .85}),
@@ -114,9 +143,11 @@ export function makeHaru3(o = {}) {
   // ---- skeleton (bind pose: arms a little out, legs straight)
   const BIND_ARM = .75;                                  // the hoodie is built with the arms held out (A-pose), so the sleeves are
                                                           // separate from the body and lift cleanly; Pp.rest() lowers them to .24
-  const DY = .152;                                        // leg lengthening measured against the sheet
+  const DY = LEG;                                         // leg lengthening (Haru: .152, measured against the sheet)
   const hips = B(null, [0, .55 + DY, 0]); root.add(hips);
-  const chest = B(hips, [0, .04, 0]), neck = B(chest, [0, .44, 0]), head = B(neck, [0, .24, 0]);
+  // the head sits so the chin rests just above the collar: chin = head + .03 - .13 * head size (Haru: .24, chin at the hood roll)
+  const CHIN = TOP === 'hoodie' ? 1.122 : 1.075, HB = CHIN - 1.06 + .13 * HEAD;
+  const chest = B(hips, [0, .04, 0]), neck = B(chest, [0, .44, 0]), head = B(neck, [0, HB, 0]);
   const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .185, .32, 0]); up.rotation.z = sd * BIND_ARM; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.24, 0]); return {up, fo, hand, sd}; });
   const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .098, 0, 0]); const sh = B(th, [0, -.33, 0]); const ft = B(sh, [0, -.31, 0]); return {th, sh, ft, sd}; });
   root.updateMatrixWorld(true);
@@ -134,20 +165,29 @@ export function makeHaru3(o = {}) {
     d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
     return smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
   };
+  const belly = (d, x, y, z) => BELLY ? smin(d, sdEll(x, y, z, V(0, .6, .03), V(.16 + .03 * BELLY, .14, .13 + .07 * BELLY)), .06) : d;
   const torsoSDF = (x, y, z) => { y -= DY;
-    const d = smax(sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8, .5 - y, .03);
+    const d = smax(belly(sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8, x, y, z), .5 - y, .03);
     return smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);
   };
   // ---- the hoodie: torso, hem, hood roll, hood, shoulders, sleeves (wider at the cuff), cuffs, pocket: ONE piece
   const hoodSDF = (x, y, z) => { y -= DY;
     let d = sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8;                 // narrower at the top: sloping shoulders
+    d = belly(d, x, y, z);
     d = smax(d, .5 - y, .03);                                                                                   // flat-bottomed, like a real hoodie
-    d = smin(d, sdTorusY(x, y, z, V(0, .505, 0), .15, .03, 1.03, .82), .025);
-    d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);
-    d = smin(d, sdEll(x, y, z, V(0, .95, -.085), V(.085, .065, .045)), .04);
+    d = smin(d, sdTorusY(x, y, z, V(0, .505, 0), .15, .03, 1.03, .82), .025);                               // ribbed hem
+    if (TOP === 'hoodie') {
+      d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);                  // hood roll
+      d = smin(d, sdEll(x, y, z, V(0, .95, -.085), V(.085, .065, .045)), .04);                                // the hood behind
+    } else {
+      d = smin(d, sdTorusY(x, y, z, V(0, .99, .005), .082, .028, 1, .95), .03);                               // thick knitted collar, sitting on the shoulders
+    }
     for (const a of arms) d = smin(d, sleeveSDF(a, x, y, z), .03);
-    d = smin(d, sdRoundBox(x, y, z, V(0, .615, .118), V(.085, .042, .006), .012), .012);                       // pocket
-    d = smax(d, -sdCapsule(x, y, z, V(-.085, .657, .135), V(.085, .657, .135), .005), .004);                   // its top seam
+    if (TOP === 'hoodie') {
+      d = smin(d, sdRoundBox(x, y, z, V(0, .615, .118), V(.085, .042, .006), .012), .012);                     // pocket
+      d = smax(d, -sdCapsule(x, y, z, V(-.085, .657, .135), V(.085, .657, .135), .005), .004);                 // its top seam
+    }
+    if (TOP === 'cardigan') d = smax(d, -sdCapsule(x, y, z, V(0, .5, .142 + .07 * BELLY), V(0, 1.0, .108), .006), .005);      // the opening down the front
     return d + lumps(x, y, z);
   };
   // ---- trousers: pelvis + two straight legs + hems: ONE piece
@@ -169,6 +209,7 @@ export function makeHaru3(o = {}) {
     // distance to each bone's SURFACE (minus its thickness), so a thin arm does not pull the side of a thick torso
     const rad = [.15, .16, .06, .12, ...arms.flatMap(() => [.07, .065, .05]), ...legs.flatMap(() => [.075, .07, .05])];
     const pos = geo.attributes.position, n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), p = V(0, 0, 0);
+    if (!geo.attributes.skinIndex) {                    // a copy of a character built before already has its weights
     for (let i = 0; i < n; i++) {
       p.set(pos.getX(i), pos.getY(i), pos.getZ(i));
       const inv = k => 1 / Math.pow(Math.max(segDist(p, segs[k][0], segs[k][1]) - rad[k], .004), 4);
@@ -182,6 +223,7 @@ export function makeHaru3(o = {}) {
       const s = w.reduce((a, b) => a + b[1], 0); w.forEach(([k, v], j) => { si[i * 4 + j] = k; sw[i * 4 + j] = v / s; });
     }
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    }
     const m = new THREE.SkinnedMesh(geo, mat); m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
     root.add(m); m.bind(new THREE.Skeleton(bones), m.matrixWorld); return m;
   };
@@ -202,13 +244,31 @@ export function makeHaru3(o = {}) {
   const rigid = (sdf, center, half, res, mat, parent) => { const m = new THREE.Mesh(meshSDF(sdf, center, half, res), mat); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 
   // ---- drawstrings (thin, hang from the hood roll)
-  for (const x of [-.034, .034]) {
+  if (TOP === 'hoodie') for (const x of [-.034, .034]) {
     const c = new THREE.CatmullRomCurve3([V(x, 1.03, .118), V(x * 1.08, .96, .14), V(x * 1.04, .9, .138)]);
     const m = new THREE.Mesh(new THREE.TubeGeometry(c, 16, .007, 8), M.hood); m.position.y = -.59; chest.add(m);
     const k = new THREE.Mesh(new THREE.SphereGeometry(.011, 10, 8), M.hood); k.position.set(x * 1.04, .9 - .59, .138); chest.add(k);
   }
+  if (TOP === 'cardigan') for (let i = 0; i < 4; i++) {                     // buttons down the opening (chest space: y - .59 - DY)
+    const yb = .93 - i * .12, zb = .112 + (.142 + .07 * BELLY - .112) * (i / 3);
+    const k = new THREE.Mesh(new THREE.SphereGeometry(.014, 12, 8).scale(1, 1, .5), M.button); k.position.set(.014, yb - .59, zb + .006); chest.add(k);
+  }
+  // ---- skirt: one piece from the waist, flaring to below the knee, over the legs (which become tights)
+  if (BOTTOM === 'skirt') {
+    const skirtSDF = (x, y, z) => {
+      let d = sdRoundCone(x, y, z / .85, V(0, .64 + DY, 0), V(0, .2 + DY * .5, 0), .165 + .02 * BELLY, .24) ;
+      d = smax(d, (.2 + DY * .5) - y, .02);                                        // flat hem
+      d = smax(d, y - (.6 + DY), .02);                                             // starts under the top
+      return d + lumps(x, y, z, .9);
+    };
+    const ks = .5 + DY / 2;
+    skinIt(meshSDF(skirtSDF, V(0, ks, 0), .4, 100), M.skirt, [hips], p => {   // follows the hips; the front of the hem a little with the thighs
+      const t = Math.max(0, Math.min(1, (ks - p.y) / .3)) * .45, l = legs[p.x < 0 ? 0 : 1];
+      return [[[hips], 1 - t], [[l.th], t]];
+    });
+  }
   // ---- head and hair (in a scaled space so the face pieces keep the v2 numbers)
-  const hs = G(head, [0, .03, 0]); hs.scale.setScalar(1.37);
+  const hs = G(head, [0, .03, 0]); hs.scale.setScalar(HEAD);
   // round face like the sheet: a ball, fuller at the cheeks, chin at -.13, then a thin neck (sheet: neck = .34 face widths)
   const skinSDF = (x, y, z) => {
     let d = sdEll(x, y, z, V(0, -.01, 0), V(.12, .122, .124));
@@ -220,7 +280,7 @@ export function makeHaru3(o = {}) {
   // soft locks, long side hair framing the face down to the shoulders, strand grooves pressed in
   const PART = .035;                                                                       // the parting, on her left
   const lock = (x, y, z, a, b, r1, r2) => sdRoundCone(x, y, z, V(...a), V(...b), r1, r2);
-  rigid((x, y, z) => {
+  if (HAIR === 'haru') rigid((x, y, z) => {
     let d = sdEll(x, y, z, V(0, -.004, -.012), V(.142, .134, .144));                     // close to the skull: no tall crown
     for (const sd of [-1, 1]) {                                                           // side hair, a little fuller at the ends
       d = smin(d, lock(x, y, z, [sd * .108, .02, -.005], [sd * .122, -.2, .005], .048, .052), .04);
@@ -244,6 +304,36 @@ export function makeHaru3(o = {}) {
     }
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;
+  // bun: pulled back tight over the skull, a round bun at the back, combed grooves running to it (Mum)
+  if (HAIR === 'bun') rigid((x, y, z) => {
+    let d = sdEll(x, y, z, V(0, .0, -.012), V(.134, .132, .14));
+    d = smax(d, -sdEll(x, y, z, V(0, -.06, .08), V(.106, .15, .09)), .02);              // face opening (hair line high on the forehead)
+    d = smax(d, (z < -.04 ? -.12 : -.07) - y, .02);                                      // ends at the ears, lower at the nape
+    d = smin(d, sdEll(x, y, z, V(0, .07, -.15), V(.068, .062, .06)), .025);              // the bun
+    return d + lumps(x, y, z, .7);
+  }, V(0, .0, -.04), .23, 100, M.hair, hs);
+  // horseshoe: bald on top, a short band of hair round the back and the sides (Grandpa)
+  if (HAIR === 'horseshoe') rigid((x, y, z) => {
+    let d = sdEll(x, y, z, V(0, -.012, -.015), V(.14, .136, .146));
+    d = smax(d, y - (.05 - .02 * Math.max(0, -z) / .13), .02);                          // the top is bare
+    d = smax(d, -(y + .085), .02);                                                       // down to the nape
+    d = smax(d, z - .03, .02);                                                           // only behind the ears
+    return d + lumps(x, y, z, 1.1);
+  }, V(0, -.03, -.03), .2, 90, M.hair, hs);
+  // curly bob: a soft cap of small curls, jaw length (Grandma)
+  if (HAIR === 'curlybob') rigid((x, y, z) => {
+    let d = sdEll(x, y, z, V(0, .005, -.015), V(.15, .145, .152));
+    d = smax(d, -sdEll(x, y, z, V(0, -.05, .085), V(.11, .14, .09)), .02);              // face opening
+    d = smax(d, -(y + .13), .03);                                                         // jaw length
+    let c = 1e9;                                                                          // curls: a ring of small balls on the surface
+    for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, r = .155;
+      for (const yy of [.07, -.01, -.09]) { const cx = Math.sin(a) * r * (yy > 0 ? .9 : 1), cz = Math.cos(a) * r * (yy > 0 ? .9 : 1) - .015;
+        if (cz > .06 && yy < .09) continue;                                               // keep the face clear
+        c = Math.min(c, Math.hypot(x - cx, y - yy, z - cz) - .03); } }
+    d = smin(d, c, .02);
+    d = smin(d, sdEll(x, y, z, V(0, .11, .02), V(.11, .05, .12)), .03);                  // the top
+    return d + lumps(x, y, z, 1.4);
+  }, V(0, -.02, -.02), .25, 104, M.hair, hs);
   // ---- hands and shoes (small pieces on their bones)
   // hands: wrist, rounded palm, three separate two-segment fingers curling a little (middle longest), a separate thumb
   const FL = [.026, .029, .024];                               // cartoon hand: three fingers (next to the thumb first) + a thumb
@@ -300,6 +390,22 @@ export function makeHaru3(o = {}) {
     o: (() => { const g = G(mouth); add(Sph(.011, 1, 1.15, .4), M.mouthIn, g); return g; })(),
     open: (() => { const g = G(mouth, [0, -.006, 0]); add(Sph(.034, 1.1, .8, .4), M.mouthIn, g); add(Sph(.02, 1.2, .5, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.04, .009, .006), M.teeth, g, [0, .017, .008]); return g; })(),
   };
+  // ---- age: creases (forehead lines, smile lines, crow's feet) pressed into the clay, in a darker skin tone
+  if (AGE > 0) {
+    const crease = (pts, r = .0016) => capTube(pts.map(([x, y]) => [x, y, onSkin(x, y, .0004)]), r * (.6 + .4 * AGE), M.crease, face);
+    for (const k of [0, 1]) crease([[-.04, .058 + k * .012], [0, .062 + k * .012], [.04, .058 + k * .012]]);
+    for (const sd of [-1, 1]) {
+      crease([[sd * .03, -.035], [sd * .036, -.05], [sd * .033, -.064]]);                // smile lines
+      if (AGE > .5) crease([[sd * .062, .01], [sd * .07, .004]]), crease([[sd * .062, -.004], [sd * .07, -.008]]);   // crow's feet
+    }
+  }
+  if (o.glasses) for (const sd of [-1, 1]) {                                            // round wire glasses
+    const z0 = onSkin(sd * EX, EY) + .012;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(.019, .0022, 8, 28), M.rim); rim.position.set(sd * EX, EY, z0); face.add(rim);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(.019, 24), M.lens); lens.position.set(sd * EX, EY, z0); face.add(lens);
+    if (sd > 0) capTube([[-EX + .019, EY + .002, z0], [0, EY + .006, z0 + .002], [EX - .019, EY + .002, z0]], .0018, M.rim, face);
+    capTube([[sd * (EX + .019), EY, z0], [sd * .098, EY + .004, z0 - .04], [sd * .1, EY + .002, z0 - .09]], .0018, M.rim, face);   // arms to the ears
+  }
   const tears = G(face);
   for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) add(Sph(.0055 - i * .0008, 1, 1.4, .6), M.tear, tears, [sd * .044, -.016 - i * .016, onSkin(sd * .044, -.016 - i * .016, .002)]);
   const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
@@ -320,8 +426,10 @@ export function makeHaru3(o = {}) {
     mouths.open.scale.setScalar(name === 'scared' ? .62 : 1);
     if (name === 'curious') { brows[0].rotation.z = .1; brows[1].rotation.z = .45; brows[1].position.y += .008; }
   };
-  Pp.rest = () => { arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
+  Pp.stoop = AGE * .22;                                     // older characters lean forward a little
+  Pp.rest = () => { chest.rotation.x = Pp.stoop; neck.rotation.x = -Pp.stoop * .6; arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
     legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
+  root.scale.setScalar(HEIGHT);                            // last: everything above was built at size 1
   return Pp;
 }
