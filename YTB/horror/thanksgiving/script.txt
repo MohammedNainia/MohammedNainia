@@ -1,7 +1,7 @@
-THANKSGIVING v2, scarier (9:16, target 90-100 s, dark clay, one line per voice generation)
+THANKSGIVING v3, scarier, audited (9:16, target 90-100 s, dark clay, one line per voice generation)
 Hook text at frame 0: MY FAMILY FATTENED ME / FOR THE THING / UNDER THE TABLE.
-Rule: never open the cellar on Thanksgiving. Never look under the tablecloth.
-Haru's choice: she hides food in her napkin, and she looks under the tablecloth.
+Rule: Grandma's table: nobody leaves until their plate is clean.
+Haru's flaw/choice: she keeps eating to be polite; too late she breaks the rule (hides food, runs).
 Twist: it was under the table the whole dinner, touching her ankles. The family never ate; they watched her eat.
 Ending/loop: next Thanksgiving, Haru's chair is empty; Grandma fills little cousin Mei's plate.
 
@@ -9,10 +9,12 @@ h01  HARU     My family fattened me for the thing under the table.
               [frame 0: Haru at the table, plate piled high; the tablecloth hangs to the floor; something shifts under it.]
 h02  HARU     All Thanksgiving, they watched me eat. Nobody else touched their food.
               [the family around the table, hands folded, plates clean, smiling at her.]
+h02b HARU     Grandma's rule: nobody leaves the table until their plate is clean.
 g01  GRANDMA  Eat, sweetheart. You're too thin.
-h03  HARU     Something brushed my ankle under the table. I thought it was the dog.
-h04  HARU     We don't have a dog.
-              [close: under the tablecloth, long grey fingers slide over her sock.]
+h03  HARU     So I kept eating. I didn't want to be rude.
+h03b HARU     Something brushed my ankle under the table. I thought it was Grandpa's foot.
+h04  HARU     Grandpa was across the room, carving the turkey.
+              [Grandpa at the counter, knife going through the bird. Close: under the tablecloth, long grey fingers slide over her sock.]
 p01  GRANDPA  We thank you for the harvest. She's almost ripe.
               [grace: the family bows, but they're bowing to the floor.]
 h05  HARU     My cousin Aki used to sit across from me. Two years ago, they said he moved away.
