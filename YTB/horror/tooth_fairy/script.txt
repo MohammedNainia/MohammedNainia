@@ -1,12 +1,12 @@
 THE TOOTH FAIRY (9:16, target 85-95 s, one line per voice generation)
-Hook text at frame 0: I SAW THE TOOTH FAIRY. / NOW I SLEEP / WITH THE LIGHT ON.
+Hook text at frame 0: THE TOOTH FAIRY / TOOK ALL / MY TEETH.
 Rule: tooth under the pillow = a coin. Eyes shut till morning. If you open them, get to the light.
 Haru's choice: she wants the pretty fairy from her books, pulls the next tooth herself, and opens her eyes.
-Twist: it can't enter the light, but it pays in advance (a coin for every tooth left). Mum's teeth are in a glass.
-Unspoken question: when does it come to collect, and will the light hold?
+Twist: the light holds until every light in the house goes out. It pulls her teeth one by one and pays for each. Mum's teeth are in a glass: it happened to her too.
+Unspoken question: who turned the lights off, and why does Mum already have a glass ready?
 
-h01  HARU  I saw the tooth fairy. Now I sleep with the light on.
-           [frame 0: Haru in bed under a bare bulb, eyes wide. Hook text.]
+h01  HARU  The tooth fairy took all my teeth.
+           [frame 0: close on Haru, lips pressed shut. On "teeth" she opens them a little: empty gums. Hook text.]
 h02  HARU  My tooth came out at dinner. Mum didn't smile. She never smiles with her mouth open.
            [a small bloody tooth on a plate. Mum, lips pressed shut.]
 m01  MUM   Under your pillow. Eyes shut till morning. And if you ever open them, get to the light.
@@ -20,16 +20,14 @@ h06  HARU  That night something came in. It clicked, like teeth shaken in a jar.
 h07  HARU  Its fingers slid under my pillow, and kept sliding.
            [long grey fingers, too many joints, under the pillow beside her cheek.]
 h08  HARU  I opened my eyes.
-           [her POV: a face inches above, a huge grin full of mismatched children's teeth.]
-c01  IT    Open wide.
+           [her POV: a face inches above, a huge grin full of mismatched children's teeth. It says nothing. It smiles wider.]
 h09  HARU  I ran for the hall light. It stopped at the edge, like the light was deep water.
            [Haru in the lit hallway. Fingers reach in from the dark, sizzle, pull back.]
 h10  HARU  I locked myself in the bathroom, under the brightest bulb in the house.
-h11  HARU  It tapped on the door all night. Then the bulb flickered.
-           [the bulb buzzes, dims, holds. Silence. Grey dawn at the window.]
-h12  HARU  Under my pillow there were coins. One for every tooth still in my mouth.
-           [a pile of bitten coins on the pillow.]
-h13  HARU  Mum saw them and covered her mouth.
-           [mum's hand over her mouth. Slow pan to her bedside: a glass of water, her teeth inside.]
-h14  HARU  It already paid.
-           [night. Haru in bed under the bare bulb. It flickers. Cut to frame 0 (loop).]
+h11  HARU  It tapped on the door all night. Then every light in the house went out.
+           [the bulb buzzes and dies. Black. The lock turns by itself.]
+c01  IT    Open wide.
+           [black screen. A wet pull, a coin drops on tile. Again. Again. Faster, one by one. Then silence.]
+h12  HARU  It paid for every single one.
+           [morning: the bathroom floor covered in bitten coins. Haru at the mirror, lips shut. She opens them: no teeth.]
+           [last shot, no line: Mum in the doorway sets a glass of water by Haru's bed. Cut to frame 0 (loop).]
