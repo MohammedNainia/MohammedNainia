@@ -112,10 +112,12 @@ export function makeHaru3(o = {}) {
   };
   const root = new THREE.Group();
   // ---- skeleton (bind pose: arms a little out, legs straight)
+  const BIND_ARM = .75;                                  // the hoodie is built with the arms held out (A-pose), so the sleeves are
+                                                          // separate from the body and lift cleanly; Pp.rest() lowers them to .24
   const DY = .152;                                        // leg lengthening measured against the sheet
   const hips = B(null, [0, .55 + DY, 0]); root.add(hips);
   const chest = B(hips, [0, .04, 0]), neck = B(chest, [0, .44, 0]), head = B(neck, [0, .24, 0]);
-  const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .185, .32, 0]); up.rotation.z = sd * .24; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.24, 0]); return {up, fo, hand, sd}; });
+  const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .185, .32, 0]); up.rotation.z = sd * BIND_ARM; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.24, 0]); return {up, fo, hand, sd}; });
   const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .098, 0, 0]); const sh = B(th, [0, -.33, 0]); const ft = B(sh, [0, -.31, 0]); return {th, sh, ft, sd}; });
   root.updateMatrixWorld(true);
   const W = b => b.getWorldPosition(V(0, 0, 0));
@@ -123,6 +125,19 @@ export function makeHaru3(o = {}) {
   arms.forEach(a => { a.U = W(a.up); a.F = W(a.fo); a.H = W(a.hand); });
   legs.forEach(l => { l.T = W(l.th); l.S = W(l.sh); l.F = W(l.ft); });
 
+  // one sleeve (shoulder cap, upper sleeve, forearm, cuff), in the hoodie's frame (y already shifted by DY)
+  const sleeveSDF = (a, x, y, z) => {
+    const U = a.U.clone().add(V(0, -DY, 0)), F = a.F.clone().add(V(0, -DY, 0)), Hh = a.H.clone().add(V(0, -DY, 0));
+    const cuffDir = Hh.clone().sub(F).normalize(), cuff = Hh.clone().sub(cuffDir.clone().multiplyScalar(.012));
+    let d = sdEll(x, y, z, a.U.clone().add(V(-a.sd * .03, -.04 - DY, 0)), V(.07, .075, .07));
+    d = smin(d, sdRoundCone(x, y, z, U, F, .064, .062), .03);
+    d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
+    return smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
+  };
+  const torsoSDF = (x, y, z) => { y -= DY;
+    const d = smax(sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8, .5 - y, .03);
+    return smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);
+  };
   // ---- the hoodie: torso, hem, hood roll, hood, shoulders, sleeves (wider at the cuff), cuffs, pocket: ONE piece
   const hoodSDF = (x, y, z) => { y -= DY;
     let d = sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8;                 // narrower at the top: sloping shoulders
@@ -130,14 +145,7 @@ export function makeHaru3(o = {}) {
     d = smin(d, sdTorusY(x, y, z, V(0, .505, 0), .15, .03, 1.03, .82), .025);
     d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.025), V(0, .8, .6), .115, .056), .035);
     d = smin(d, sdEll(x, y, z, V(0, .95, -.085), V(.085, .065, .045)), .04);
-    for (const a of arms) {
-      const U = a.U.clone().add(V(0, -DY, 0)), F = a.F.clone().add(V(0, -DY, 0)), Hh = a.H.clone().add(V(0, -DY, 0));
-      const cuffDir = Hh.clone().sub(F).normalize(), cuff = Hh.clone().sub(cuffDir.clone().multiplyScalar(.012));
-      d = smin(d, sdEll(x, y, z, a.U.clone().add(V(-a.sd * .03, -.04 - DY, 0)), V(.07, .075, .07)), .07);
-      d = smin(d, sdRoundCone(x, y, z, U, F, .064, .062), .03);
-      d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
-      d = smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
-    }
+    for (const a of arms) d = smin(d, sleeveSDF(a, x, y, z), .03);
     d = smin(d, sdRoundBox(x, y, z, V(0, .615, .118), V(.085, .042, .006), .012), .012);                       // pocket
     d = smax(d, -sdCapsule(x, y, z, V(-.085, .657, .135), V(.085, .657, .135), .005), .004);                   // its top seam
     return d + lumps(x, y, z);
@@ -151,25 +159,46 @@ export function makeHaru3(o = {}) {
       d = smin(d, sdRoundCone(x, y, z, l.S, ankle, .072, .075), .02);
       d = smin(d, sdTorusY(x, y, z, ankle.clone().add(V(0, .01, 0)), .072, .011), .01);
     }
+    d = smax(d, y - (.56 + DY), .02);                // nothing above the hoodie hem (+.06): it could only poke through the hoodie
     return d + lumps(x, y, z, .9);
   };
-  const skinIt = (geo, mat, boneSets, torsoOnly = null) => {
+  const skinIt = (geo, mat, boneSets, groups = null) => {
     const bones = [hips, chest, neck, head, ...arms.flatMap(a => [a.up, a.fo, a.hand]), ...legs.flatMap(l => [l.th, l.sh, l.ft])];
     const segs = bones.map(b => { const p = W(b); const c = b.children.find(ch => ch.isBone); return [p, c ? W(c) : p.clone().add(V(0, -.07, 0))]; });
     const allowed = boneSets.map(b => bones.indexOf(b));
+    // distance to each bone's SURFACE (minus its thickness), so a thin arm does not pull the side of a thick torso
+    const rad = [.15, .16, .06, .12, ...arms.flatMap(() => [.07, .065, .05]), ...legs.flatMap(() => [.075, .07, .05])];
     const pos = geo.attributes.position, n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), p = V(0, 0, 0);
     for (let i = 0; i < n; i++) {
       p.set(pos.getX(i), pos.getY(i), pos.getZ(i));
-      const use = torsoOnly && torsoOnly(p) ? allowed.filter(k => bones[k] === hips || bones[k] === chest) : allowed;
-      const w = use.map(k => [k, 1 / (Math.pow(segDist(p, segs[k][0], segs[k][1]), 4) + 1e-7)]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const inv = k => 1 / Math.pow(Math.max(segDist(p, segs[k][0], segs[k][1]) - rad[k], .004), 4);
+      let w;
+      if (groups) {                                     // each group shares out its part of the weight by distance
+        w = [];
+        for (const [list, share] of groups(p)) { if (share < 1e-3) continue; const ks = list.map(b => bones.indexOf(b)), ws = ks.map(inv), t = ws.reduce((a, b) => a + b, 0);
+          ks.forEach((k, j) => w.push([k, share * ws[j] / t])); }
+        w = w.sort((a, b) => b[1] - a[1]).slice(0, 4);
+      } else w = allowed.map(k => [k, inv(k)]).sort((a, b) => b[1] - a[1]).slice(0, 4);
       const s = w.reduce((a, b) => a + b[1], 0); w.forEach(([k, v], j) => { si[i * 4 + j] = k; sw[i * 4 + j] = v / s; });
     }
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
     const m = new THREE.SkinnedMesh(geo, mat); m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
     root.add(m); m.bind(new THREE.Skeleton(bones), m.matrixWorld); return m;
   };
-  skinIt(meshSDF(hoodSDF, V(0, .76 + DY, 0), .44, 136), M.hood, [hips, chest, ...arms.flatMap(a => [a.up, a.fo, a.hand])], p => Math.abs(p.x) < .168 && p.y < .9);
-  skinIt(meshSDF(pantsSDF, V(0, .4 + DY / 2, 0), .38, 112), M.pants, [hips, ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
+  // each hoodie vertex is torso or sleeve depending on which shape's surface it is on; a soft band at the armpit seam
+  const sstep = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+  skinIt(meshSDF(hoodSDF, V(0, .76 + DY, 0), .54, 166), M.hood, [hips, chest], p => {
+    const dt = torsoSDF(p.x, p.y, p.z), ds = arms.map(a => sleeveSDF(a, p.x, p.y - DY, p.z));
+    const k = ds[0] < ds[1] ? 0 : 1, t = sstep(-.025, .025, dt - ds[k]), a = arms[k];
+    return [[[hips, chest], 1 - t], [[a.up, a.fo, a.hand], t]];
+  });
+  // trousers: what is hidden under the hoodie stays on the hips, so a lifted thigh cannot push it out through the hem;
+  // the thigh takes over only below the hem (soft band of .12)
+  const HEM = .5 + DY;
+  skinIt(meshSDF(pantsSDF, V(0, .4 + DY / 2, 0), .38, 112), M.pants, [hips], p => {
+    const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM - .035, HEM - .15, p.y);
+    return [[[hips], 1 - t], [[l.th, l.sh, l.ft], t]];
+  });
   const rigid = (sdf, center, half, res, mat, parent) => { const m = new THREE.Mesh(meshSDF(sdf, center, half, res), mat); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 
   // ---- drawstrings (thin, hang from the hood roll)

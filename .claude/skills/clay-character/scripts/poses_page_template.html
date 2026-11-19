@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#ddd}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Clay Haru v3 in the 8 poses of YTB/channel_art/haru_poses_sheet.png. renderAt(i) shows pose i alone, framed the same way every time.
+import {THREE, setup} from './lib.js';
+import {boil} from './clay.js';
+import {makeHaru3} from './haru3.js';
+import {POSES, groundIt} from './haru3_poses.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: Math.round(1920 * PS), h: Math.round(1080 * PS)});
+grain.uniforms.vig.value = .12;
+renderer.toneMappingExposure = 1.05;
+scene.background = new THREE.Color(0xdcdcdc);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({color: 0xdedede, roughness: 1}));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b4ae, 1.25));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0); key.position.set(-3, 6, 7); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 9; key.shadow.blurSamples = 20; key.shadow.bias = -.0004;
+Object.assign(key.shadow.camera, {left: -3, right: 3, top: 3, bottom: -1, near: .5, far: 20}); scene.add(key);
+const fill = new THREE.DirectionalLight(0xe8eeff, .7); fill.position.set(5, 3, 5); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, .6); rim.position.set(0, 4, -6); scene.add(rim);
+renderer.shadowMap.type = THREE.VSMShadowMap;
+
+const only = new URLSearchParams(location.search).get('p');
+const list = only !== null ? [POSES[+only]] : POSES;
+const figs = list.map(spec => { const P = makeHaru3(); scene.add(P.root); spec.fn(P, THREE, scene); groundIt(P, THREE, spec.lift || 0); P.root.visible = false; return P; });
+window.renderAt = t => {
+  boil(0); const i = Math.round(t) % figs.length;
+  figs.forEach((P, j) => P.root.visible = j === i);
+  cam.fov = 13.5; cam.position.set(0, 1.0, 9); cam.lookAt(0, .98, 0); cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t);
+};
+window.renderAt(0); window.ready = true;
+</script></body></html>

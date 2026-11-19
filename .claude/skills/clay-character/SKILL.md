@@ -51,7 +51,23 @@ shoes magenta), lights off, orthographic front camera, figures spaced so they do
    and in the side view the near arm can sit in front of the hair, so for those two look at a close-up instead of trusting the count.
 Stop when the front has at most 2 parts off by > 2% and poke_px is 0 in every view.
 
+## 6. Poses (does the puppet move like the model?)
+Ask the image model for a **pose sheet**: the turnaround as reference, 8 full-body poses in a 4 x 2 grid on the same grey
+background, same scale, no text (walk side view, run, crouch, sit hugging knees, reach, look back, hold a prop, jump).
+Write each pose as bone angles in `scripts/poses_template.js` (conventions at the top of the file), with `armIK` for hands
+that must touch something (knees, mouth, a prop) and `groundIt` to put the lowest point on the floor.
+Render one pose at a time with the same camera (`scripts/poses_page_template.html`, `renderAt(i)`), tile the 8 renders
+under the sheet and compare. Then zoom on every place where two garments meet (hem, armpit, collar):
+pieces poke through in poses that are fine at rest.
+
 ## Lessons from Haru (Nov 2026)
+- Build the hoodie with the arms held OUT (A-pose, `BIND_ARM = .75`) and lower them in `rest()`. Built with the arms hanging,
+  sleeve and body are fused into one surface and a raised arm stretches it into a bat wing.
+- Skin weights: distance to each bone's SURFACE (minus its thickness), and decide torso vs sleeve per vertex from which SDF
+  is nearer, with a soft band at the seam.
+- Trousers under the hoodie stay on the hips; the thigh takes over only below the hem. Cut the trousers off just above the
+  hem: anything hidden higher up pokes through the hoodie when the body bends.
+- IK by brute force picks odd answers (elbows up like wings): give it a range (`LOW_ELBOW`).
 - Heights matched within 1% after one round once the legs were lengthened; widths needed 4 rounds.
 - A capsule torso ends in a rounded point: cut it flat with `smax(d, hemY - y, k)` and add a hem ring.
 - Bind the skeleton in the rest pose you will show; deforming far from the bind pose drags the hem into a V.
