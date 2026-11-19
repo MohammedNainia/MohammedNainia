@@ -25,8 +25,9 @@ h09  HARU  I ran for the hall light. It stopped at the edge, like the light was 
            [Haru in the lit hallway. Fingers reach in from the dark, sizzle, pull back.]
 h10  HARU  I locked myself in the bathroom, under the brightest bulb in the house.
 h11  HARU  It tapped on the door all night. Then every light in the house went out.
-           [the bulb buzzes and dies. Black. The lock turns by itself.]
+           [the bulb buzzes and dies. Black. The lock turns by itself. The door creaks open.]
 c01  IT    Open wide.
+           [the bulb flickers back for one last second: the creature is crouched on top of Haru on the bathroom floor, wings spread, its long fingers on her chin, its grin right over her face. Haru's eyes wide. The bulb dies.]
            [black screen. A wet pull, a coin drops on tile. Again. Again. Faster, one by one. Then silence.]
 h12  HARU  It paid for every single one.
            [morning: the bathroom floor covered in bitten coins. Haru at the mirror, lips shut. She opens them: no teeth.]
