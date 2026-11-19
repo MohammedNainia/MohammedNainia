@@ -58,7 +58,9 @@ export function makePerson(o = {}) {
   const head = G(neck, [0, .14, 0]);
   add(S(.1, .94, 1.12, 1.02, .003, 14), M.skin, head);
   add(S(.03, 1, .8, .6, .002, 16), M.skin, head, [0, -.075, .055]);
-  add(S(.106, 1.0, 1.08, 1.0, .004), M.hair, head, [0, .016, -.022]);
+  add(S(.109, 1.02, 1.1, 1.0, .004), M.hair, head, [0, .02, -.02]);
+  const fringe = new THREE.Mesh(lump(new THREE.SphereGeometry(.112, 32, 14, 0, Math.PI * 2, 0, .9).scale(1.0, 1.08, 1.0), .002, 14), M.hair.clone());
+  fringe.material.side = THREE.DoubleSide; fringe.position.set(0, .022, .004); fringe.rotation.x = .35; fringe.castShadow = true; head.add(fringe);
   const back = G(head, [0, -.02, -.07]);
   if (o.longHair !== false) {
     add(Cp(.085, .3, .004, 10).scale(1.25, 1, .42), M.hair, back, [0, -.2, 0]);

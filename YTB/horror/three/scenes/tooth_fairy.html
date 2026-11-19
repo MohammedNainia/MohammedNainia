@@ -7,7 +7,8 @@
 // Animation is held on twos (12 poses a second) and the clay "boils" every other pose, like real stop-motion.
 import {THREE, setup, ease, clamp01, lerp, canvasTex} from './lib.js';
 import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, makeFairy, fairyArm, curl, bump} from './clay.js';
-const {scene, cam, renderer, render} = setup({bloom: .55});
+const PS = +(new URLSearchParams(location.search).get('s') || 1);   // ?s=.33 for quick previews
+const {scene, cam, renderer, render} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
 const DUR = 88.6, PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
 cam.near = .01; cam.far = 60; cam.updateProjectionMatrix();
@@ -20,8 +21,8 @@ const M = {
   blanket: clay(0x3e4a6a, {bumpScale: 1.4}), pillow: clay(0xd8d2c6, {bumpScale: .6}), lampSh: clay(0xe8c890, {emissive: 0x000000}),
   hall: clay(0x3a3430), tileW: clay(0xb8b8b0), grout: clay(0x50504c), porcelain: gloss(0xdedad2), metal: gloss(0x8a8a88, {roughness: .3}),
   coin: gloss(0xa8884a, {roughness: .45, clearcoat: .3}), coinD: clay(0x5a4422), tooth: gloss(0xf8f4ea), blood: gloss(0x6a0a0e, {roughness: .2}),
-  glass: new THREE.MeshPhysicalMaterial({color: 0xdfe8f0, roughness: .05, transmission: .9, thickness: .02, transparent: true, opacity: .45}),
-  water: new THREE.MeshPhysicalMaterial({color: 0x9ab0c8, roughness: .05, transmission: .8, transparent: true, opacity: .4}),
+  glass: new THREE.MeshPhysicalMaterial({color: 0xe8f0f8, roughness: .05, clearcoat: 1, transparent: true, opacity: .35, side: THREE.DoubleSide}),
+  water: new THREE.MeshPhysicalMaterial({color: 0x7a98c0, roughness: .05, clearcoat: 1, transparent: true, opacity: .55}),
   bulb: new THREE.MeshBasicMaterial({color: 0xfff2d0}), win: new THREE.MeshBasicMaterial({color: 0x28406e}),
   hallLamp: new THREE.MeshBasicMaterial({color: 0xffc780}), black: new THREE.MeshBasicMaterial({color: 0x000000}),
 };
@@ -44,8 +45,8 @@ add(box(1.1, .75, .08, .008, 3), M.wood, bed, [0, .45, -2.0]);                  
 add(box(.98, .12, 2.05, .008, 3), M.sheet, bed, [0, .4, -.95]);
 const pillowP = G(bed, [-.38, .46, -1.68]);                                                // pivot at one end, so it can be lifted
 const pillow = add(S(.26, 1.55, .3, .75, .006, 6), M.pillow, pillowP, [.38, .04, 0]);
-const blanket = add(box(1.0, .13, 1.45, .012, 2.5), M.blanket, bed, [0, .53, -.5]);
-add(box(1.02, .05, .2, .01, 2.5), M.sheet, bed, [0, .6, -1.17]);                          // sheet turned over the blanket
+const blanket = add(box(1.0, .15, 1.45, .012, 2.5), M.blanket, bed, [0, .62, -.5]);
+add(box(1.02, .05, .2, .01, 2.5), M.sheet, bed, [0, .7, -1.17]);                          // sheet turned over the blanket
 // bedside table, lamp, glass
 add(box(.42, .5, .4, .006, 4), M.wood, bed, [.8, .25, -1.72]);
 const lampBase = add(Cp(.05, .2, .003, 10), M.woodD, bed, [.88, .65, -1.8]);
@@ -69,7 +70,7 @@ const din = G(scene, [-20, 0, 0]);
 add(box(3, .1, 3, .01, 1.5), M.floorB, din, [0, -.05, 0]);
 add(box(1.3, .06, .9, .006, 4), M.wood, din, [0, .76, 0]);
 for (const [x, z] of [[-.58, -.38], [.58, -.38], [-.58, .38], [.58, .38]]) add(Cp(.03, .7), M.woodD, din, [x, .38, z]);
-const plate = add(lump(new THREE.CylinderGeometry(.13, .1, .025, 30, 2), .002, 14), M.porcelain, din, [.05, .8, .18]);
+const plate = add(lump(new THREE.CylinderGeometry(.13, .1, .025, 30, 2), .002, 14), new THREE.MeshPhysicalMaterial({color: 0x9a948a, roughness: .5, clearcoat: .3}), din, [.05, .8, .18]);
 add(lump(new THREE.CylinderGeometry(.035, .035, .002, 16), .002, 30), M.blood, din, [.07, .814, .19]);
 const dTooth = add(S(.012, 1, 1.3, .9, .001, 30), M.tooth, din, [.07, .822, .19], [0, 0, 1.2]);
 add(S(.006, 1, .6, 1, .001, 30), M.blood, din, [.078, .82, .19]);
@@ -88,7 +89,7 @@ const tileMat = clay(0xffffff, {map: tileTex, bumpScale: .5});
 add(box(2.4, .1, 2.4, .006, 1.5), tileMat, bath, [0, -.05, 0]);
 for (const [x, z, ry, w] of [[0, -1.2, 0, 2.4], [-1.2, 0, PI / 2, 2.4], [1.2, 0, PI / 2, 2.4]]) add(box(w, 3, .1, .01, 1.2), tileMat, bath, [x, 1.5, z], [0, ry, 0]);
 add(box(.75, 3, .1, .01, 1.2), tileMat, bath, [-.82, 1.5, 1.2]); add(box(.55, 3, .1, .01, 1.2), tileMat, bath, [.92, 1.5, 1.2]);
-const bDoorP = G(bath, [-.45, 0, 1.18]);                                                    // hinged on the left, swings in
+const bDoorP = G(bath, [-.45, .03, 1.18]);                                                    // hinged on the left, swings in
 add(box(.9, 2.2, .05, .006, 4), M.woodD, bDoorP, [.45, 1.1, 0]);
 const lockKnob = add(S(.03), M.metal, bDoorP, [.82, 1.05, -.05]);
 const lockTurn = G(bDoorP, [.82, 1.18, -.04]); add(box(.05, .014, .014, .001, 30), M.metal, lockTurn);
@@ -99,14 +100,18 @@ const mirror = G(bath, [.3, 1.5, -1.14]);
 add(new THREE.PlaneGeometry(.55, .7), new THREE.MeshPhysicalMaterial({color: 0x2a3036, roughness: .15, metalness: .8}), mirror);
 for (const [w, h, x, y] of [[.65, .05, 0, .375], [.65, .05, 0, -.375], [.05, .8, -.3, 0], [.05, .8, .3, 0]]) add(box(w, h, .03, .002, 10), M.woodD, mirror, [x, y, .01]);
 // the bulb on a cord
+const under = G(bath, [0, 0, 0]); const nailM = clay(0x2e2a26), ashM = clay(0x8f8c84);
+const tips = [0, 1, 2, 3].map(i => { const g = G(under, [-.25 + i * .06, .012, 1.24]); add(Cp(.008, .05, .001, 20), ashM, g, [0, 0, 0], [PI / 2, 0, 0]);
+  add(new THREE.ConeGeometry(.008, .03, 6).rotateX(-PI / 2), nailM, g, [0, 0, -.04]); return g; });
+under.visible = false;
 const bulbG = G(bath, [0, 2.05, 0]);
 add(new THREE.CylinderGeometry(.004, .004, .9), M.woodD, bulbG, [0, .45, 0]);
 const bulbM = add(new THREE.SphereGeometry(.045, 16, 12), M.bulb, bulbG);
 // coins on the floor (the morning after), instanced
-const coinGeo = new THREE.CylinderGeometry(.014, .014, .003, 18);
+const coinGeo = new THREE.CylinderGeometry(.022, .022, .004, 18);
 const coins = new THREE.InstancedMesh(coinGeo, M.coin, 300); coins.castShadow = coins.receiveShadow = true; bath.add(coins);
 { const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-  for (let i = 0; i < 300; i++) { const a = rnd() * PI * 2, r = Math.sqrt(rnd()) * .9;
+  for (let i = 0; i < 300; i++) { const a = rnd() * PI * 2, r = Math.pow(rnd(), .8) * .85;
     e.set((rnd() - .5) * .5, rnd() * 6, (rnd() - .5) * .5); q.setFromEuler(e);
     m4.compose(V(Math.cos(a) * r - .1, .003 + rnd() * .006, Math.sin(a) * r * .9 - .1), q, V(1, 1, 1)); coins.setMatrixAt(i, m4); } }
 coins.visible = false;
@@ -167,10 +172,11 @@ bathL.castShadow = true; bathL.shadow.mapSize.set(1024, 1024); bathL.shadow.bias
 const dawn = new THREE.DirectionalLight(0xb8c4d8, 0); dawn.position.set(-4, 3, .5); dawn.target.position.set(0, .4, -1); scene.add(dawn, dawn.target);
 const bathDawn = new THREE.DirectionalLight(0xb0bccc, 0); bathDawn.position.set(23, 4, 2); bathDawn.target.position.set(20, 0, 0); scene.add(bathDawn, bathDawn.target);
 bathDawn.castShadow = true; bathDawn.shadow.mapSize.set(1024, 1024); Object.assign(bathDawn.shadow.camera, {left: -2, right: 2, top: 2, bottom: -2});
-const rimC = new THREE.PointLight(0x9fb8ff, 0, 3, 1.5); scene.add(rimC);                      // a cold kicker for close-ups
+const rimC = new THREE.PointLight(0x9fb8ff, 0, 3, 1.5); scene.add(rimC);
+const dinFill = new THREE.PointLight(0xffa860, 0, 2.5, 1.5); dinFill.position.set(-20, 1.0, .1); scene.add(dinFill);                      // a cold kicker for close-ups
 function lights(o) {
-  moon.intensity = o.moon ?? 0; bedLamp.intensity = o.bedLamp ?? 0; hallL.intensity = o.hall ?? 0; dinL.intensity = o.din ?? 0;
-  bathL.intensity = o.bath ?? 0; dawn.intensity = o.dawn ?? 0; bathDawn.intensity = o.bathDawn ?? 0; amb.intensity = o.amb ?? .1; rimC.intensity = o.rim ?? 0;
+  moon.intensity = (o.moon ?? 0) * 1.9; bedLamp.intensity = o.bedLamp ?? 0; hallL.intensity = o.hall ?? 0; dinL.intensity = o.din ?? 0;
+  rimC.color.set(o.rimCol ?? 0x9fb8ff); bathL.intensity = (o.bath ?? 0) * 1.5; bathL.color.set(o.bathCol ?? 0xfff0d0); dawn.intensity = o.dawn ?? 0; bathDawn.intensity = o.bathDawn ?? 0; amb.intensity = (o.amb ?? .1) * 2.6; dinFill.intensity = o.din ? .9 : 0; rimC.intensity = o.rim ?? 0;
   M.win.color.set(o.winCol ?? 0x28406e); M.lampSh.emissive.set(o.bedLamp ? 0x7a4a18 : 0x000000);
   M.hallLamp.color.set(o.hall ? 0xffc780 : 0x1a1410); M.bulb.color.set(o.bath || o.din ? 0xfff2d0 : 0x15140f);
   pend.material.emissive.set(o.din ? 0x4a2a10 : 0);
@@ -184,9 +190,11 @@ function reset(P) {
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
   P.eyes('open'); P.brows(0); P.mouth('closed');
 }
-function lieInBed(P, z = -.06) {           // on her back, head on the pillow, face up
-  P.root.rotation.x = -PI / 2 + .08; P.root.position.set(0, .66, z);
+const unhide = () => tf.wings.forEach(w => w.visible = true);
+function lieInBed(P, z = -.16) {           // on her back, head on the pillow, face up
+  P.root.rotation.x = -PI / 2 + .08; P.root.position.set(0, .58, z);
   P.arms.forEach(({up, fo}, i) => { up.rotation.z = (i ? 1 : -1) * .12; fo.rotation.x = -.6; });
+  P.legs.forEach(({ft}) => ft.rotation.x = 1.3);
 }
 function sitUpInBed(P) {                    // sitting up against the headboard, legs under the blanket
   P.root.position.set(0, -.27, -1.42); P.hips.rotation.x = 0; P.chest.rotation.x = -.12;
@@ -218,17 +226,17 @@ const aim = (g, dir) => g.quaternion.setFromUnitVectors(V(0, -1, 0), dir.clone()
 // ================================================================ timeline
 const L = {}; // line starts (from layout.json)
 const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } };
-const HOOKCAM = [V(.16, 1.0, -1.42), V(0, .66, -1.66), 34];
+const HOOKCAM = [V(.16, 1.22, -1.3), V(0, .7, -1.68), 36];
 const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
 let black = false;
 
 function frame(t) {
   const q = Math.floor(t * 12) / 12;                // stop-motion: poses on twos
   boil(Math.floor(t * 6));
-  reset(haru); reset(mum); fairyStand(tf);
+  reset(haru); reset(mum); fairyStand(tf); unhide();
   haru.root.visible = true; mum.root.visible = false; tf.root.visible = false; claw.visible = false;
   hTooth.visible = false; mGlass.visible = false; glass.visible = false; heroCoin.visible = false; book.visible = false; coins.visible = false;
-  smoke.forEach(s => s.visible = false); pillowP.rotation.set(0, 0, 0); doorP.rotation.y = 0; bDoorP.rotation.y = 0; lockTurn.rotation.z = 0;
+  smoke.forEach(s => s.visible = false); under.visible = false; pillowP.rotation.set(0, 0, 0); doorP.rotation.y = 0; bDoorP.rotation.y = 0; lockTurn.rotation.z = 0;
   black = false;
 
   if (t < 3.4) {                                     // HOOK: Haru in bed at night, mouth shut; she parts her lips: empty gums
@@ -237,17 +245,17 @@ function frame(t) {
     haru.mouth(q > 2.2 ? 'gums' : 'pressed', clamp01((q - 2.2) / .5));
     C(HOOKCAM[0], HOOKCAM[1], HOOKCAM[2]);
   } else if (t < 7.0) {                              // the tooth on the plate
-    lights({din: 3.2, amb: .05});
+    lights({din: .55, amb: .05});
     haru.root.visible = false; reset(mumD); mumD.root.visible = false;
-    C(V(-19.82, 1.02, .42), V(-19.93, .8, .19), 30);
+    C(V(-19.72, 1.2, .62), V(-19.93, .8, .19), 30);
     cam.position.x += Math.sin(q * .4) * .004;
   } else if (t < 11.2) {                             // Mum, across the table, lips pressed
-    lights({din: 3.2, amb: .05}); haru.root.visible = false;
+    lights({din: 1.3, amb: .05}); haru.root.visible = false;
     reset(mumD); mumD.root.visible = true; sitOnBed(mumD, 0, -.62, 0); mumD.root.position.y = -.4;
     mumD.mouth('pressed'); mumD.neck.rotation.x = .25; mumD.head.rotation.x = .15; mumD.brows(-.2);
     mumD.arms.forEach(({up, fo}) => { up.rotation.x = -.5; fo.rotation.x = -.9; });
     const k = ease((q - 7) / 4.2);
-    C(V(-20 + .05, 1.42 - k * .04, .32 - k * .22), V(-20, 1.38, -.6), 32);
+    C(V(-20 + .05, 1.3 - k * .03, .32 - k * .22), V(-20, 1.18, -.6), 32);
   } else if (t < 17.6) {                             // bedtime: Mum on the edge of the bed, the warning; the tooth goes under the pillow
     lights({moon: .6, bedLamp: 2.2, amb: .08});
     lieInBed(haru); haru.eyes('open'); haru.brows(.3);
@@ -256,7 +264,7 @@ function frame(t) {
     if (q > 15.6) { mum.mouth('pressed'); }
     pillowP.rotation.z = q > 11.6 && q < 12.6 ? .22 : 0;
     const k = ease((q - 11.2) / 6.4);
-    C(V(1.15 - k * .2, 1.45, -.05 - k * .2), V(.12, .66, -1.4), 38);
+    C(V(-.95 + k * .12, 1.5, -.15 - k * .15), V(.15, .92, -1.35), 42);
   } else if (t < 20.6) {                             // morning: the pillow lifts
     lights({dawn: 1.2, moon: 0, amb: .12, winCol: 0x8aa0c0});
     haru.root.visible = false; heroCoin.visible = true; heroCoin.position.set(.1, .475, -1.66);
@@ -273,9 +281,9 @@ function frame(t) {
     haru.arms.forEach(({up, fo}, i) => { up.rotation.set(-.75, 0, (i ? 1 : -1) * .15); fo.rotation.x = -.9; });
     book.visible = true; book.position.set(0, .86, -1.02); book.rotation.set(.75, 0, 0);
     const k = ease((q - 24.3) / 6);
-    C(V(-.22, 1.42 - k * .08, -1.72 + k * .06), V(0, .86, -1.02), 34 - k * 6);
+    C(V(.3, 1.22 - k * .05, -.74 - k * .06), V(.08, .9, -1.04), 36 - k * 6);
   } else if (t < 34.6) {                             // the mirror: she wiggles the next tooth out herself
-    lights({bath: 2.0, amb: .06});
+    lights({bath: 1.6, amb: .06, rim: 1.6, rimCol: 0xffd8a8}); rimC.position.set(20.45, 1.75, -.9);
     haru.root.position.set(20.3, 0, -.45); haru.root.rotation.y = PI;
     const pull = q < 32.6, k = clamp01((q - 30.4) / 2.2);
     haru.mouth(pull ? 'open' : 'smile', pull ? .7 : 1); haru.eyes(pull ? (Math.floor(q * 6) % 2 ? 'squeeze' : 'open') : 'open'); haru.brows(pull ? .7 : -.1);
@@ -292,47 +300,46 @@ function frame(t) {
     tf.head.rotation.z = Math.sin(q * 1.3) * .2;
     curl(tf.arms[0], .3, .15, q); curl(tf.arms[1], .3, .15, q + 1);
     const k = ease((q - 34.6) / 6.9);
-    C(V(-1.25, 1.7, 1.25 - k * .15), V(.6, .7, -.7), 40);
+    C(V(-1.15, 1.5, -1.75 + k * .1), V(1.5, .95, .35), 44);
   } else if (t < 46.6) {                             // close: its fingers slide under the pillow, and keep sliding
     lights({moon: .9, amb: .07, rim: .6}); rimC.position.set(.4, .9, -1.4);
     lieInBed(haru); haru.eyes('squeeze'); haru.brows(.6);
     claw.visible = true; const k = ease((q - 41.5) / 5);
     const tip = V(.52 - k * .3, .53, -1.72); claw.position.copy(tip.clone().add(V(.68, .55, .25)));
-    aim(claw, tip.clone().sub(claw.position)); clawArm.up.rotation.set(0, 0, 0); clawArm.fo.rotation.set(-.15, 0, 0); clawArm.hd.rotation.set(-.25, 0, 0);
+    aim(claw, tip.clone().sub(claw.position)); clawArm.fo.rotation.set(-.15, 0, 0); clawArm.hd.rotation.set(-.25, 0, 0);
     claw.position.add(V(0, 0, 0)); curl(clawArm, .08, .1, q);
-    C(V(.36, .74, -1.28), V(.05, .55, -1.68), 34);
+    C(V(-.42, .92, -1.42), V(.36, .58, -1.74), 38);
   } else if (t < 48.2) {                             // her eyes. They open.
     lights({moon: 1.0, amb: .07, rim: .7}); rimC.position.set(.2, .95, -1.4);
     lieInBed(haru); haru.eyes(q > 47.5 ? 'wide' : 'squeeze'); haru.brows(q > 47.5 ? .9 : .5);
-    C(V(.03, .86, -1.6), V(0, .66, -1.67), 22);
+    C(V(.05, 1.25, -1.55), V(0, .76, -1.67), 24);
   } else if (t < 50.6) {                             // what she sees: its face, a grin full of children's teeth, getting wider
     lights({moon: .8, amb: .05, rim: 1.4});
     haru.root.visible = false; tf.root.visible = true; fairyStand(tf);
     tf.root.rotation.y = 0; tf.spine.rotation.x = 1.25; tf.neck.rotation.x = .5; tf.head.rotation.x = -1.35 + Math.sin(q * 2) * .03; tf.head.rotation.z = Math.sin(q * .9) * .15;
     tf.mouth.scale.set(1.25 + ease((q - 48.4) / 2) * .35, 1.25 + ease((q - 48.4) / 2) * .15, 1.25);
     moveTo(tf.root, tf.head, V(0, 1.15, -1.6));
-    rimC.position.set(.3, 1.35, -1.3);
-    C(V(0, .7, -1.62), V(0, 1.15, -1.6), 44); cam.up.set(0, 0, 1); cam.lookAt(0, 1.15, -1.6);
+    { tf.root.updateMatrixWorld(true); const hp = tf.head.getWorldPosition(V(0, 0, 0)), fw = V(0, -.15, 1).applyQuaternion(tf.head.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      const cp = hp.clone().add(fw.multiplyScalar(.5 - ease((q - 48.2) / 2.4) * .12)); rimC.position.copy(cp.clone().add(V(.25, .2, 0)));
+      C(cp, hp, 44); }
   } else if (t < 57.0) {                             // she runs for the hall light; it stops at the edge, like the light is deep water
-    lights({hall: 2.2, moon: .4, amb: .05}); doorP.rotation.y = -1.1;
+    lights({hall: 3.6, moon: .5, amb: .07, rim: q > 53.4 ? 1.0 : 0}); rimC.position.set(2.2, 1.7, .6); doorP.rotation.y = -1.1;
     const run = clamp01((q - 50.6) / 2.6);
-    haru.root.position.set(lerp(1.0, 3.15, run), 0, .15); haru.root.rotation.y = run < 1 ? PI / 2 : PI / 2 - ease((q - 53.2) / .6) * PI;
+    haru.root.position.set(lerp(1.0, 3.15, run), 0, lerp(.15, -.12, run)); haru.root.rotation.y = run < 1 ? PI / 2 : PI / 2 - ease((q - 53.2) / .6) * PI;
     if (run < 1) walk(haru, q, 1.9, 1.5); haru.eyes('wide'); haru.brows(.9); haru.mouth('open', .5);
-    tf.root.visible = q > 53.4; tf.root.position.set(5.45, 0, .15); tf.root.rotation.y = -PI / 2; tf.spine.rotation.x = .75;
+    tf.root.visible = q > 53.4; tf.root.position.set(1.55, 0, .15); tf.root.rotation.y = PI / 2; tf.spine.rotation.x = .75;
     const reach = ease((q - 53.6) / 1.4), back = ease((q - 55.4) / .5);
-    tf.arms[0].up.rotation.set(-1.4 * reach, 0, -.1); tf.arms[0].fo.rotation.set(-.1, 0, 0); curl(tf.arms[0], .2 - back * .6, .1, q);
-    tf.arms[0].up.rotation.x += back * 1.0;
-    if (q > 55.1 && q < 56.6) { const fp = V(4.35, 1.35, .15); smoke.forEach((s, i) => { const a = (q - 55.1) * 1.4 + i * .06; if (a > 1.5) return;
+    tf.arms[1].up.rotation.set(-1.45 * reach + back * 1.0, 0, .1); tf.arms[1].fo.rotation.set(-.1, 0, 0); curl(tf.arms[1], .2 - back * .6, .1, q);
+    if (q > 55.1 && q < 56.6) { const fp = V(2.4, 1.3, .15); smoke.forEach((s, i) => { const a = (q - 55.1) * 1.4 + i * .06; if (a > 1.5) return;
       s.visible = true; s.position.set(fp.x + Math.sin(i * 2.3) * .06 - a * .05, fp.y + a * .35 + (i % 4) * .02, fp.z + Math.cos(i * 1.7) * .06); s.scale.setScalar(.6 + a * 2); s.material.opacity = .45 * (1 - a / 1.5); }); }
-    if (q < 53.2) C(V(lerp(1.6, 3.0, run * .8), 1.25, 1.5), V(lerp(1.4, 3.4, run), 1.0, .15), 40);
-    else C(V(2.3, 1.35, .75), V(3.9, 1.15, .1), 40);
+    C(V(6.1, 1.4, .62), V(lerp(2.0, 2.6, ease((q - 52) / 2)), 1.05, .2), 40 - ease((q - 53.5) / 2) * 8);
   } else if (t < 62.7) {                             // the bathroom: she locks the door, sits under the brightest bulb in the house
-    lights({bath: 2.6, amb: .05});
+    lights({bath: 2.6, amb: .05, rim: q < 59.3 ? 1.2 : 0, rimCol: 0xffd8a8}); rimC.position.set(20.55, 1.5, .85);
     if (q < 59.3) {
-      haru.root.position.set(19.9, 0, .78); haru.root.rotation.y = 0; haru.eyes('wide'); haru.brows(.8);
+      haru.root.position.set(20.12, 0, .74); haru.root.rotation.y = 0; haru.eyes('wide'); haru.brows(.8);
       haru.arms[1].up.rotation.set(-1.2, 0, -.35); haru.arms[1].fo.rotation.set(-.6, 0, 0);
       lockTurn.rotation.z = q > 58.2 ? PI / 2 : 0;
-      C(V(20.45, 1.25, .75), V(20.38, 1.15, 1.15), 32);
+      C(V(20.62, 1.38, .55), V(20.33, 1.12, 1.15), 34);
     } else {
       haru.root.position.set(20.1, -.47, -.75); haru.root.rotation.y = 0;
       haru.legs.forEach(({th, sh}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .08); sh.rotation.x = 2.3; });
@@ -350,8 +357,9 @@ function frame(t) {
     haru.eyes('wide'); haru.brows(1); lockTurn.rotation.z = PI / 2;
     const tap = [63.4, 64.3, 64.9, 66.0, 66.4, 67.2].some(k => q >= k && q < k + .17);
     bDoorP.rotation.y = tap ? -.012 : 0;
-    if (q < 65.6) C(V(20.2, .55, .2), V(19.95, .6, 1.18), 40);                  // the door, low: shadows under the gap
-    else { haru.head.rotation.y = .3; C(V(20.35, .95, -.25), V(20.1, .82, -.72), 30); }
+    if (q < 65.6) { under.visible = true; tips.forEach((g, i) => g.position.z = 1.2 - Math.max(0, Math.sin(q * 2.2 + i * .8)) * .09);
+      C(V(20.02, .2, .82), V(19.9, .03, 1.15), 34); }                         // the door, low: its fingertips under the gap
+    else { haru.head.rotation.y = .3; C(V(20.34, 1.06, -.12), V(20.1, 1.0, -.59), 30); }
     if (q > 68.9) black = true;
   } else if (t < 73.2) {                             // black. The lock turns by itself. "Open wide."
     black = true;
@@ -359,23 +367,23 @@ function frame(t) {
     const on = [73.2, 73.62, 73.85].some(k => q >= k && q < k + .17);
     lights({bath: on ? 2.4 : 0, amb: .02});
     if (!on) black = true;
-    haru.root.rotation.x = -PI / 2; haru.root.position.set(19.95, .1, .05); haru.eyes('wide'); haru.brows(1); haru.mouth('open', 1);
+    haru.root.rotation.x = -PI / 2; haru.root.position.set(19.95, .1, .45); haru.eyes('wide'); haru.brows(1); haru.mouth('open', 1);
     haru.arms.forEach(({up}, i) => up.rotation.set(-.3, 0, (i ? 1 : -1) * .9));
     tf.root.visible = true; fairyStand(tf); tf.root.rotation.y = PI;
-    tf.legs.forEach(({th, sh, ft}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .35); sh.rotation.x = 2.5; ft.rotation.x = -.6; });
+    tf.legs.forEach(({th, sh, ft}, i) => { th.rotation.set(-1.9, 0, (i ? 1 : -1) * .12); sh.rotation.x = 2.5; ft.rotation.x = -.6; });
     tf.spine.rotation.x = 1.1; tf.neck.rotation.x = .3; tf.head.rotation.x = -1.2;
     tf.arms.forEach(a => { a.up.rotation.set(-.9, 0, a.sd * .35); a.fo.rotation.set(-.6, 0, 0); curl(a, .45); });
     tf.wings.forEach((w, i) => w.rotation.set(-.4, (i ? 1 : -1) * .2, (i ? 1 : -1) * -.9));
     tf.mouth.scale.set(1.6, 1.4, 1.3);
-    moveTo(tf.root, tf.head, V(19.95, .52, -.88));
-    C(V(20.75, 1.75, -.15), V(19.95, .35, -.6), 44);
+    moveTo(tf.root, tf.head, V(19.95, .46, -.93));
+    C(V(20.5, .72, -.5), V(19.95, .28, -1.0), 40); tf.head.lookAt(cam.position);
   } else if (t < 80.9) {                             // black: one by one
     black = true;
   } else if (t < 82.8) {                             // morning: the floor covered in bitten coins
-    lights({bathDawn: 1.6, amb: .12}); haru.root.visible = false; coins.visible = true;
-    C(V(20.1 + (q - 80.9) * .05, 2.1, .9), V(19.95, 0, -.15), 42);
+    lights({bath: .9, bathCol: 0x9fb0c8, amb: .12}); haru.root.visible = false; coins.visible = true;
+    C(V(20.3 + (q - 80.9) * .04, .95, .45), V(19.95, .02, -.35), 40);
   } else if (t < 85.2) {                             // the mirror. Lips shut. She opens them: no teeth.
-    lights({bathDawn: 1.3, amb: .12, rim: .5}); rimC.position.set(20.6, 1.6, -.6); coins.visible = true;
+    lights({bath: .8, bathCol: 0x9fb0c8, amb: .12, rim: 1.4}); rimC.position.set(20.45, 1.7, -.95); coins.visible = true;
     haru.root.position.set(20.3, 0, -.45); haru.root.rotation.y = PI; haru.eyes('open'); haru.brows(.4);
     haru.mouth(q > 83.6 ? 'gums' : 'pressed', clamp01((q - 83.6) / .4));
     const k = ease((q - 82.8) / 2.4);
@@ -388,15 +396,14 @@ function frame(t) {
     mum.chest.rotation.x = .35 * Math.sin(k1 * PI); mum.arms[1].up.rotation.x = -.9 * Math.sin(k1 * PI); mum.arms[1].fo.rotation.x = -.4;
     mGlass.visible = k1 < .55; glass.visible = k1 >= .55;
     const k = ease((q - 86.6) / 2.0);
-    C(V(lerp(1.0, HOOKCAM[0].x, k), lerp(1.4, HOOKCAM[0].y, k), lerp(-.5, HOOKCAM[0].z, k)), V(lerp(.45, 0, k), lerp(.7, .66, k), lerp(-1.4, -1.66, k)), lerp(42, 34, k));
+    C(V(lerp(-.65, HOOKCAM[0].x, k), lerp(1.45, HOOKCAM[0].y, k), lerp(-.55, HOOKCAM[0].z, k)), V(lerp(.45, HOOKCAM[1].x, k), lerp(.82, HOOKCAM[1].y, k), lerp(-1.45, HOOKCAM[1].z, k)), lerp(42, HOOKCAM[2], k));
   }
-  if (!(t >= 48.2 && t < 50.6)) cam.up.set(0, 1, 0);
 }
 
 window.renderAt = t => {
   frame(t);
   if (black) renderer.render(emptyScene, cam); else render(t);
 };
-window.dbg = t => { frame(t); haru.root.updateMatrixWorld(true); return {cam: cam.position.toArray(), head: haru.head.getWorldPosition(V(0, 0, 0)).toArray(), tf: tf.head.getWorldPosition(V(0, 0, 0)).toArray()}; };
+window.dbg = t => { frame(t); scene.updateMatrixWorld(true); const w = o => o.getWorldPosition(V(0, 0, 0)).toArray().map(v => +v.toFixed(2)); return {cam: cam.position.toArray().map(v => +v.toFixed(2)), haru: w(haru.head), mum: w(mum.head), mumD: w(mumD.head), tf: w(tf.head), tfPelvis: w(tf.pelvis), claw: w(claw), clawHand: w(clawArm.hd), clawVis: claw.visible}; };
 window.renderAt(0); window.ready = true;
 </script></body></html>
