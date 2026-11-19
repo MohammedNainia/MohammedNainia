@@ -24,7 +24,7 @@ while i < len(WORDS):
     for k in range(n - 1):
         if WORDS[i + k][0][-1:] in ',.?!' or WORDS[i + k][3] != WORDS[i + k + 1][3]: n = k + 1; break
     CHUNKS.append(WORDS[i:i + n]); i += n
-f_small = ImageFont.truetype(FONT_I, 44); f_cap = ImageFont.truetype(FONT, 66); f_oth = ImageFont.truetype(FONT_I, 66); f_hook = ImageFont.truetype(FONT, 84)
+f_small = ImageFont.truetype(FONT_I, 44); f_cap = ImageFont.truetype(FONT, 66); f_oth = ImageFont.truetype(FONT_I, 66); f_hook = ImageFont.truetype(FONT, 70)
 HOOK = ['MY FAMILY FATTENED ME', 'FOR THE THING', 'UNDER THE TABLE.']
 PHONE = []
 f_ui = ImageFont.truetype(FONT, 34)
