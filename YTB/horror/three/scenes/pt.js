@@ -98,7 +98,10 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
       lens.focusDistance = focus ? v.copy(focus).applyMatrix4(cam.matrixWorldInverse).length() : 1e4;
       lens.updateMatrixWorld(true); ptMat.physicalCamera.updateFrom(lens);
       pt.reset();
-      for (let i = 0; i < samples * tiles * tiles; i++) pt.update();   // one update per tile per sample
+      // safety: feed the GPU 8 samples at a time and wait for them, so work never piles up in one long stretch
+      // (Windows resets the graphics driver if the GPU is stuck on queued work for ~2 s)
+      const per = tiles * tiles;
+      for (let i = 0; i < samples * per; i++) { pt.update(); if ((i + 1) % (8 * per) === 0) sync(); }
       sync(); T.push(performance.now());
       quad.material.map = pt.target.texture; renderer.setRenderTarget(null); quad.render(renderer);
       gl.finish(); T.push(performance.now());

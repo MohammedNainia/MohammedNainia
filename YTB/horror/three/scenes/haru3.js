@@ -50,14 +50,32 @@ function vnoise(x, y, z) {
 const lumps = (x, y, z, a = 1) => a * (.0024 * vnoise(x * 26, y * 26, z * 26) + .0011 * vnoise(x * 70 + 3, y * 70, z * 70));
 
 // SDF -> one mesh. center/half: the cube to sample; res: samples per side.
+// Speed: the surface only needs exact values near it. A coarse pass (every B-th sample) finds blocks that are clearly
+// inside or outside (further from the surface than the block's own size + a safety margin) and fills them without
+// evaluating the shape; only the blocks near the surface are sampled at full resolution (about 5-10x fewer evaluations).
 let DETAIL = 1;                    // mesh detail for the next makeHaru3 (o.detail): lower = fewer triangles, faster path tracing
+let GEO_CACHE = null, GEO_KEY = '', GEO_N = 0;   // reuse of identical meshes between copies of the same character
+const CACHE = new Map();
+export const MESH_OPTS = {band: true};          // band: false = sample every grid point (slow; only to verify the fast path)
 function meshSDF(sdf, center, half, res) {
   res = Math.max(28, Math.round(res * DETAIL));
+  const ck = GEO_CACHE ? GEO_KEY + '#' + (GEO_N++) + '@' + res : null;
+  if (ck && CACHE.has(ck)) return CACHE.get(ck);                    // shared geometry (skin weights included)
   const mc = new MarchingCubes(res, new THREE.MeshBasicMaterial(), false, false, 220000);
-  const f = mc.field, h = res / 2, K = 4000;
-  for (let z = 0; z < res; z++) for (let y = 0; y < res; y++) for (let x = 0; x < res; x++) {
-    const px = center.x + (x - h) / h * half, py = center.y + (y - h) / h * half, pz = center.z + (z - h) / h * half;
-    f[x + y * res + z * res * res] = 80 - sdf(px, py, pz) * K;
+  const f = mc.field, h = res / 2, K = 4000, step = half / h, B = 4;
+  const P = i => (i - h) * step;                                    // grid index -> offset from the centre
+  const blockR = Math.sqrt(3) * (B / 2) * step, margin = 1.5 * blockR + 3 * step + .006;   // generous: shapes are not exact distances
+  for (let bz = 0; bz < res; bz += B) for (let by = 0; by < res; by += B) for (let bx = 0; bx < res; bx += B) {
+    const cx = Math.min(bx + B / 2, res - 1), cy = Math.min(by + B / 2, res - 1), cz = Math.min(bz + B / 2, res - 1);
+    const dc = sdf(center.x + P(cx), center.y + P(cy), center.z + P(cz));
+    const x1 = Math.min(bx + B, res), y1 = Math.min(by + B, res), z1 = Math.min(bz + B, res);
+    if (MESH_OPTS.band && Math.abs(dc) > margin) {                                     // clearly inside or outside: one value for the block
+      const v = 80 - dc * K;
+      for (let z = bz; z < z1; z++) for (let y = by; y < y1; y++) { const o = y * res + z * res * res; f.fill(v, o + bx, o + x1); }
+    } else {
+      for (let z = bz; z < z1; z++) for (let y = by; y < y1; y++) for (let x = bx; x < x1; x++)
+        f[x + y * res + z * res * res] = 80 - sdf(center.x + P(x), center.y + P(y), center.z + P(z)) * K;
+    }
   }
   mc.update();
   const n = mc.count, pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
@@ -72,6 +90,7 @@ function meshSDF(sdf, center, half, res) {
   mc.geometry.dispose();
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (ck) CACHE.set(ck, g);
   return g;
 }
 
@@ -105,6 +124,7 @@ const segDist = (p, a, b) => { const ab = b.clone().sub(a), t = Math.min(1, Math
 
 export function makeHaru3(o = {}) {
   DETAIL = o.detail || 1;
+  GEO_CACHE = true; GEO_KEY = JSON.stringify(Object.assign({}, o, {detail: DETAIL})); GEO_N = 0;      // same options = same meshes: built once, copied after
   const M = {
     skin: clay3(o.skin || 0xe39a72, {bumpScale: .9, roughness: .66}), hood: clay3(o.hood || 0xcf9132), pants: clay3(o.pants || 0x5c5b60, {bumpScale: 1.8}),
     shoe: clay3(0xf0eee8, {bumpScale: 1.0}), hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),
@@ -172,6 +192,7 @@ export function makeHaru3(o = {}) {
     // distance to each bone's SURFACE (minus its thickness), so a thin arm does not pull the side of a thick torso
     const rad = [.15, .16, .06, .12, ...arms.flatMap(() => [.07, .065, .05]), ...legs.flatMap(() => [.075, .07, .05])];
     const pos = geo.attributes.position, n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4), p = V(0, 0, 0);
+    if (!geo.attributes.skinIndex) {                    // a copy of a character built before already has its weights
     for (let i = 0; i < n; i++) {
       p.set(pos.getX(i), pos.getY(i), pos.getZ(i));
       const inv = k => 1 / Math.pow(Math.max(segDist(p, segs[k][0], segs[k][1]) - rad[k], .004), 4);
@@ -185,6 +206,7 @@ export function makeHaru3(o = {}) {
       const s = w.reduce((a, b) => a + b[1], 0); w.forEach(([k, v], j) => { si[i * 4 + j] = k; sw[i * 4 + j] = v / s; });
     }
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+    }
     const m = new THREE.SkinnedMesh(geo, mat); m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
     root.add(m); m.bind(new THREE.Skeleton(bones), m.matrixWorld); return m;
   };
