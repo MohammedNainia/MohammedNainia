@@ -209,15 +209,39 @@ export function makeHaru3(o = {}) {
   }
   // ---- head and hair (in a scaled space so the face pieces keep the v2 numbers)
   const hs = G(head, [0, .03, 0]); hs.scale.setScalar(1.37);
-  rigid((x, y, z) => smin(sdEll(x, y, z, V(0, -.018, 0), V(.124, .14, .128)), sdCapsule(x, y, z, V(0, -.2, 0), V(0, -.1, 0), .04), .03) + lumps(x, y, z, .5),
-    V(0, -.05, 0), .2, 80, M.skin, hs);
+  // round face like the sheet: a ball, fuller at the cheeks, chin at -.13, then a thin neck (sheet: neck = .34 face widths)
+  const skinSDF = (x, y, z) => {
+    let d = sdEll(x, y, z, V(0, -.01, 0), V(.12, .122, .124));
+    for (const sd of [-1, 1]) d = smin(d, sdEll(x, y, z, V(sd * .036, -.05, .05), V(.07, .07, .066)), .05);      // cheeks: full, but a round jaw
+    return smin(d, sdCapsule(x, y, z, V(0, -.22, -.01), V(0, -.1, -.01), .036), .015);
+  };
+  rigid((x, y, z) => skinSDF(x, y, z) + lumps(x, y, z, .5), V(0, -.05, 0), .2, 88, M.skin, hs);
+  // hair: a girl's hair in clay, not a cap. A thin layer over the skull with a side parting, side-swept bangs made of a few
+  // soft locks, long side hair framing the face down to the shoulders, strand grooves pressed in
+  const PART = .035;                                                                       // the parting, on her left
+  const lock = (x, y, z, a, b, r1, r2) => sdRoundCone(x, y, z, V(...a), V(...b), r1, r2);
   rigid((x, y, z) => {
-    let d = sdEll(x, y, z, V(0, .0, -.03), V(.142, .134, .146));
-    const fr = V(x + .006, y - .085, z - .01).applyAxisAngle(V(0, 0, 1), .14).applyAxisAngle(V(1, 0, 0), -.5);        // the swept fringe
-    d = smin(d, sdEll(fr.x, fr.y, fr.z, V(0, 0, 0), V(.15, .06, .14)), .02);
-    for (const sd of [-1, 1]) d = smin(d, sdRoundCone(x, y, z, V(sd * .106, -.02, -.01), V(sd * .114, -.31, .0), .05, .045), .03);   // side panels
-    const bz = (z + .095) / .72; d = smin(d, sdRoundCone(x / 1.05, y, bz, V(0, -.03, 0), V(0, -.28, 0), .13, .125) * .72, .03);   // the back
-    d = smax(d, -sdEll(x, y, z, V(0, -.04, .08), V(.104, .14, .085)), .025);                                        // the face opening
+    let d = sdEll(x, y, z, V(0, -.004, -.012), V(.142, .134, .144));                     // close to the skull: no tall crown
+    for (const sd of [-1, 1]) {                                                           // side hair, a little fuller at the ends
+      d = smin(d, lock(x, y, z, [sd * .108, .02, -.005], [sd * .122, -.2, .005], .048, .052), .04);
+      d = smin(d, lock(x, y, z, [sd * .122, -.2, .005], [sd * .13, -.31, .0], .052, .046), .03);
+    }
+    const bz = (z + .095) / .72; d = smin(d, sdRoundCone(x / 1.05, y, bz, V(0, -.03, 0), V(0, -.29, 0), .13, .125) * .72, .03);   // the back
+    d = smax(d, -sdEll(x, y, z, V(0, -.04, .08), V(.104, .14, .085)), .025);             // the face opening
+    // the parting: a shallow groove from the front of the crown to the back
+    d = smax(d, -sdCapsule(x, y, z, V(PART, .135, .07), V(PART, .14, -.09), .006), .006);
+    // side-swept bangs: locks from the parting over the forehead, most of them to her right, ends above the brows
+    const P0 = [PART - .004, .106, .058];                                                  // starts inside the crown: no peak
+    let bangs = lock(x, y, z, P0, [-.082, .05, .098], .024, .017);
+    bangs = smin(bangs, lock(x, y, z, P0, [-.038, .058, .118], .024, .018), .012);
+    bangs = smin(bangs, lock(x, y, z, P0, [.006, .066, .122], .023, .017), .012);
+    bangs = smin(bangs, lock(x, y, z, [PART + .008, .104, .055], [.082, .058, .1], .022, .016), .012);
+    d = smin(d, bangs, .02);
+    // strand grooves on the side hair and the back
+    for (const sd of [-1, 1]) for (const k of [0, 1]) {
+      const ang = k ? 1.35 : .8, ox = Math.sin(ang) * .05, oz = Math.cos(ang) * .05;      // on the surface, front-outer side
+      d = smax(d, -sdCapsule(x, y, z, V(sd * (.11 + ox), -.04, oz), V(sd * (.126 + ox), -.27, oz), .0035), .004);
+    }
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;
   // ---- hands and shoes (small pieces on their bones)
@@ -240,19 +264,26 @@ export function makeHaru3(o = {}) {
   const capTube = (pts, r, mat, parent) => { const g = G(parent); add(tube(pts, r), mat, g); for (const p of [pts[0], pts[pts.length - 1]]) add(new THREE.SphereGeometry(r, 10, 8), mat, g, p); return g; };
   const Sph = (r, sx, sy, sz) => new THREE.SphereGeometry(r, 24, 16).scale(sx, sy, sz);
   const face = G(hs, [0, -.02, .117]); face.scale.setScalar(1.18);
+  // where the skin is at a face point (face units): march in from the front; pieces are placed ON the round face
+  const FS = 1.18, onSkin = (xf, yf, lift = 0) => { const X = xf * FS, Y = -.02 + yf * FS; let z = .2;
+    for (let i = 0; i < 80 && skinSDF(X, Y, z) > .0005; i++) z -= Math.max(skinSDF(X, Y, z), .001);
+    return (z - .117) / FS + lift; };
+  // sheet (neutral, front), in face widths: eyes .108 wide, .43 apart; brows .17 long, .04 thick, .16 above the eyes;
+  // nose .108, .16 below the eyes; mouth .18 wide, .32 below the eyes
+  const EY = .002, EX = .04, BROW_Y = EY + .03;
   const eyes = [], whites = [], lids = [], squeeze = [], brows = [];
   for (const sd of [-1, 1]) {
-    const x = sd * .046;
-    whites.push(add(Sph(.026, 1, 1.08, .4), M.white, face, [x, .004, -.004]));
-    eyes.push(add(new THREE.SphereGeometry(.0165, 16, 12), M.eye, face, [x, .002, .004]));
-    lids.push(capTube([[x - .02, .0, .004], [x, -.006, .008], [x + .02, .0, .004]], .0035, M.dark, face));
-    squeeze.push(capTube([[x - sd * .02, .012, .004], [x + sd * .016, .0, .008], [x - sd * .02, -.012, .004]], .0038, M.dark, face));
-    const b = G(face, [x, .042, .0]); capTube([[-.024, -.002, 0], [0, .004, .004], [.024, -.002, 0]], .0052, M.dark, b); brows.push(b);
+    const x = sd * EX, zs = onSkin(x, EY);
+    whites.push(add(Sph(.016, 1, 1.08, .5), M.white, face, [x, EY + .002, zs - .002]));
+    eyes.push(add(new THREE.SphereGeometry(.0105, 16, 12), M.eye, face, [x, EY, zs + .001]));
+    lids.push(capTube([[x - .013, .0, zs + .001], [x, -.004, zs + .004], [x + .013, .0, zs + .001]], .0026, M.dark, face));
+    squeeze.push(capTube([[x - sd * .013, .008, zs + .001], [x + sd * .011, .0, zs + .004], [x - sd * .013, -.008, zs + .001]], .0028, M.dark, face));
+    const b = G(face, [x, BROW_Y, onSkin(x, BROW_Y)]); capTube([[-.016, -.001, 0], [0, .0012, .0015], [.016, -.001, 0]], .0037, M.dark, b); brows.push(b);
   }
-  add(Sph(.016, 1, .9, .8), M.nose, face, [0, -.03, .014]);
-  const mouth = G(face, [0, -.068, .006]);
+  add(Sph(.0105, 1, .92, .85), M.nose, face, [0, -.028, onSkin(0, -.028, .002)]);
+  const mouth = G(face, [0, -.058, onSkin(0, -.058, -.001)]); mouth.scale.setScalar(.8);
   const mouths = {
-    line: capTube([[-.016, 0, 0], [.016, 0, 0]], .0028, M.dark, mouth),
+    line: capTube([[-.021, 0, 0], [.021, 0, 0]], .0022, M.dark, mouth),
     smile: capTube([[-.024, .006, 0], [-.012, -.004, .003], [0, -.007, .004], [.012, -.004, .003], [.024, .006, 0]], .003, M.dark, mouth),
     sad: capTube([[-.022, -.006, 0], [0, .004, .004], [.022, -.006, 0]], .003, M.dark, mouth),
     wobble: capTube([...Array(9)].map((_, i) => [-.022 + i * .0055, (i % 2 ? .004 : -.003), .003]), .0028, M.dark, mouth),
@@ -260,14 +291,14 @@ export function makeHaru3(o = {}) {
     open: (() => { const g = G(mouth, [0, -.006, 0]); add(Sph(.034, 1.1, .8, .4), M.mouthIn, g); add(Sph(.02, 1.2, .5, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.04, .009, .006), M.teeth, g, [0, .017, .008]); return g; })(),
   };
   const tears = G(face);
-  for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) add(Sph(.0065 - i * .001, 1, 1.4, .6), M.tear, tears, [sd * .052, -.024 - i * .018, .006]);
+  for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) add(Sph(.0055 - i * .0008, 1, 1.4, .6), M.tear, tears, [sd * .044, -.016 - i * .016, onSkin(sd * .044, -.016 - i * .016, .002)]);
   const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
 
   const Pp = {root, hips, chest, neck, head, face, arms, legs, M};
   Pp.eyes = s => { const open = s === 'open' || s === 'wide';
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? .9 : 1); }); whites.forEach(w => w.visible = s === 'wide');
     lids.forEach(l => l.visible = s === 'closed'); squeeze.forEach(l => l.visible = s === 'squeeze'); };
-  Pp.brows = (k, lift = 0) => brows.forEach((b, i) => { const sd = i ? 1 : -1; b.rotation.z = -sd * k * .45; b.position.y = .042 + lift * .01 + Math.abs(k) * .003; });
+  Pp.brows = (k, lift = 0) => brows.forEach((b, i) => { const sd = i ? 1 : -1; b.rotation.z = -sd * k * .45; b.position.y = BROW_Y + lift * .008 + Math.abs(k) * .0025; });
   Pp.mouth = s => { for (const [k, m] of Object.entries(mouths)) m.visible = k === s; };
   Pp.tears = on => tears.visible = on; Pp.sweat = on => sweat.visible = on;
   Pp.expr = name => {
