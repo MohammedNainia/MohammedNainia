@@ -11,6 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "playwright": "^1.63.0",
-    "three": "^0.160.0"
+    "three": "^0.160.0",
+    "three-gpu-pathtracer": "^0.0.20",
+    "three-mesh-bvh": "^0.7.6"
   }
 }
