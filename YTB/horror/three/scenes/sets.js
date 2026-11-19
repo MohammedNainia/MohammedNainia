@@ -147,10 +147,10 @@ export const LIGHTS = {
     const lp = l.position;
     g.add(rect(0xffc98a, 14, .5, .5, [lp.x, lp.y + .15, lp.z], [lp.x, lp.y + 2, lp.z]));
     g.add(rect(0xffc98a, 12, .45, .45, [lp.x, lp.y - .05, lp.z], [lp.x, 0, lp.z + .3]));
-    const shadeM = lampProp.userData.shade.material; shadeM.emissive = new THREE.Color(0xffb870); shadeM.emissiveIntensity = .35;   // the lit shade glows
+    const shadeM = lampProp.userData.shade.material; shadeM.emissive = new THREE.Color(0xffb870);   // the lit shade glows (only while this preset is on)
     lampProp.userData.bulb.material.emissiveIntensity = 2.5; fill(g, .08);
     // path traced: drop the tiny point light inside the shade (it makes the shade blinding and speckles the room); the soft lights above carry it
-    return {group: g, point: l, forPathTracing() { g.remove(l); }, update() {}}; },
+    return {group: g, point: l, forPathTracing() { g.remove(l); }, update() {}, on(k) { shadeM.emissiveIntensity = k ? .35 : 0; lampProp.userData.bulb.material.emissiveIntensity = k ? 2.5 : 0; }}; },
   // only a flashlight (the character holds it: pass its hand group); everything else dark
   flashlight: (R, hand) => { const g = new THREE.Group();
     const l = new THREE.SpotLight(0xfff1cc, 30, 9, .42, .55, 2); l.castShadow = true; hand.add(l); l.position.set(.13, 0, 0);

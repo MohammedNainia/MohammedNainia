@@ -46,7 +46,7 @@ const GLOW = PTS ? .25 : 1;
 window.renderAt = t => {
   const i = Math.round(t) % 5;
   L.forEach((l, j) => { l.group.visible = j === i; });
-  LA.userData.bulb.material.emissiveIntensity = i === 3 ? 2.5 * GLOW : 0;
+  L[3].on(i === 3); LA.userData.bulb.material.emissiveIntensity *= GLOW;
   TV.userData.screen.material.emissiveIntensity = 0; L[i].update(t * 0 + i * 1.7); TV.userData.screen.material.emissiveIntensity *= GLOW;
   H.root.visible = i !== 4; HF.root.visible = i === 4;
   R.door.open(i === 2 ? 0 : .0);
