@@ -44,6 +44,7 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
   ]).map(b => { const l = new THREE.RectAreaLight(b.color, b.power, b.size[0], b.size[1]); l.position.set(...b.pos); l.lookAt(0, .9, 0); l.visible = false; scene.add(l); return l; });
   // 3. the path tracer
   const ptMat = new PhysicalPathTracingMaterial(); ptMat.bounces = bounces; ptMat.transmissiveBounces = 4;
+  ptMat.filterGlossyFactor = .5;                       // tames the bright speckles from light bouncing off shiny bits
   const pt = new PathTracingRenderer(renderer); pt.material = ptMat; pt.tiles.set(tiles, tiles);
   const lens = new PhysicalCamera(); pt.camera = lens;
   const sky = new GradientEquirectTexture(256); sky.topColor.set(env[0]); sky.bottomColor.set(env[1]); sky.exponent = .7; sky.update();

@@ -92,7 +92,7 @@ export function lamp({shade = 0xe8d9b8} = {}) {
   const g = G(); cyl(.07, .09, .05, 0x5a5048, g, [0, .025, 0]); cyl(.012, .012, .3, 0x5a5048, g, [0, .2, 0]);
   const s = mesh(new THREE.CylinderGeometry(.09, .15, .2, 24, 1, true), Object.assign(clayM(shade, .3), {side: THREE.DoubleSide}), g, [0, .38, 0]);
   const bulb = mesh(new THREE.SphereGeometry(.035, 12, 10), new THREE.MeshStandardMaterial({color: 0xfff1d0, emissive: 0xffd9a0, emissiveIntensity: 0}), g, [0, .34, 0]);
-  g.userData = {bulb, lightPos: new THREE.Vector3(0, .34, 0)}; return g;
+  g.userData = {bulb, shade: s, lightPos: new THREE.Vector3(0, .34, 0)}; return g;
 }
 export function wardrobe({c = 0x5e4636} = {}) {
   const g = G(); block(1.0, 2.0, .55, c, g, [0, 1.0, 0], .035);
@@ -137,13 +137,20 @@ export const LIGHTS = {
   // a thin line of warm light under the closed door (someone is on the other side)
   door: R => { const g = new THREE.Group(); const D = R.door;
     g.add(rect(0xffc27a, 500, D.w * .9, .025, [D.x, .014, D.z + .03], [D.x, .2, D.z + 2]));           // the bright line
-    g.add(rect(0xffb060, 6, D.w, .5, [D.x, .02, D.z + .3], [D.x, -1, D.z + .5]));                       // its glow on the floor boards
+    g.add(rect(0xffb060, 14, D.w, .9, [D.x, .25, D.z + .12], [D.x, -.2, D.z + 1.2]));                  // its glow spreading over the floor boards
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(D.w * .9, .012), new THREE.MeshBasicMaterial({color: 0xffd9a0})); strip.position.set(D.x, .006, D.z + .025); g.add(strip);
     fill(g, .1); return {group: g, update() {}}; },
   // a bedside lamp: warm and close
   lamp: (R, lampProp) => { const g = new THREE.Group(); lampProp.updateMatrixWorld(true);
     const l = new THREE.PointLight(0xffc98a, 3.2, 6, 2); l.position.copy(lampProp.localToWorld(lampProp.userData.lightPos.clone())); l.castShadow = true; g.add(l);
-    lampProp.userData.bulb.material.emissiveIntensity = 2.5; fill(g, .08); return {group: g, update() {}}; },
+    // the light that leaves the shade: a soft warm patch on the wall/ceiling and a downward pool (direct light = little grain when path traced)
+    const lp = l.position;
+    g.add(rect(0xffc98a, 14, .5, .5, [lp.x, lp.y + .15, lp.z], [lp.x, lp.y + 2, lp.z]));
+    g.add(rect(0xffc98a, 12, .45, .45, [lp.x, lp.y - .05, lp.z], [lp.x, 0, lp.z + .3]));
+    const shadeM = lampProp.userData.shade.material; shadeM.emissive = new THREE.Color(0xffb870); shadeM.emissiveIntensity = .35;   // the lit shade glows
+    lampProp.userData.bulb.material.emissiveIntensity = 2.5; fill(g, .08);
+    // path traced: drop the tiny point light inside the shade (it makes the shade blinding and speckles the room); the soft lights above carry it
+    return {group: g, point: l, forPathTracing() { g.remove(l); }, update() {}}; },
   // only a flashlight (the character holds it: pass its hand group); everything else dark
   flashlight: (R, hand) => { const g = new THREE.Group();
     const l = new THREE.SpotLight(0xfff1cc, 30, 9, .42, .55, 2); l.castShadow = true; hand.add(l); l.position.set(.13, 0, 0);

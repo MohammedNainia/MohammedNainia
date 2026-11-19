@@ -40,6 +40,7 @@ if (PTS) { const {pathTracer} = await import('./pt.js');
   // path traced: glowing surfaces (bulb, screen) are lit by the real lights instead (bright glowing surfaces give speckles),
   // and the drawn flashlight beam is hidden (the path tracer makes the real one)
   scene.traverse(o => { if (o.isMesh && o.material.blending === THREE.AdditiveBlending) o.visible = false; });
+  L.forEach(l => l.forPathTracing && l.forPathTracing());
   PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x0c1424, 0x020306], envIntensity: .6, denoise: q.get('dn') === '1'}); }
 const GLOW = PTS ? .25 : 1;
 window.renderAt = t => {
