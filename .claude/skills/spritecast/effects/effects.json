@@ -1,0 +1,375 @@
+{
+ "_": "The looks of a swing's effect (\"trail\" in an action). band: plain | wind | water | fire | none. pieces: small pictures let go along the swing - image (a strip of square cells here, or the user's own file), rate (pieces per figure-height of path), carry (the share of the swing's speed they keep), out (flung outward), rise, jitter (figure heights a second), gravity, drag, life (seconds), size (figure heights), turn (spin | path | up), sway, ground (die | stop), shrink. A pair [a, b] is a range. mass: water | fire - the pieces marked blob are one body (they join where close and part into strings and drops), not pictures; swirl bends their paths together. delay: seconds before a piece shows. when: stroke (the default: only the swing itself, not the wind-up) | always. frames_x: effect frames to each of the body's (2: the effect plays at twice the fps). stretch: a fast piece drawn long along its way (water). ground: splash - it bursts where it lands (a ring on the floor, droplets up; \"splash\": the share that do).",
+ "plain": {
+  "band": "plain"
+ },
+ "wind": {
+  "band": "wind"
+ },
+ "water": {
+  "band": "none",
+  "mass": "water",
+  "pieces": [
+   {
+    "blob": true,
+    "rate": 420,
+    "spread": 1.0,
+    "carry": [ 0.38,
+     0.5
+    ],
+    "out": [ 0.2,
+     0.45
+    ],
+    "jitter": 0.04,
+    "gravity": -3.5,
+    "drag": 1.0,
+    "life": [ 0.4,
+     0.8
+    ],
+    "size": [ 0.11,
+     0.15
+    ],
+    "shrink": 0.7,
+    "fade": 0.2,
+    "min_speed": 2.2,
+    "stretch": 0.22,
+    "ground": "splash",
+    "splash": 0.07
+   },
+   {
+    "image": "mist.png",
+    "rate": 16,
+    "spread": 0.8,
+    "carry": [ 0.05,
+     0.18
+    ],
+    "rise": [ 0.1,
+     0.25
+    ],
+    "jitter": 0.08,
+    "gravity": 0.35,
+    "drag": 2.0,
+    "delay": [ 0.1,
+     0.4
+    ],
+    "life": [ 0.8,
+     1.5
+    ],
+    "size": [ 0.14,
+     0.22
+    ],
+    "grow": 0.9,
+    "alpha": 0.4,
+    "turn": "spin",
+    "spin": 0.6,
+    "fade": 0.6
+   }
+  ],
+  "frames_x": 3
+ },
+ "drops": {
+  "band": "water",
+  "pieces": [
+   {
+    "image": "drop.png",
+    "rate": 30,
+    "carry": [ 0.15,
+     0.4
+    ],
+    "out": [ 0.2,
+     0.8
+    ],
+    "jitter": 0.3,
+    "gravity": -3.0,
+    "drag": 2.0,
+    "life": [ 0.4,
+     0.9
+    ],
+    "size": [ 0.035,
+     0.065
+    ],
+    "turn": "path",
+    "ground": "die"
+   }
+  ],
+  "frames_x": 2
+ },
+ "fire": {
+  "band": "none",
+  "mass": "fire",
+  "pieces": [
+   {
+    "blob": true,
+    "rate": 260,
+    "spread": 1.0,
+    "carry": [ 0.05,
+     0.16
+    ],
+    "rise": [ 0.1,
+     0.3
+    ],
+    "jitter": 0.05,
+    "gravity": 2.6,
+    "drag": 2.4,
+    "life": [ 0.4,
+     0.8
+    ],
+    "size": [ 0.1,
+     0.15
+    ],
+    "shrink": 0.9,
+    "swirl": 0.05,
+    "fade": 0.5,
+    "min_speed": 2.0
+   },
+   {
+    "image": "spark.png",
+    "rate": 20,
+    "carry": [ 0.1,
+     0.35
+    ],
+    "out": [ 0.0,
+     0.4
+    ],
+    "rise": [ 0.2,
+     0.6
+    ],
+    "jitter": 0.2,
+    "gravity": -0.3,
+    "drag": 1.5,
+    "life": [ 0.5,
+     1.0
+    ],
+    "size": [ 0.035,
+     0.055
+    ]
+   },
+   {
+    "image": "ash.png",
+    "rate": 40,
+    "spread": 0.8,
+    "carry": [ 0.05,
+     0.2
+    ],
+    "rise": [ 0.15,
+     0.4
+    ],
+    "jitter": 0.15,
+    "gravity": 0.12,
+    "drag": 2.0,
+    "delay": [ 0.2,
+     0.5
+    ],
+    "life": [ 1.0,
+     1.9
+    ],
+    "size": [ 0.055,
+     0.095
+    ],
+    "turn": "spin",
+    "spin": 4,
+    "sway": 0.04,
+    "fade": 0.5
+   }
+  ],
+  "frames_x": 2
+ },
+ "flames": {
+  "band": "fire",
+  "pieces": [
+   {
+    "image": "flame.png",
+    "rate": 26,
+    "spread": 0.6,
+    "carry": [ 0.02,
+     0.1
+    ],
+    "rise": [ 0.15,
+     0.45
+    ],
+    "jitter": 0.08,
+    "drag": 2.0,
+    "life": [ 0.35,
+     0.75
+    ],
+    "size": [ 0.08,
+     0.14
+    ],
+    "turn": "up",
+    "tilt": 0.5,
+    "shrink": 0.8
+   },
+   {
+    "image": "spark.png",
+    "rate": 20,
+    "carry": [ 0.1,
+     0.35
+    ],
+    "out": [ 0.0,
+     0.4
+    ],
+    "rise": [ 0.2,
+     0.6
+    ],
+    "jitter": 0.2,
+    "gravity": -0.3,
+    "drag": 1.5,
+    "life": [ 0.5,
+     1.0
+    ],
+    "size": [ 0.035,
+     0.055
+    ]
+   }
+  ],
+  "frames_x": 2
+ },
+ "leaves": {
+  "band": "wind",
+  "color": "#fff3d6",
+  "color2": "#ffe2a8",
+  "pieces": [
+   {
+    "image": "leaf.png",
+    "rate": 22,
+    "carry": [ 0.15,
+     0.35
+    ],
+    "out": [ 0.0,
+     0.3
+    ],
+    "jitter": 0.3,
+    "gravity": -0.5,
+    "drag": 2.5,
+    "life": [ 0.9,
+     1.8
+    ],
+    "size": [ 0.07,
+     0.11
+    ],
+    "turn": "spin",
+    "spin": 5,
+    "sway": 0.03,
+    "ground": "stop"
+   }
+  ],
+  "frames_x": 2
+ },
+ "greenleaves": {
+  "band": "wind",
+  "color": "#f2ffe6",
+  "color2": "#d2f2b8",
+  "pieces": [
+   {
+    "image": "greenleaf.png",
+    "rate": 22,
+    "carry": [ 0.15,
+     0.35
+    ],
+    "out": [ 0.0,
+     0.3
+    ],
+    "jitter": 0.3,
+    "gravity": -0.5,
+    "drag": 2.5,
+    "life": [ 0.9,
+     1.8
+    ],
+    "size": [ 0.07,
+     0.11
+    ],
+    "turn": "spin",
+    "spin": 5,
+    "sway": 0.03,
+    "ground": "stop"
+   }
+  ],
+  "frames_x": 2
+ },
+ "petals": {
+  "band": "wind",
+  "color": "#fff0f5",
+  "color2": "#ffd0e0",
+  "pieces": [
+   {
+    "image": "petal.png",
+    "rate": 28,
+    "carry": [ 0.12,
+     0.3
+    ],
+    "out": [ 0.0,
+     0.3
+    ],
+    "jitter": 0.25,
+    "gravity": -0.3,
+    "drag": 3.0,
+    "life": [ 1.0,
+     1.8
+    ],
+    "size": [ 0.045,
+     0.07
+    ],
+    "turn": "spin",
+    "spin": 4,
+    "sway": 0.04,
+    "ground": "stop"
+   }
+  ],
+  "frames_x": 2
+ },
+ "snow": {
+  "band": "plain",
+  "color": "#eaf6ff",
+  "alpha": 0.6,
+  "pieces": [
+   {
+    "image": "snow.png",
+    "rate": 32,
+    "carry": [ 0.1,
+     0.3
+    ],
+    "out": [ 0.0,
+     0.3
+    ],
+    "jitter": 0.25,
+    "gravity": -0.25,
+    "drag": 3.0,
+    "life": [ 0.9,
+     1.6
+    ],
+    "size": [ 0.035,
+     0.065
+    ],
+    "turn": "spin",
+    "spin": 1.5,
+    "sway": 0.03,
+    "ground": "stop"
+   }
+  ],
+  "frames_x": 2
+ },
+ "sparkle": {
+  "band": "plain",
+  "color": "#fff6c8",
+  "alpha": 0.7,
+  "pieces": [
+   {
+    "image": "star.png",
+    "rate": 28,
+    "carry": [ 0.0,
+     0.1
+    ],
+    "jitter": 0.15,
+    "life": [ 0.35,
+     0.9
+    ],
+    "size": [ 0.06,
+     0.12
+    ],
+    "turn": "up",
+    "shrink": 1.0
+   }
+  ],
+  "frames_x": 2
+ }
+}
