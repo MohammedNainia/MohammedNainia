@@ -27,7 +27,8 @@ h08  HARU     Nobody chased me. They just sat back down.
               [the family at the table, calm, in the warm light; Haru at the dark door behind them.]
 h09  HARU     The tablecloth started to rise.
               [the cloth lifts off the floor like a tent. Plates slide. Candles tip.]
-t01  IT       Is she ready?
+t01  IT       (a dead language, breath and hard consonants, no English) Hhhrrr... khvetsk'a... t'qhul... mnaaah?
+              [caption in pink italic: the strange words, with a small (is she ready?) under them; Grandma's answer makes it clear]
 g03  GRANDMA  She's ready.
               [Haru's chair scrapes backward on its own, toward the table. Her nails drag on the floor. She goes under the cloth.
                Black. Under it all: a muffled scream, cutlery.]
