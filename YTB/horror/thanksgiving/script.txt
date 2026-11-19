@@ -1,0 +1,34 @@
+THANKSGIVING (9:16, target 85-95 s, dark clay, one line per voice generation)
+Hook text at frame 0: MY FAMILY KEPT / FEEDING ME. / NOW I KNOW WHY.
+Rule: never open the cellar door on Thanksgiving.
+Haru's choice: the knocking under the floor; she opens the cellar while everyone sleeps.
+Twist: every Thanksgiving the family feeds one child for the thing under the house. Cousin Aki "moved away" two years ago.
+Ending/loop: next Thanksgiving, Haru's chair is empty; Grandma fills little cousin Mei's plate: "Eat, sweetheart. You're too thin."
+Unspoken question: Mei is next. Who was circled before Aki?
+
+h01  HARU     My family kept feeding me all Thanksgiving. Now I know why.
+              [frame 0: Haru at the table, plate piled high, Grandma's hand spooning more on.]
+h02  HARU     Every plate I emptied, Grandma filled again.
+g01  GRANDMA  Eat, sweetheart. You're too thin.
+h03  HARU     Under the floor, something knocked. Three times.
+              [the table goes quiet. Glasses tremble. Grandpa taps his foot twice.]
+p01  GRANDPA  Not yet.
+h04  HARU     There was one rule in that house. Never open the cellar on Thanksgiving.
+h05  HARU     My cousin Aki used to sit across from me. Two years ago, they said he moved away.
+              [an empty chair across the table, a plate set in front of it anyway.]
+h06  HARU     After the pie, Grandma squeezed my arm, the way she checks fruit.
+g02  GRANDMA  Almost.
+h07  HARU     When everyone fell asleep on the couch, I went to the cellar door. It was warm, like breath.
+h08  HARU     I opened it.
+              [the cellar walls: Thanksgiving photos, one per year, one child circled in red in each. Aki, last year.]
+h09  HARU     A child was circled in every photo. Aki was last year.
+              [a new photo, still wet: this year, Haru circled.]
+              [from the dark, a mouth unfolds, wide as the cellar, a napkin tucked under its chin.]
+t01  IT       Is she ready?
+h10  HARU     Behind me, my whole family stood on the stairs.
+g03  GRANDMA  She's ready.
+              [black. A dinner bell. Knives on plates.]
+              [next Thanksgiving: the family smiling, a new car outside. Haru's chair empty, a plate set anyway.
+               Grandma spoons potatoes onto little cousin Mei's plate.]
+g04  GRANDMA  Eat, sweetheart. You're too thin.
+              [cut to frame 0 (loop).]
