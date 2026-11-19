@@ -252,12 +252,12 @@ export function makeHaru3(o = {}) {
     d = smin(d, sdRoundBox(x, y, z, V(0, -.04, 0), V(.019, .017, .006), .0075), .012);                // palm
     let fingers = 1e9;
     for (let i = 0; i < 3; i++) {
-      const fx = a.sd * (-.0135 + i * .0135), L = FL[i], b0 = V(fx, -.057, .001);
+      const fx = -a.sd * (-.0135 + i * .0135), L = FL[i], b0 = V(fx, -.057, .001);
       const k1 = V(fx * 1.06, -.057 - L * .55, .004), tip = V(fx * 1.1, -.057 - L, .011);
       fingers = Math.min(fingers, smin(sdCapsule(x, y, z, b0, k1, .0064), sdCapsule(x, y, z, k1, tip, .006), .003));
     }
     d = smin(d, fingers, .005);
-    const t0 = V(-a.sd * .016, -.03, .006), t1 = V(-a.sd * .03, -.046, .014), t2 = V(-a.sd * .034, -.062, .019);   // thumb, on the inner side (toward the body)
+    const t0 = V(a.sd * .016, -.03, .006), t1 = V(a.sd * .03, -.046, .014), t2 = V(a.sd * .034, -.062, .019);   // thumb: palms face forward (+z), so the thumb is on the OUTER side; left and right hands mirror
     d = smin(d, smin(sdCapsule(x, y, z, t0, t1, .0075), sdCapsule(x, y, z, t1, t2, .0066), .003), .007);
     return d + lumps(x, y, z, .25);
   }, V(0, -.045, .005), .068, 104, M.skin, a.hand).scale.setScalar(1.45));
