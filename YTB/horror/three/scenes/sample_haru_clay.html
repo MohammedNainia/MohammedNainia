@@ -32,13 +32,15 @@ const M = {skin: clay(0xf0c9a8), hood: clay(0xe0a33a), pants: clay(0x5a5862), sh
 const lumpy = [];
 function lump(geo, amt = .012, freq = 6) {
   geo = geo.toNonIndexed ? geo : geo; geo.computeVertexNormals();
-  const base = geo.attributes.position.array.slice(), nrm = geo.attributes.normal.array.slice();
-  const e = {geo, base, nrm, amt, freq}; lumpy.push(e); return geo;
+  const e = {geo, base: null, nrm: null, amt, freq}; lumpy.push(e); return geo;   // snapshot taken at the first boil (after any scale/translate)
 }
 const noise = (x, y, z, sd) => Math.sin(x * 1.7 + sd) * Math.sin(y * 2.3 + sd * 1.3) * Math.sin(z * 1.9 + sd * .7)
   + .5 * Math.sin(x * 3.1 - sd * .9 + y * 1.2) * Math.sin(z * 2.7 + sd * 1.1);
 function boil(sd) {
-  for (const {geo, base, nrm, amt, freq} of lumpy) {
+  for (const e of lumpy) {
+    const {geo, amt, freq} = e;
+    if (!e.base) { geo.computeVertexNormals(); e.base = geo.attributes.position.array.slice(); e.nrm = geo.attributes.normal.array.slice(); }
+    const {base, nrm} = e;
     const p = geo.attributes.position.array;
     for (let i = 0; i < p.length; i += 3) { const d = noise(base[i] * freq, base[i + 1] * freq, base[i + 2] * freq, sd) * amt;
       p[i] = base[i] + nrm[i] * d; p[i + 1] = base[i + 1] + nrm[i + 1] * d; p[i + 2] = base[i + 2] + nrm[i + 2] * d; }

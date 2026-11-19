@@ -1,0 +1,134 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#2a2320}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+// Code-only sample: Haru as a soft clay (stop-motion) puppet. Lumpy shapes, fingerprint bumps, matte sheen,
+// soft light, and "boiling" (the lumps shift every 2 frames, played at 12 fps).
+import * as THREE from 'three';
+const W = 540, H = 720;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(W, H); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2b2420);
+const cam = new THREE.PerspectiveCamera(30, W / H, .1, 50); cam.position.set(1.05, 1.1, 3.5); cam.lookAt(0, .8, 0);
+
+// fingerprint / tool-mark bump texture (made once)
+const bc = document.createElement('canvas'); bc.width = bc.height = 512; const g = bc.getContext('2d');
+g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+let s = 3; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+for (let k = 0; k < 40; k++) { const cx = r() * 512, cy = r() * 512, n = 6 + r() * 8;          // fingerprint swirls
+  for (let i = 0; i < n; i++) { g.strokeStyle = `rgba(${r() < .5 ? 60 : 200},${r() < .5 ? 60 : 200},${r() < .5 ? 60 : 200},.35)`; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(cx, cy, 4 + i * 3, 3 + i * 2.2, r() * 3, 0, 6.3); g.stroke(); } }
+for (let k = 0; k < 900; k++) { g.fillStyle = `rgba(${r() < .5 ? 40 : 220},${r() < .5 ? 40 : 220},${r() < .5 ? 40 : 220},.12)`; g.beginPath(); g.arc(r() * 512, r() * 512, 1 + r() * 3, 0, 6.3); g.fill(); }
+const bump = new THREE.CanvasTexture(bc); bump.wrapS = bump.wrapT = THREE.RepeatWrapping; bump.repeat.set(2, 2);
+const clay = c => new THREE.MeshPhysicalMaterial({color: c, roughness: .9, metalness: 0, sheen: .35, sheenRoughness: .9,
+  sheenColor: new THREE.Color(c).lerp(new THREE.Color(0xffffff), .35), bumpMap: bump, bumpScale: 2.2, clearcoat: 0});
+const M = {skin: clay(0xf0c9a8), hood: clay(0xe0a33a), pants: clay(0x5a5862), shoe: clay(0xf2eee6), hair: clay(0x24222a),
+  eye: new THREE.MeshPhysicalMaterial({color: 0x0c0c0e, roughness: .15, clearcoat: 1}), floor: clay(0x8a6a50), wall: clay(0x6a4e44), cheek: clay(0xee9a8e)};
+
+// lumpy geometry: displace along normals by smooth noise; the noise seed changes per "boil" frame
+const lumpy = [];
+function lump(geo, amt = .012, freq = 6) {
+  geo = geo.toNonIndexed ? geo : geo; geo.computeVertexNormals();
+  const e = {geo, base: null, nrm: null, amt, freq}; lumpy.push(e); return geo;   // snapshot taken at the first boil (after any scale/translate)
+}
+const noise = (x, y, z, sd) => Math.sin(x * 1.7 + sd) * Math.sin(y * 2.3 + sd * 1.3) * Math.sin(z * 1.9 + sd * .7)
+  + .5 * Math.sin(x * 3.1 - sd * .9 + y * 1.2) * Math.sin(z * 2.7 + sd * 1.1);
+function boil(sd) {
+  for (const e of lumpy) {
+    const {geo, amt, freq} = e;
+    if (!e.base) { geo.computeVertexNormals(); e.base = geo.attributes.position.array.slice(); e.nrm = geo.attributes.normal.array.slice(); }
+    const {base, nrm} = e;
+    const p = geo.attributes.position.array;
+    for (let i = 0; i < p.length; i += 3) { const d = noise(base[i] * freq, base[i + 1] * freq, base[i + 2] * freq, sd) * amt;
+      p[i] = base[i] + nrm[i] * d; p[i + 1] = base[i + 1] + nrm[i + 1] * d; p[i + 2] = base[i + 2] + nrm[i + 2] * d; }
+    geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+  }
+}
+function add(geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot); m.castShadow = m.receiveShadow = true; parent.add(m); return m;
+}
+const S = (r, sx = 1, sy = 1, sz = 1, a, f) => lump(new THREE.SphereGeometry(r, 40, 30).scale(sx, sy, sz), a, f);
+const Cp = (r, l, a, f) => lump(new THREE.CapsuleGeometry(r, l, 10, 24), a, f);
+
+// set: a small clay room corner
+add(lump(new THREE.BoxGeometry(6, .2, 6, 30, 2, 30), .02, 2), M.floor, scene, [0, -.1, 0]);
+add(lump(new THREE.BoxGeometry(6, 4, .2, 30, 20, 2), .03, 1.5), M.wall, scene, [0, 2, -1.3]);
+M.wall.bumpScale = .6; M.floor.bumpScale = .6; M.skin.bumpScale = .35; M.hood.bumpScale = 1.2; M.pants.bumpScale = 1.2; M.hair.bumpScale = .8;
+
+// Haru with human anatomy: about 7 heads tall (1.6 m), neck, shoulders, waist, hips, elbows, knees, real hands and feet.
+const DS = THREE.DoubleSide;
+const haru = new THREE.Group(); scene.add(haru);
+const hips = new THREE.Group(); hips.position.y = .82; haru.add(hips);
+add(S(.125, 1.05, .62, .72, .004, 12), M.pants, hips, [0, .02, 0]);                         // pelvis
+const chest = new THREE.Group(); chest.position.y = .06; hips.add(chest);
+add(Cp(.13, .26, .005, 10).scale(1.08, 1, .76), M.hood, chest, [0, .23, 0]);
+for (const x of [-.15, .15]) add(S(.06, 1, .9, 1, .003, 12), M.hood, chest, [x, .42, 0]);   // shoulders                // oversized hoodie torso (waist to shoulders)
+add(Cp(.13, .05, .004, 10).scale(1.15, 1, .8), M.hood, chest, [0, -.01, 0]);                 // the hoodie hem, a bit wider
+add(S(.07, 1.5, .42, .28, .003, 14), M.hood, chest, [0, .08, .095]);                         // front pocket
+add(lump(new THREE.TorusGeometry(.075, .035, 12, 24), .003, 14), M.hood, chest, [0, .47, -.03], [Math.PI / 2 + .35, 0, 0]);  // hood at the neck
+const neck = new THREE.Group(); neck.position.y = .49; chest.add(neck);
+add(Cp(.036, .05, .002, 16), M.skin, neck, [0, .02, 0]);
+const head = new THREE.Group(); head.position.y = .14; neck.add(head);
+add(S(.1, .94, 1.12, 1.02, .003, 14), M.skin, head);                                       // head: a soft egg, chin narrower
+add(S(.03, 1, .8, .6, .002, 16), M.skin, head, [0, -.075, .055]);                           // jaw/chin
+// hair: cap pushed back so the face shows, a fringe shell over the forehead, long hair down the back, side strands
+add(S(.106, 1.0, 1.08, 1.0, .004, 12), M.hair, head, [0, .016, -.022]);
+const fr = new THREE.Mesh(lump(new THREE.SphereGeometry(.109, 32, 16, -Math.PI * .5 - .95, 1.9, .28, .55), .002, 14), M.hair);
+fr.material = M.hair.clone(); fr.material.side = DS; fr.position.set(0, .012, -.004); fr.castShadow = true; head.add(fr);
+const back = new THREE.Group(); back.position.set(0, -.02, -.07); head.add(back);
+add(Cp(.085, .3, .004, 10).scale(1.25, 1, .42), M.hair, back, [0, -.2, 0]);
+for (const x of [-.092, .092]) add(Cp(.024, .22, .002, 14), M.hair, head, [x, -.14, .005]);
+// face: small and quiet. dot eyes, a hint of nose, a small mouth, faint cheeks
+const face = new THREE.Group(); face.position.set(0, -.012, .096); head.add(face);
+for (const x of [-.034, .034]) { add(new THREE.SphereGeometry(.011, 14, 10), M.eye, face, [x, 0, .004]); }
+add(S(.01, .9, 1, .8, .001, 18), M.skin, face, [0, -.03, .01]);                             // nose
+add(S(.008, 2.2, .6, .5, .001, 18), M.hair, face, [0, -.058, .004]);                         // mouth
+// arms: shoulder, elbow, wrist, hand with a thumb (elbows at the waist, fingertips at mid-thigh)
+const arms = [-1, 1].map(sd => {
+  const up = new THREE.Group(); up.position.set(sd * .175, .44, 0); chest.add(up);
+  add(Cp(.05, .2, .004, 12), M.hood, up, [0, -.13, 0]);                                       // sleeve, upper arm
+  const fo = new THREE.Group(); fo.position.y = -.27; up.add(fo);
+  add(S(.046, 1, 1, 1, .003, 12), M.hood, fo);                                                 // elbow
+  add(Cp(.045, .18, .004, 12), M.hood, fo, [0, -.11, 0]);                                     // sleeve, forearm (cuff at the wrist)
+  const hand = new THREE.Group(); hand.position.y = -.25; fo.add(hand);
+  add(S(.032, .75, 1.25, .45, .002, 18), M.skin, hand, [0, -.03, 0]);                         // palm and fingers
+  add(Cp(.011, .03, .001, 20), M.skin, hand, [-sd * .022, -.015, .014], [0, 0, sd * .5]);     // thumb
+  return [up, fo];
+});
+// legs: hip, knee, ankle, shoe
+const legs = [-1, 1].map(sd => {
+  const th = new THREE.Group(); th.position.set(sd * .075, -.02, 0); hips.add(th);
+  add(Cp(.064, .27, .004, 12), M.pants, th, [0, -.18, 0]);
+  const sh = new THREE.Group(); sh.position.y = -.37; th.add(sh);
+  add(S(.054, 1, 1, 1, .003, 12), M.pants, sh);                                                // knee
+  add(Cp(.052, .28, .004, 12), M.pants, sh, [0, -.17, 0]);
+  const ft = new THREE.Group(); ft.position.y = -.37; sh.add(ft);
+  add(S(.058, 1, .66, 2.2, .003, 14), M.shoe, ft, [0, -.01, .05]);
+  return [th, sh, ft];
+});
+
+// soft studio light: big key, warm fill, rim
+const key = new THREE.DirectionalLight(0xfff1e0, 2.4); key.position.set(2.5, 4, 3); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; key.shadow.camera.left = key.shadow.camera.bottom = -2; key.shadow.camera.right = key.shadow.camera.top = 2; scene.add(key);
+scene.add(new THREE.HemisphereLight(0xffe8d0, 0x3a2a22, .9));
+const rim = new THREE.DirectionalLight(0xc8d8ff, 1.2); rim.position.set(-3, 2.5, -2); scene.add(rim);
+
+window.renderAt = t => {                       // t 0..1 at 12 fps; each frame is a new "stop-motion" pose
+  const f = Math.round(t * 24), p = t * Math.PI * 2;
+  boil(Math.floor(f / 2) * 1.7);
+  const sw = Math.sin(p * 2), ph = p * 2;
+  hips.position.y = .82 - (1 - Math.cos(.4 * sw)) * .74 + Math.abs(Math.cos(ph)) * .01;
+  hips.rotation.y = sw * .08; chest.rotation.y = -sw * .14; chest.rotation.x = .04;
+  legs.forEach(([th, sh, ft], i) => { const q = i ? -sw : sw, kn = Math.max(0, Math.sin(ph + (i ? Math.PI : 0) - .6)) * .9;
+    th.rotation.x = -q * .4; sh.rotation.x = kn; ft.rotation.x = -kn * .5 + q * .2; });
+  arms.forEach(([up, fo], i) => { const q = i ? sw : -sw; up.rotation.x = -q * .35; up.rotation.z = (i ? 1 : -1) * .06; fo.rotation.x = -.15 - Math.max(0, q) * .3; });
+  neck.rotation.x = -.04; head.rotation.y = Math.sin(p) * .12; head.rotation.z = Math.sin(p) * .03;
+  back.rotation.x = .08 + Math.cos(ph) * .03;
+  haru.rotation.y = .3 + Math.sin(f * 7.3) * .005;
+  renderer.render(scene, cam);
+};
+window.renderAt(0);
+</script></body></html>
