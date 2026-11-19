@@ -1,0 +1,17 @@
+part               sheet    ours    diff
+hair_bottom        0.322   0.349  +0.027  <<
+face_top           0.075   0.058  -0.017
+chin               0.268   0.293  +0.025  <<
+top_top            0.221   0.281  +0.060  <<
+top_hem            0.623   0.638  +0.016
+hands_bottom       0.691   0.697  +0.007
+pants_hem          0.929   0.934  +0.005
+shoes_top          0.937   0.941  +0.004
+w_hair             0.246   0.252  +0.006
+w_face             0.168   0.171  +0.003
+w_top_shoulders    0.206   0.276  +0.070  <<
+w_top_mid          0.329   0.334  +0.005
+w_top_hem          0.338   0.406  +0.068  <<
+w_pants_mid        0.185   0.197  +0.012
+w_shoes            0.199   0.204  +0.005
+parts off by more than 2%: 5

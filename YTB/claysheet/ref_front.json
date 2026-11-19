@@ -1,0 +1,21 @@
+{
+ "height_px": 1218,
+ "hair_top": 0.0,
+ "hair_bottom": 0.991,
+ "face_top": 0.0714,
+ "chin": 0.0747,
+ "top_top": 0.0714,
+ "top_hem": 0.9376,
+ "hands_bottom": 0.9433,
+ "pants_top": -0.0099,
+ "pants_hem": 0.9992,
+ "shoes_top": 0.991,
+ "sole": 1.0,
+ "w_hair": 1.0895,
+ "w_face": 0.9984,
+ "w_top_shoulders": 0.9483,
+ "w_top_max": 1.1741,
+ "w_top_hem": 0.4737,
+ "w_pants_mid": 0.0,
+ "w_shoes": 1.1125
+}

@@ -112,10 +112,11 @@ export function makeHaru3(o = {}) {
   };
   const root = new THREE.Group();
   // ---- skeleton (bind pose: arms a little out, legs straight)
-  const hips = B(null, [0, .55, 0]); root.add(hips);
+  const DY = .152;                                        // leg lengthening measured against the sheet
+  const hips = B(null, [0, .55 + DY, 0]); root.add(hips);
   const chest = B(hips, [0, .04, 0]), neck = B(chest, [0, .44, 0]), head = B(neck, [0, .24, 0]);
-  const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .19, .34, 0]); up.rotation.z = sd * .2; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.215, 0]); return {up, fo, hand, sd}; });
-  const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .075, 0, 0]); const sh = B(th, [0, -.25, 0]); const ft = B(sh, [0, -.235, 0]); return {th, sh, ft, sd}; });
+  const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .185, .32, 0]); up.rotation.z = sd * .24; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.24, 0]); return {up, fo, hand, sd}; });
+  const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .098, 0, 0]); const sh = B(th, [0, -.33, 0]); const ft = B(sh, [0, -.31, 0]); return {th, sh, ft, sd}; });
   root.updateMatrixWorld(true);
   const W = b => b.getWorldPosition(V(0, 0, 0));
   const J = {hips: W(hips), chest: W(chest), neck: W(neck), head: W(head)};
@@ -123,17 +124,18 @@ export function makeHaru3(o = {}) {
   legs.forEach(l => { l.T = W(l.th); l.S = W(l.sh); l.F = W(l.ft); });
 
   // ---- the hoodie: torso, hem, hood roll, hood, shoulders, sleeves (wider at the cuff), cuffs, pocket: ONE piece
-  const hoodSDF = (x, y, z) => {
-    let d = sdCapsule(x / 1.05, y, z / .8, V(0, .45, 0), V(0, .9, 0), .168) * .8;
+  const hoodSDF = (x, y, z) => { y -= DY;
+    let d = sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8;                 // narrower at the top: sloping shoulders
     d = smax(d, .5 - y, .03);                                                                                   // flat-bottomed, like a real hoodie
     d = smin(d, sdTorusY(x, y, z, V(0, .505, 0), .15, .03, 1.03, .82), .025);
-    d = smin(d, sdTorusY(x, y, z, V(0, 1.04, -.008), .088, .052, 1, .92), .03);                                // the hood, rolled round the neck
-    d = smin(d, sdEll(x, y, z, V(0, .92, -.1), V(.09, .065, .05)), .04);
+    d = smin(d, sdTorusAxis(x, y, z, V(0, 1.06, -.065), V(0, .74, .67), .125, .058), .035);
+    d = smin(d, sdEll(x, y, z, V(0, .97, -.1), V(.09, .07, .05)), .04);
     for (const a of arms) {
-      const cuffDir = a.H.clone().sub(a.F).normalize(), cuff = a.H.clone().sub(cuffDir.clone().multiplyScalar(.012));
-      d = smin(d, sdEll(x, y, z, a.U.clone().add(V(-a.sd * .01, .0, 0)), V(.075, .07, .072)), .05);
-      d = smin(d, sdRoundCone(x, y, z, a.U, a.F, .064, .062), .03);
-      d = smin(d, sdRoundCone(x, y, z, a.F, cuff, .062, .07), .025);
+      const U = a.U.clone().add(V(0, -DY, 0)), F = a.F.clone().add(V(0, -DY, 0)), Hh = a.H.clone().add(V(0, -DY, 0));
+      const cuffDir = Hh.clone().sub(F).normalize(), cuff = Hh.clone().sub(cuffDir.clone().multiplyScalar(.012));
+      d = smin(d, sdEll(x, y, z, a.U.clone().add(V(-a.sd * .03, -.04 - DY, 0)), V(.07, .075, .07)), .07);
+      d = smin(d, sdRoundCone(x, y, z, U, F, .064, .062), .03);
+      d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
       d = smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
     }
     d = smin(d, sdRoundBox(x, y, z, V(0, .615, .118), V(.085, .042, .006), .012), .012);                       // pocket
@@ -142,12 +144,12 @@ export function makeHaru3(o = {}) {
   };
   // ---- trousers: pelvis + two straight legs + hems: ONE piece
   const pantsSDF = (x, y, z) => {
-    let d = sdEll(x, y, z, V(0, .57, 0), V(.148, .085, .112));
+    let d = sdEll(x, y, z, V(0, .6 + DY, 0), V(.16, .075, .114));
     for (const l of legs) {
-      const ankle = l.F.clone().add(V(0, .03, 0));
-      d = smin(d, sdCapsule(x, y, z, l.T.clone().add(V(0, .02, 0)), l.S, .071), .05);
-      d = smin(d, sdRoundCone(x, y, z, l.S, ankle, .07, .073), .02);
-      d = smin(d, sdTorusY(x, y, z, ankle.clone().add(V(0, .01, 0)), .07, .011), .01);
+      const ankle = l.F.clone().add(V(0, .05, 0));
+      d = smin(d, sdCapsule(x, y, z, l.T.clone().add(V(0, .02, 0)), l.S, .073), .03);
+      d = smin(d, sdRoundCone(x, y, z, l.S, ankle, .072, .075), .02);
+      d = smin(d, sdTorusY(x, y, z, ankle.clone().add(V(0, .01, 0)), .072, .011), .01);
     }
     return d + lumps(x, y, z, .9);
   };
@@ -166,8 +168,8 @@ export function makeHaru3(o = {}) {
     const m = new THREE.SkinnedMesh(geo, mat); m.castShadow = m.receiveShadow = true; m.frustumCulled = false;
     root.add(m); m.bind(new THREE.Skeleton(bones), m.matrixWorld); return m;
   };
-  skinIt(meshSDF(hoodSDF, V(0, .74, 0), .42, 132), M.hood, [hips, chest, ...arms.flatMap(a => [a.up, a.fo, a.hand])], p => Math.abs(p.x) < .168 && p.y < .9);
-  skinIt(meshSDF(pantsSDF, V(0, .38, 0), .3, 104), M.pants, [hips, ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
+  skinIt(meshSDF(hoodSDF, V(0, .76 + DY, 0), .44, 136), M.hood, [hips, chest, ...arms.flatMap(a => [a.up, a.fo, a.hand])], p => Math.abs(p.x) < .168 && p.y < .9);
+  skinIt(meshSDF(pantsSDF, V(0, .4 + DY / 2, 0), .38, 112), M.pants, [hips, ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
   const rigid = (sdf, center, half, res, mat, parent) => { const m = new THREE.Mesh(meshSDF(sdf, center, half, res), mat); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 
   // ---- drawstrings (thin, hang from the hood roll)
@@ -177,16 +179,16 @@ export function makeHaru3(o = {}) {
     const k = new THREE.Mesh(new THREE.SphereGeometry(.011, 10, 8), M.hood); k.position.set(x * 1.04, .9 - .59, .138); chest.add(k);
   }
   // ---- head and hair (in a scaled space so the face pieces keep the v2 numbers)
-  const hs = G(head, [0, .02, 0]); hs.scale.setScalar(1.27);
-  rigid((x, y, z) => smin(sdEll(x, y, z, V(0, 0, 0), V(.135, .143, .13)), sdCapsule(x, y, z, V(0, -.2, 0), V(0, -.1, 0), .04), .03) + lumps(x, y, z, .5),
+  const hs = G(head, [0, .03, 0]); hs.scale.setScalar(1.37);
+  rigid((x, y, z) => smin(sdEll(x, y, z, V(0, -.018, 0), V(.124, .14, .128)), sdCapsule(x, y, z, V(0, -.2, 0), V(0, -.1, 0), .04), .03) + lumps(x, y, z, .5),
     V(0, -.05, 0), .2, 80, M.skin, hs);
   rigid((x, y, z) => {
-    let d = sdEll(x, y, z, V(0, .026, -.03), V(.148, .152, .146));
-    const fr = V(x + .006, y - .088, z - .014).applyAxisAngle(V(0, 0, 1), .14).applyAxisAngle(V(1, 0, 0), -.4);        // the swept fringe
-    d = smin(d, sdEll(fr.x, fr.y, fr.z, V(0, 0, 0), V(.155, .078, .146)), .02);
-    for (const sd of [-1, 1]) d = smin(d, sdRoundCone(x, y, z, V(sd * .118, -.02, -.01), V(sd * .126, -.31, .0), .05, .045), .03);   // side panels
+    let d = sdEll(x, y, z, V(0, .0, -.03), V(.142, .134, .146));
+    const fr = V(x + .006, y - .085, z - .01).applyAxisAngle(V(0, 0, 1), .14).applyAxisAngle(V(1, 0, 0), -.5);        // the swept fringe
+    d = smin(d, sdEll(fr.x, fr.y, fr.z, V(0, 0, 0), V(.15, .06, .14)), .02);
+    for (const sd of [-1, 1]) d = smin(d, sdRoundCone(x, y, z, V(sd * .106, -.02, -.01), V(sd * .114, -.31, .0), .05, .045), .03);   // side panels
     const bz = (z + .085) / .6; d = smin(d, sdRoundCone(x / 1.05, y, bz, V(0, -.03, 0), V(0, -.27, 0), .13, .125) * .6, .03);   // the back
-    d = smax(d, -sdEll(x, y, z, V(0, -.055, .075), V(.116, .118, .08)), .025);                                        // the face opening
+    d = smax(d, -sdEll(x, y, z, V(0, -.04, .08), V(.104, .14, .085)), .025);                                        // the face opening
     return d + lumps(x, y, z, .7);
   }, V(0, -.1, -.02), .28, 112, M.hair, hs).scale.z = .97;
   // ---- hands and shoes (small pieces on their bones)
@@ -201,7 +203,7 @@ export function makeHaru3(o = {}) {
     d = smin(d, sdRoundBox(x, y, z, V(0, -.043, .03), V(.058, .008, .1), .008), .01);
     for (let i = 0; i < 3; i++) d = smax(d, -sdCapsule(x, y, z, V(-.02, .026 - i * .003, .05 + i * .02), V(.02, .026 - i * .003, .05 + i * .02), .003), .003);
     return d + lumps(x, y, z, .3);
-  }, V(0, -.01, .03), .13, 56, M.shoe, l.ft));
+  }, V(0, -.01, .03), .13, 56, M.shoe, l.ft).scale.set(1.3, 1.2, 1.25));
 
   // ---- face pieces (same as v2)
   const add = (geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) => { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot); m.castShadow = true; parent.add(m); return m; };
@@ -211,7 +213,7 @@ export function makeHaru3(o = {}) {
   const face = G(hs, [0, -.018, .117]);
   const eyes = [], whites = [], lids = [], squeeze = [], brows = [];
   for (const sd of [-1, 1]) {
-    const x = sd * .05;
+    const x = sd * .046;
     whites.push(add(Sph(.026, 1, 1.08, .4), M.white, face, [x, .004, -.004]));
     eyes.push(add(new THREE.SphereGeometry(.0165, 16, 12), M.eye, face, [x, .002, .004]));
     lids.push(capTube([[x - .02, .0, .004], [x, -.006, .008], [x + .02, .0, .004]], .0035, M.dark, face));
@@ -247,7 +249,7 @@ export function makeHaru3(o = {}) {
     if (name === 'nervous') Pp.sweat(true); if (name === 'cry') Pp.tears(true);
     if (name === 'curious') { brows[0].rotation.z = .1; brows[1].rotation.z = .45; brows[1].position.y += .008; }
   };
-  Pp.rest = () => { arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .2); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
+  Pp.rest = () => { arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
     legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
   return Pp;

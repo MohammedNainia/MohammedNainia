@@ -25,14 +25,28 @@ renderer.shadowMap.type = THREE.VSMShadowMap;
 
 // turnaround: front, 3/4 front, side, 3/4 back, back
 const views = [0, -.62, -Math.PI / 2, -Math.PI + .62, Math.PI].map((ry, i) => {
-  const P = makeHaru2(); P.root.position.set((i - 2) * .62, 0, 0); P.root.rotation.y = ry; P.expr('nervous'); P.sweat(false); P.rest(); scene.add(P.root); return P;
+  const P = makeHaru2(); P.root.position.set((i - 2) * .72, 0, 0); P.root.rotation.y = ry; P.expr('nervous'); P.sweat(false); P.rest(); scene.add(P.root); return P;
 });
 // expressions: 8 busts in a 4 x 2 grid (placed far away, filmed by the same camera when t >= 1)
 const names = new URLSearchParams(location.search).get('ex') ? ['neutral', 'nervous', 'curious', 'smile', 'scared', 'scream', 'cry', 'whisper'] : [];
 const busts = names.map((n, i) => { const P = makeHaru2(); P.root.position.set(30 + (i % 4) * .6, 0, i < 4 ? 0 : 20); P.expr(n); scene.add(P.root);
   if (n === 'whisper') { P.arms[1].up.rotation.set(-.6, 0, -.55); P.arms[1].fo.rotation.set(-2.3, 0, 0); } return P; });
 
+// ID mode (?id=1): every part painted one flat colour, orthographic front-on camera, for measure.py
+const ID = new URLSearchParams(location.search).get('id');
+const idCol = {hair: 0xff0000, skin: 0x00ff00, top: 0x0000ff, pants: 0xffff00, shoes: 0xff00ff};
+if (ID) {
+  views.forEach((P, i) => P.root.position.x = (i - 2) * 1.0);
+  const mats = {}; for (const [k, c] of Object.entries(idCol)) mats[k] = new THREE.MeshBasicMaterial({color: c});
+  const cls = {hair: 'hair', skin: 'skin', nose: 'skin', eye: 'skin', white: 'skin', dark: 'skin', mouthIn: 'skin', tongue: 'skin', teeth: 'skin', tear: 'skin', sweat: 'skin', hood: 'top', pants: 'pants', shoe: 'shoes'};
+  for (const P of views) { const back = {}; for (const [k, m] of Object.entries(P.M)) back[m.uuid] = mats[cls[k]];
+    P.root.traverse(o => { if (o.isMesh && back[o.material.uuid]) o.material = back[o.material.uuid]; }); }
+  scene.background = new THREE.Color(0x000000); floor.visible = false; scene.traverse(o => { if (o.isLight) o.visible = false; });
+  renderer.toneMapping = THREE.NoToneMapping;
+}
+const ortho = new THREE.OrthographicCamera(-1.5 * 16 / 9, 1.5 * 16 / 9, 1.5, -1.5, .1, 50); ortho.position.set(0, .85, 10); ortho.lookAt(0, .85, 0);
 window.renderAt = t => {
+  if (ID) { boil(0); renderer.render(scene, ortho); return; }
   boil(0);
   if (t < 1) { cam.fov = 14; cam.position.set(0, .72, 9.2); cam.lookAt(0, .7, 0); }
   else { const z = t >= 2 ? 20 : 0; cam.fov = 13; cam.position.set(30.9, 1.42, z + 5.2); cam.lookAt(30.9, 1.3, z); }
