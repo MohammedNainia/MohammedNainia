@@ -40,7 +40,9 @@ if (LOOK) {
 // ?pt=SAMPLES: path-traced (final GPU render). Same materials, area-light soft boxes instead of the raster lights.
 const PTS = +(new URLSearchParams(location.search).get('pt') || 0);
 let PT = null, lastShot = -1;
-if (PTS) { const {pathTracer} = await import('./pt.js'); PT = pathTracer({renderer, scene, cam}); }
+if (PTS) { const {pathTracer} = await import('./pt.js'); const q = new URLSearchParams(location.search);
+  // speed knobs: b = light bounces, dn = 1 denoise (tiles stay 2: one tile gives a dot pattern in this version)
+  PT = pathTracer({renderer, scene, cam}, {bounces: +(q.get('b') || 6), denoise: q.get('dn') === '1', tiles: 2}); }
 window.renderAt = t => {
   boil(0); const i = Math.round(t >= 10 ? t - 10 : t) % figs.length;
   figs.forEach((P, j) => P.root.visible = j === i);

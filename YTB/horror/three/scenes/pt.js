@@ -8,7 +8,7 @@
 //   "three-gpu-pathtracer": "/node_modules/three-gpu-pathtracer/build/index.module.js",
 //   "three-mesh-bvh": "/node_modules/three-mesh-bvh/build/index.module.js"
 import * as THREE from 'three';
-import {PathTracingRenderer, PhysicalPathTracingMaterial, DynamicPathTracingSceneGenerator, GradientEquirectTexture, PhysicalCamera} from 'three-gpu-pathtracer';
+import {PathTracingRenderer, PhysicalPathTracingMaterial, DenoiseMaterial, DynamicPathTracingSceneGenerator, GradientEquirectTexture, PhysicalCamera} from 'three-gpu-pathtracer';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -29,7 +29,7 @@ function bumpToNormal(tex, strength = 2) {
   normalCache.set(tex, n); return n;
 }
 
-export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], envIntensity = .5, softboxes = null, bounces = 6} = {}) {
+export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], envIntensity = .5, softboxes = null, bounces = 6, denoise = false, tiles = 2} = {}) {
   // 1. materials: bump -> normal map (same strength feel), keep everything else
   scene.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) {
     if (m.bumpMap && !m.normalMap) { m.normalMap = bumpToNormal(m.bumpMap); const k = Math.min(1.2, m.bumpScale * .45); m.normalScale.set(k, -k); m.needsUpdate = true; }
@@ -44,7 +44,7 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
   ]).map(b => { const l = new THREE.RectAreaLight(b.color, b.power, b.size[0], b.size[1]); l.position.set(...b.pos); l.lookAt(0, .9, 0); l.visible = false; scene.add(l); return l; });
   // 3. the path tracer
   const ptMat = new PhysicalPathTracingMaterial(); ptMat.bounces = bounces; ptMat.transmissiveBounces = 4;
-  const pt = new PathTracingRenderer(renderer); pt.material = ptMat; pt.tiles.set(2, 2);
+  const pt = new PathTracingRenderer(renderer); pt.material = ptMat; pt.tiles.set(tiles, tiles);
   const lens = new PhysicalCamera(); pt.camera = lens;
   const sky = new GradientEquirectTexture(256); sky.topColor.set(env[0]); sky.bottomColor.set(env[1]); sky.exponent = .7; sky.update();
   ptMat.envMapInfo.updateFrom(sky); ptMat.environmentIntensity = envIntensity;
@@ -52,7 +52,8 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
   const bgc = scene.background && scene.background.isColor ? scene.background : new THREE.Color(0xdcdcdc);
   const back = new GradientEquirectTexture(64); back.topColor.copy(bgc); back.bottomColor.copy(bgc); back.update();
   ptMat.backgroundMap = back;
-  const quad = new FullScreenQuad(new THREE.MeshBasicMaterial({map: pt.target.texture}));
+  // denoise: an edge-aware blur of the finished image, so fewer samples look clean
+  const quad = new FullScreenQuad(denoise ? new DenoiseMaterial({map: pt.target.texture, sigma: 2.5, threshold: .03, kSigma: 1}) : new THREE.MeshBasicMaterial({map: pt.target.texture}));
   let gen = null;
   const size = new THREE.Vector2(), v = new THREE.Vector3();
 
@@ -86,7 +87,7 @@ export function pathTracer({renderer, scene, cam}, {env = [0xf4f2ee, 0x9a968f], 
       lens.focusDistance = focus ? v.copy(focus).applyMatrix4(cam.matrixWorldInverse).length() : 1e4;
       lens.updateMatrixWorld(true); ptMat.physicalCamera.updateFrom(lens);
       pt.reset();
-      for (let i = 0; i < samples * 4; i++) pt.update();          // 2 x 2 tiles: 4 updates per full sample
+      for (let i = 0; i < samples * tiles * tiles; i++) pt.update();   // one update per tile per sample
       quad.material.map = pt.target.texture; renderer.setRenderTarget(null); quad.render(renderer);
       return pt.samples;
     },
