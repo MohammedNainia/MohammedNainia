@@ -1,10 +1,12 @@
-THE MAGIC LAMP v4 (9:16, target 85-95 s, dark clay, one line per voice generation)
+THE MAGIC LAMP v5 (9:16, target 85-95 s, dark clay, one line per voice generation)
 Hook text at frame 0: I RUBBED A MAGIC LAMP. / SOMETHING CAME OUT. / I WENT IN.
 Rule: the old man at the market: look at it all you like, never rub it.
-Haru's flaw/choice: curiosity. Three nights, then she breaks the rule and rubs it "just to see if it was real".
-       Outcome: the lamp takes her, like everyone who ever rubbed it.
-Twist: there is no genie. The lamp is full of everyone who ever rubbed it, and when you rub it, the one who has been
-       inside longest climbs out wearing your face. The old man who sold it was one of them.
+Haru's want: Mum to be proud of her (Mum works nights and never looks).
+Haru's choice: three nights, then she breaks the rule and rubs it. Outcome: the lamp takes her, like everyone who ever
+       rubbed it, and gives her exactly what she wanted: Mum gets a perfect daughter, with Haru's face.
+Twist: there is no genie. The lamp is full of everyone who ever rubbed it, each given what they wanted, horribly.
+       Haru's want is granted the same way: the oldest one inside climbs out as the perfect Haru, and Mum is proud.
+       The old man who sold it came out of the lamp too.
 Ending/loop: the thing wearing Haru sells the lamp to the next child, with the same words. Cut to frame 0.
 Unspoken question: who is the next child, and was anyone at that market ever who they look like?
 
@@ -15,10 +17,13 @@ h02  HARU     The old man at the market sold it to me for one coin.
               [daytime market, clay stalls. A tiny old man in a green coat, his skin faintly metallic at the fingertips.]
 s01  SELLER   Look at it all you like. Just never rub it.
               [he pushes the lamp across the cloth with one finger, as if it were hot.]
+h02b HARU     I knew what I'd ask for. I just wanted Mum to be proud of me.
+              [Haru alone at the kitchen table, a report card with a red mark. Mum's coat goes past behind her, out the door
+               to a night shift, without stopping.]
 h03  HARU     I lasted three nights.
               [Haru's bedroom, night one: the lamp on the shelf. Night two: on her pillow. Night three: in her lap, her thumb
                hovering over the brass.]
-h04  HARU     On the third night, I rubbed it. Just to see if it was real.
+h04  HARU     On the third night, I rubbed it.
               [her thumb rubs the brass once. The spout breathes in. The room tilts toward the lamp like water toward a drain;
                her hair, the curtains, her blanket all stream into the spout, then her.]
 h05  HARU     It was warm in there. Like the inside of a mouth.
@@ -44,12 +49,13 @@ h10  HARU     Then the oldest one stood up.
 h11  HARU     She had my face.
               [close: as she climbs into the light, the brass on her skin warms into clay pink. Her hair darkens and grows
                long. She turns once and smiles down. It is Haru's smile, almost.]
-g01  GIRL     (Haru's own voice, slower) Your turn.
+g01  GIRL     (Haru's own voice, slower) You wanted your mother to be proud of you. She will be.
               [she climbs out of the spout. The hole of light shrinks to a coin.]
-h12  HARU     She sleeps in my bed now. Mum hasn't noticed.
-              [through the spout from below: the bedroom. Mum tucks the girl in and kisses her forehead. The girl looks past
-               Mum, straight down into the lamp.]
-m01  MUM      Night, Haru.
+h12  HARU     She's been me ever since. She gets perfect grades. She says thank you.
+              [through the spout from below: the bedroom, morning. The girl makes the bed with hospital corners, smiles at the
+               mirror, practices the smile again.]
+m01  MUM      (warm, proud, at the bedroom door) I'm so proud of you, Haru.
+              [Mum hugs her. Over Mum's shoulder the girl looks straight down into the lamp on the shelf.]
 h13  HARU     Every Saturday she takes the lamp to the market.
               [the market again. Behind the old man's stall, a new seller: the girl in Haru's hoodie. A small boy in a
                striped shirt stops and stares at the brass.]
