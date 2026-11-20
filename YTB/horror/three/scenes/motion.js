@@ -183,10 +183,13 @@ export function perform(P, t, track, {fade = .3, floor = 0} = {}) {
       if (p.walk) { p._end = p.start + walkDuration(P, at, p.walk.to, p.walk); dir = Math.atan2(p.walk.to[0] - at[0], p.walk.to[1] - at[1]); at = p.walk.to; }
       if (p.stand && p.stand.dir !== undefined) { dir = p.stand.dir; p._dir = dir; } }
     track._resolved = true; }
-  const evalPart = (p, tt) => {
+  const evalPart = (p, tt, cont = false) => {
     sway(P, 0, 0); P.hips.rotation.set(0, 0, 0);
     if (p.pose) { P.root.position.set(p._from[0], floor, p._from[1]); P.rest(); P.hips.position.y = P._hipY0; P.root.rotation.set(0, p._dir, 0);
       poseBlend(P, tt, p.pose, {floor, keepFacing: true}); }
+    else if (p.walk && cont) {                                       // blending out of a walk: it keeps walking underneath (no stop)
+      P.root.position.y = floor; const dir = Math.atan2(p.walk.to[0] - p._from[0], p.walk.to[1] - p._from[1]);
+      walk(P, tt, Object.assign({}, p.walk, {from: p._from, dir, start: p.start})); }
     else if (p.walk) { P.root.position.y = floor; walkTo(P, tt, Object.assign({from: p._from, start: p.start}, p.walk)); }
     else { P.rest(); P.hips.position.y = P._hipY0; P.root.position.set(p._from[0], floor, p._from[1]); P.root.rotation.set(0, p._dir, 0); }
   };
@@ -196,7 +199,7 @@ export function perform(P, t, track, {fade = .3, floor = 0} = {}) {
   const k = i > 0 ? ease((q - track[i].start) / fade) : 1;
   if (k < 1) {                                                        // cross-fade from the previous part
     const B = saveRot(P), bp = P.root.position.clone(), bh = P.hair.map(h => h.rotation.clone());
-    evalPart(track[i - 1], q); const A = saveRot(P), ap = P.root.position.clone();
+    evalPart(track[i - 1], q, !!track[i].walk); const A = saveRot(P), ap = P.root.position.clone();   // walk into walk/run: no stop in between
     BONES(P).forEach((b, j) => b.quaternion.copy(A.q[j]).slerp(B.q[j], k));
     P.hips.position.y = A.hy + (B.hy - A.hy) * k; P.root.quaternion.copy(A.rq).slerp(B.rq, k); P.root.position.lerpVectors(ap, bp, k);
     P.hair.forEach((h, j) => h.rotation.set(h.rotation.x * (1 - k) + bh[j].x * k, 0, h.rotation.z * (1 - k) + bh[j].z * k));
