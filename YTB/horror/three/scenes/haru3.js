@@ -255,10 +255,11 @@ export function makeHaru3(o = {}) {
   };
   // each hoodie vertex is torso or sleeve depending on which shape's surface it is on; a soft band at the armpit seam
   const sstep = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-  skinIt(meshSDF(hoodSDF, V(0, .76 + DY, 0), .54, 166), M.hood, [hips, chest], p => {
+  skinIt(meshSDF(hoodSDF, V(0, .76 + DY, 0), .62, 190), M.hood,   // box wide enough for the cuffs in the arms-out building pose (at .54 they were cut off)
+    [hips, chest], p => {
     const dt = torsoSDF(p.x, p.y, p.z), ds = arms.map(a => sleeveSDF(a, p.x, p.y - DY, p.z));
     const k = ds[0] < ds[1] ? 0 : 1, t = sstep(-.025, .025, dt - ds[k]), a = arms[k];
-    return [[[hips, chest], 1 - t], [[a.up, a.fo, a.hand], t]];
+    return [[[hips, chest], 1 - t], [[a.up, a.fo], t]];      // not the hand: a sleeve does not turn with the wrist
   });
   // trousers: what is hidden under the hoodie stays on the hips, so a lifted thigh cannot push it out through the hem;
   // the thigh takes over only below the hem (soft band of .12)
@@ -393,7 +394,8 @@ export function makeHaru3(o = {}) {
   const FL = [.026, .029, .024];                               // cartoon hand: three fingers (next to the thumb first) + a thumb
   arms.forEach(a => rigid((x, y, z) => {
     let d = sdCapsule(x, y, z, V(0, .004, 0), V(0, -.02, 0), .015);                                  // wrist
-    d = smin(d, sdRoundBox(x, y, z, V(0, -.04, 0), V(.019, .017, .006), .0075), .012);                // palm
+    d = smin(d, sdEll(x, y, z, V(0, -.038, .001), V(.023, .024, .011)), .012);                       // palm: soft and rounded, no block inside
+    d = smin(d, sdCapsule(x, y, z, V(-.015 * a.sd, -.054, .002), V(.015 * a.sd, -.054, .002), .0085), .008);   // the knuckle row the fingers grow from
     let fingers = 1e9;
     for (let i = 0; i < 3; i++) {
       const fx = -a.sd * (-.0135 + i * .0135), L = FL[i], b0 = V(fx, -.057, .001);
@@ -525,7 +527,8 @@ export function makeHaru3(o = {}) {
     if (name === 'curious') { brows[0].rotation.z = .1; brows[1].rotation.z = .45; brows[1].position.y += .008; }
   };
   Pp.stoop = AGE * .22;                                     // older characters lean forward a little
-  Pp.rest = () => { chest.rotation.x = Pp.stoop; neck.rotation.x = -Pp.stoop * .6; arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0); a.hand.rotation.set(0, 0, 0); });
+  Pp.rest = () => { chest.rotation.x = Pp.stoop; neck.rotation.x = -Pp.stoop * .6; arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0);
+    a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });   // relaxed: palms face the thighs, thumbs forward, fingers curling a little
     legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
   root.scale.setScalar(HEIGHT);                            // last: everything above was built at size 1

@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}canvas{display:block}</style></head><body>
+<!-- Hands check: Haru front, three-quarter and side at rest, and the walk pose -->
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {POSES} from './haru3_poses.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: 1600, h: 900});
+grain.uniforms.vig.value = .1; scene.background = new THREE.Color(0xdcdcdc); renderer.shadowMap.type = THREE.VSMShadowMap;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({color: 0xdedede, roughness: 1})); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b4ae, 1.25));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0); key.position.set(-3, 6, 7); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6;
+Object.assign(key.shadow.camera, {left: -2, right: 2, top: 2, bottom: -1, near: .5, far: 20}); scene.add(key);
+const P = [0, 1, 2, 3].map(i => { const p = makeChar('haru'); p.root.position.x = (i - 1.5) * .75; scene.add(p.root); return p; });
+P[0].root.rotation.y = 0; P[1].root.rotation.y = -.7; P[2].root.rotation.y = -Math.PI / 2; POSES[0].fn(P[3], THREE); P[3].root.rotation.y = -Math.PI / 2;
+window.renderAt = t => { cam.fov = 20; cam.aspect = 16 / 9; cam.position.set(0, .7, 5.2); cam.lookAt(0, .62, 0); cam.updateProjectionMatrix(); render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

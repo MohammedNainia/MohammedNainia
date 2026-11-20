@@ -85,7 +85,7 @@ export const POSES = [
   }},
   {name: 'reach', fn: (P) => {
     face(P, 'nervous'); P.mouth('o');
-    const [aL, aR] = P.arms; arm(aR, -.25, 1.45, -.12); aR.hand.rotation.set(0, 0, .35);
+    const [aL, aR] = P.arms; arm(aR, -.25, 1.45, -.12); aR.hand.rotation.set(0, -Math.PI / 2, -.15);   // palm down, fingers reaching
     P.chest.rotation.y = .06;
   }},
   {name: 'look back', fn: (P) => {
