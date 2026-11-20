@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/",
+ "three/examples/jsm/":"/node_modules/three/examples/jsm/","three-gpu-pathtracer":"/node_modules/three-gpu-pathtracer/build/index.module.js","three-mesh-bvh":"/node_modules/three-mesh-bvh/build/index.module.js"}}</script>
+<script type="module">
+// The magic lamp world, 9:16. renderAt(i): 0 Haru at the bottom of the lamp (wide, from above), 1 the coin man, 2 the mother
+// and the baby, 3 the held boy, 4 the walls watching her, 5 the girl warming into Haru, 6 the market stall and the seller.
+// t inside each shot (i + fraction) animates it. ?s=.5 half size   ?pt=64&dn=1&b=4&d=.6 path traced
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {setupLights, setPreview, boilSet} from './sets.js';
+import {face, step12} from './motion.js';
+import {lampInterior, floorHand, coinMan, motherAndBaby, heldBoy, wallFigures, lampGirl, seller, marketStall, lookAt, brassEnvironment, faceCam} from './lamp_world.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), PTS = +(q.get('pt') || 0);
+const {scene, cam, renderer, render, grain} = setup({bloom: .35, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+grain.uniforms.vig.value = .55; renderer.toneMappingExposure = 1.15; renderer.shadowMap.type = THREE.VSMShadowMap;
+scene.background = new THREE.Color(0x020101); setupLights(); setPreview(!PTS);
+const t0 = performance.now();
+// ---- inside the lamp
+const W = lampInterior(); scene.add(W.group);
+const glow = new THREE.HemisphereLight(0x8a6a3a, 0x1a1208, PTS ? .15 : .55); W.group.add(glow);       // the brass's own dull glow
+for (let i = 0; i < 9; i++) { const h = floorHand({grip: .2 + i * .08}); const a = i * 2.3, r = .6 + (i % 4) * .35; h.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); h.rotation.set((i % 3 - 1) * .3, a, (i % 2 - .5) * .4); W.group.add(h); }
+const H = makeChar('haru', {}, true); H.root.position.set(0, .02, .1); W.group.add(H.root); H.expr('afraid');
+const CM = coinMan(); CM.P.root.position.copy(W.wallPoint(.9, .05, .75)); CM.P.root.rotation.y = .9 + Math.PI; W.group.add(CM.P.root);
+const MB = motherAndBaby(); MB.M.root.position.copy(W.wallPoint(-1.0, .02, .7)); MB.M.root.rotation.y = -1.0 + Math.PI; W.group.add(MB.M.root, MB.B.root);
+const BOY = heldBoy(W, 2.5);
+const WF = wallFigures(W, 11, {skip: [.9, -1.0, 2.5, Math.PI]});
+const GIRL = lampGirl(); GIRL.P.root.position.copy(W.wallPoint(Math.PI, .0, .55)); GIRL.P.root.rotation.y = 0; W.group.add(GIRL.P.root);
+// ---- the market (somewhere else entirely, daylight)
+const MK = new THREE.Group(); MK.position.set(40, 0, 0); scene.add(MK);
+const ST = marketStall(); MK.add(ST.group);
+const SL = seller(); SL.root.position.set(0, 0, -.65); MK.add(SL.root); SL.expr('neutral');
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.position.set(43, 6, 4); sun.target.position.set(40, 0, 0); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left: -3, right: 3, top: 3, bottom: -1, near: .5, far: 20}); MK.add(sun, sun.target);
+const sky = new THREE.HemisphereLight(0xcfe0ff, 0x8a7a5a, 1.0); MK.add(sky);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({color: 0x9a8a72, roughness: 1})); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; MK.add(ground);
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(20, 8), new THREE.MeshStandardMaterial({color: 0x8aa0b8})); backdrop.position.set(0, 4, -4); MK.add(backdrop);
+brassEnvironment(renderer, scene, PTS ? .25 : .5);
+console.log('PT lamp world built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
+let PT = null, last = -1;
+if (PTS) { const {pathTracer} = await import('./pt.js'); PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x1a1208, 0x050302], envIntensity: .4, denoise: q.get('dn') === '1', bounces: +(q.get('b') || 4)}); }
+const face0 = () => H.head.getWorldPosition(new THREE.Vector3());
+const SHOTS = [
+  {cam: [.4, 4.6, 1.4], at: [0, .3, 0], fov: 45, lamp: true},                                     // Haru far below, the walls all round
+  {cam: () => faceCam(CM.P, 1.3, -.05, .35).pos, at: () => faceCam(CM.P).at.clone().add(new THREE.Vector3(0, -.25, 0)), fov: 42, lamp: true},
+  {cam: () => faceCam(MB.M, 1.1, -.1, -.15).pos, at: () => MB.M.head.getWorldPosition(new THREE.Vector3()).lerp(MB.B.head.getWorldPosition(new THREE.Vector3()), .6), fov: 38, lamp: true},
+  {cam: () => faceCam(BOY.P, 1.7, .1, .3).pos, at: () => faceCam(BOY.P).at.clone().add(new THREE.Vector3(0, -.25, 0)), fov: 48, lamp: true},
+  {cam: [.7, 1.45, -.95], at: [-.3, 1.0, 2.2], fov: 58, lamp: true},                                 // over Haru's shoulder: the wall looking back
+  {cam: () => faceCam(GIRL.P, 1.2, 0, .15).pos, at: () => faceCam(GIRL.P).at.clone().add(new THREE.Vector3(0, -.15, 0)), fov: 40, lamp: true},
+  {cam: [40.6, 1.3, 2.3], at: [40, 1.0, 0], fov: 42, lamp: false},
+];
+window.renderAt = t => {
+  const i = Math.floor(t + 1e-6) % SHOTS.length, u = t - Math.floor(t + 1e-6), S = SHOTS[i];
+  W.group.visible = S.lamp; MK.visible = !S.lamp;
+  const look = face0();
+  CM.update(u * 4); MB.update(u * 4, look); WF.update(u * 4, look, i === 4); GIRL.warm(i === 5 ? .2 + .6 * u : 0);
+  lookAt(BOY.P, look, .6); face(H, u * 4, {expr: [[0, 'afraid']]});
+  boilSet(W.group, t);
+  const v = x => typeof x === 'function' ? x() : new THREE.Vector3(...x);
+  cam.fov = S.fov; cam.aspect = 9 / 16; cam.position.copy(v(S.cam)); cam.lookAt(v(S.at)); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+  if (PT) { PT.render({samples: PTS, focus: v(S.at), fStop: 2.4, rebuild: i !== last}); last = i; return; }
+  render(t);
+};
+if (!PT) window.renderAt(0); window.ready = true;
+</script></body></html>
