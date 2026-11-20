@@ -189,8 +189,8 @@ export function makeHaru3(o = {}) {
       return smin(d, sdTorusAxis(x, y, z, E.clone().sub(dir.clone().multiplyScalar(.008)), dir, .058, .012), .008);
     }
     d = smin(d, sdRoundCone(x, y, z, U, F, .064, .062), .03);
-    d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
-    return smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
+    d = smin(d, sdRoundCone(x, y, z, F, cuff, .06, .058), .025);                         // forearm: straight, not a bulb
+    return smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .044, .016), .01);
   };
   // bare arms under short sleeves, bare legs under shorts: one skin piece, bending with the bones
   const limbsSDF = (x, y, z) => { let d = 1e9;
@@ -333,7 +333,13 @@ export function makeHaru3(o = {}) {
     bangs = smin(bangs, lock(x, y, z, P0, [.006, .066, .122], .023, .017), .012);
     bangs = smin(bangs, lock(x, y, z, [PART + .008, .104, .055], [.082, .058, .1], .022, .016), .012);
     d = smin(d, bangs, .02);
-    // strand grooves on the side hair and the back
+    // the back: long locks separated by grooves on the back surface (the back shape is a cone of radius .13 squashed to .72 in z,
+    // centred at z -.095), with rounded lock ends at the bottom, a little uneven
+    const backZ = gx => -.095 - .72 * Math.sqrt(Math.max(0, .0169 - (gx / 1.05) ** 2));
+    for (const k of [-2, -1, 0, 1, 2]) { const gx = k * .042, zs = backZ(gx);
+      if (k) d = smax(d, -sdCapsule(x, y, z, V(gx, .03, zs + .001), V(gx * 1.05, -.28, zs + .001), .008), .006);
+      const ex = gx + .021; if (Math.abs(k) < 2 || k === -2) d = smin(d, sdEll(x, y, z, V(ex, -.305 - ((k + 2) % 2) * .012, backZ(ex) + .012), V(.022, .02, .018)), .018); }
+    // strand grooves on the side hair
     for (const sd of [-1, 1]) for (const k of [0, 1]) {
       const ang = k ? 1.35 : .8, ox = Math.sin(ang) * .05, oz = Math.cos(ang) * .05;      // on the surface, front-outer side
       d = smax(d, -sdCapsule(x, y, z, V(sd * (.11 + ox), -.04, oz), V(sd * (.126 + ox), -.27, oz), .0035), .004);
@@ -444,12 +450,15 @@ export function makeHaru3(o = {}) {
     return (z - .117) / FS + lift; };
   // sheet (neutral, front), in face widths: eyes .108 wide, .43 apart; brows .17 long, .04 thick, .16 above the eyes;
   // nose .108, .16 below the eyes; mouth .18 wide, .32 below the eyes
+  const EYE = o.eyeSize || 1;                                                      // adults: smaller eyes read older
   const EY = .002, EX = .04, BROW_Y = EY + .03;
-  const eyes = [], whites = [], lids = [], squeeze = [], brows = [];
+  const eyes = [], whites = [], lids = [], squeeze = [], brows = [], halfLids = [];
   for (const sd of [-1, 1]) {
     const x = sd * EX, zs = onSkin(x, EY);
-    whites.push(add(Sph(.016, 1, 1.08, .5), M.white, face, [x, EY + .002, zs - .002]));
-    eyes.push(add(new THREE.SphereGeometry(.0105, 16, 12), M.eye, face, [x, EY, zs + .001]));
+    whites.push(add(Sph(.016 * EYE, 1, 1.08, .5), M.white, face, [x, EY + .002, zs - .002]));
+    eyes.push(add(new THREE.SphereGeometry(.0105 * EYE, 16, 12), M.eye, face, [x, EY, zs + .001]));
+    halfLids.push((() => { const g = G(face, [x, EY, zs]); const m = add(new THREE.SphereGeometry(.0125 * EYE, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M.skin, g, [0, -.001, .001]); m.scale.set(1.12, .95, 1.2);
+      capTube([[-.013 * EYE, -.001, .009], [0, -.0012, .0145], [.013 * EYE, -.001, .009]], .0018, M.dark, g); return g; })());   // a skin lid over the top half
     lids.push(capTube([[x - .013, .0, zs + .001], [x, -.004, zs + .004], [x + .013, .0, zs + .001]], .0026, M.dark, face));
     squeeze.push(capTube([[x + sd * .013, .008, zs + .001], [x - sd * .011, .0, zs + .004], [x + sd * .013, -.008, zs + .001]], .0028, M.dark, face));   // > <: points toward the nose
     const b = G(face, [x, BROW_Y, onSkin(x, BROW_Y)]); capTube([[-.016, -.001, 0], [0, .0012, .0015], [.016, -.001, 0]], .0037, M.dark, b); brows.push(b);
@@ -495,7 +504,8 @@ export function makeHaru3(o = {}) {
   const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
 
   const Pp = {root, hips, chest, neck, head, face, arms, legs, M};
-  Pp.eyes = s => { Pp._eyes = s; const open = s === 'open' || s === 'wide';
+  // eyes: open | wide | closed | squeeze | half (heavy lids: sleepy, suspicious, dead tired)
+  Pp.eyes = s => { Pp._eyes = s; const open = s === 'open' || s === 'wide' || s === 'half'; halfLids.forEach(l => l.visible = s === 'half');
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? .9 : 1); }); whites.forEach(w => w.visible = s === 'wide');
     lids.forEach(l => l.visible = s === 'closed'); squeeze.forEach(l => l.visible = s === 'squeeze'); };
   Pp.brows = (k, lift = 0) => brows.forEach((b, i) => { const sd = i ? 1 : -1; b.rotation.z = -sd * k * .45; b.position.y = BROW_Y + lift * .008 + Math.abs(k) * .0025; });
@@ -530,9 +540,9 @@ export function makeHaru3(o = {}) {
     const q = Math.floor(t * 12);                                                        // stop-motion frame
     let k = 0, at = (Math.sin(seed) * .5 + .5) * 2;                                     // first blink time
     while (at * 12 < q - 2) { k++; at += 2 + 3 * (Math.sin(seed + k * 12.9898) * .5 + .5); }
-    const shut = q >= Math.floor(at * 12) && q < Math.floor(at * 12) + 2 && (Pp._eyes === 'open' || Pp._eyes === 'wide');
+    const shut = q >= Math.floor(at * 12) && q < Math.floor(at * 12) + 2 && (Pp._eyes === 'open' || Pp._eyes === 'wide' || Pp._eyes === 'half');
     const s = Pp._eyes;
-    if (shut) { eyes.forEach(e => e.visible = false); whites.forEach(w => w.visible = false); lids.forEach(l => l.visible = true); }
+    if (shut) { eyes.forEach(e => e.visible = false); whites.forEach(w => w.visible = false); halfLids.forEach(l => l.visible = false); lids.forEach(l => l.visible = true); }
     else Pp.eyes(s);
     return shut;
   };
@@ -540,6 +550,7 @@ export function makeHaru3(o = {}) {
   Pp.expr = name => {
     Pp.tears(false); Pp.sweat(false);
     const E = {neutral: ['open', 0, 0, 'line'], nervous: ['open', .5, .2, 'wobble'], curious: ['open', .25, .4, 'sad'], smile: ['open', -.1, .2, 'smile'],
+      tired: ['half', .15, -.2, 'line'], suspicious: ['half', -.45, -.3, 'line'],
       scared: ['wide', .5, 1, 'open'], scream: ['squeeze', -.6, -.2, 'open'], cry: ['open', .8, .1, 'wobble'], whisper: ['open', .35, .3, 'o']}[name] || ['open', 0, 0, 'line'];
     Pp.eyes(E[0]); Pp.brows(E[1], E[2]); Pp.mouth(E[3]);
     if (name === 'nervous') Pp.sweat(true); if (name === 'cry') Pp.tears(true);

@@ -28,7 +28,7 @@ const views = [0, -.62, -Math.PI / 2, -Math.PI + .62, Math.PI].map((ry, i) => {
   const P = makeHaru2(); P.root.position.set((i - 2) * .72, 0, 0); P.root.rotation.y = ry; P.expr('nervous'); P.sweat(false); P.rest(); scene.add(P.root); return P;
 });
 // expressions: 8 busts in a 4 x 2 grid (placed far away, filmed by the same camera when t >= 1)
-const names = new URLSearchParams(location.search).get('ex') ? ['neutral', 'nervous', 'curious', 'smile', 'scared', 'scream', 'cry', 'whisper'] : [];
+const names = new URLSearchParams(location.search).get('ex') ? ['neutral', 'nervous', 'curious', 'smile', 'scared', 'scream', 'cry', 'whisper', 'tired', 'suspicious'] : [];
 const busts = names.map((n, i) => { const P = makeHaru2(); P.root.position.set(30 + (i % 4) * .78, 0, i < 4 ? 0 : 20); P.expr(n); scene.add(P.root);
   if (n === 'whisper') handToMouth(P); return P; });
 // whisper: search the arm angles that put the hand by the mouth (cheap brute-force IK)
