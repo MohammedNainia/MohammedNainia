@@ -555,6 +555,12 @@ export function makeHaru3(o = {}) {
     Pp.tears(false); Pp.sweat(false);
     const E = {neutral: ['open', 0, 0, 'line'], nervous: ['open', .5, .2, 'wobble'], curious: ['open', .25, .4, 'sad'], smile: ['open', -.1, .2, 'smile'],
       tired: ['half', .15, -.2, 'line'], suspicious: ['half', -.45, -.3, 'line'],
+      // situational faces (most of a scene should use these, not 'scared'): eyes open normally, mouth shut or barely open
+      afraid: ['open', .7, .6, 'wobble'],       // frightened but holding it in: brows up, trembling closed mouth
+      wary: ['open', .3, .15, 'line'],          // on guard: slightly raised brows, mouth shut
+      worried: ['open', .6, .3, 'sad'],
+      effort: ['open', -.35, -.15, 'line'],     // running, pushing: brows down, mouth set (face() makes it breathe)
+      shock: ['wide', .7, 1, 'o'],              // the instant something happens: wide eyes, small O mouth (use for a moment, then back)
       scared: ['wide', .5, 1, 'open'], scream: ['squeeze', -.6, -.2, 'open'], cry: ['open', .8, .1, 'wobble'], whisper: ['open', .35, .3, 'o']}[name] || ['open', 0, 0, 'line'];
     Pp.eyes(E[0]); Pp.brows(E[1], E[2]); Pp.mouth(E[3]);
     if (name === 'nervous') Pp.sweat(true); if (name === 'cry') Pp.tears(true);

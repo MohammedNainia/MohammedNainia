@@ -123,12 +123,14 @@ export function poseBlend(P, t, keys, {hold = 0, floor = 0, keepFacing = false} 
 // expr: [[time, name], ...]. On the frame an expression changes, one in-between frame is shown (eyes shut, brows half way),
 // the way stop-motion animators hide a replacement-face swap. cues: Rhubarb cues for this character (mouths.json); words:
 // word timings (fallback). Blinks run on their own rhythm unless the character is talking with eyes shut.
-export function face(P, t, {expr = [[0, 'neutral']], cues = null, words = null} = {}) {
+// breathe: [[from, to, per second], ...] times when the character is out of breath: the mouth opens a little on each breath
+export function face(P, t, {expr = [[0, 'neutral']], cues = null, words = null, breathe = []} = {}) {
   const q = step12(t); let i = 0; while (i < expr.length - 1 && q >= expr[i + 1][0]) i++;
   P.expr(expr[i][1]);
   const changedAt = expr[i][0], inBetween = i > 0 && q - changedAt < 1 / 12 - 1e-6;
   if (inBetween) { P.eyes('closed'); }
   const talking = cues ? P.talkCues(cues, t) : words ? P.talk(words, t) : false;
+  if (!talking) for (const [a, b, rate] of breathe) if (q >= a && q < b && Math.sin((q - a) * rate * Math.PI * 2) > 0) { P.mouth('vU'); break; }
   if (!inBetween) P.blink(t);
   return talking;
 }

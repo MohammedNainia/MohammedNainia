@@ -33,15 +33,19 @@ const track = [
   {start: tStop, pose: [[tStop, pose('jump back'), 0], [tStop + .25, Q => Q.rest()]], at: C, dir: Math.PI / 2},
   {start: tTurn, pose: [[tTurn, Q => Q.rest()], [tTurn + .6, Q => { Q.rest(); Q.chest.rotation.x = .05; }]], at: C, dir: 0},
 ];
-const EX = ['nervous', 'scared', 'scream', 'cry', 'suspicious', 'tired', 'curious', 'smile'];
-const expr = [[0, 'scared'], [1.6, 'nervous'], [tRun, 'scared'], [tStop, 'scream'], [tTurn + .4, 'neutral'], ...EX.map((e, i) => [tZoom + .6 + i * .75, e])];
+const EX = ['wary', 'afraid', 'shock', 'scared', 'scream', 'cry', 'suspicious', 'smile'];
+// faces that follow the situation: holding in fear while curled up, nervous rising, on guard walking, effort running
+// (breathing), a short shock when she stops dead, then relief; then the expression test, one after another
+const expr = [[0, 'afraid'], [1.6, 'nervous'], [tWalk + .4, 'wary'], [tRun, 'effort'], [tStop, 'shock'], [tStop + .5, 'worried'], [tTurn + .4, 'neutral'],
+  ...EX.map((e, i) => [tZoom + .6 + i * .75, e])];
+const breathe = [[tRun, tStop, 2.5], [tStop + .5, tTurn + .4, 1.5]];
 window.TOTAL = tZoom + .6 + EX.length * .75 + .5;
 window.renderAt = t => {
-  perform(P, t, track); face(P, t, {expr}); jolt(P, t, tStop, .8);
+  perform(P, t, track); face(P, t, {expr, breathe}); jolt(P, t, tStop, .8);
   P.root.updateMatrixWorld(true);
   const x = P.root.position.x, h = P.head.getWorldPosition(new THREE.Vector3());
   // camera: a side view that follows her, then swings round to the front and pushes in on the face
-  const z = ease((step12(t) - tTurn) / 1.6), side = new THREE.Vector3(Math.min(x, 1.6) + .3, 1.0, 5.2), front = new THREE.Vector3(h.x, h.y + .03, h.z + 1.25);
+  const z = ease((step12(t) - tTurn) / 1.6), side = new THREE.Vector3(Math.min(x, 1.6) + .3, 1.0, 5.2), front = new THREE.Vector3(h.x, h.y + .02, h.z + 1.75);
   cam.position.lerpVectors(side, front, z); const look = new THREE.Vector3(Math.min(x, 1.6) + .3, .75, 0).lerp(h.clone().add(new THREE.Vector3(0, -.02, 0)), z);
   cam.fov = 42 - 14 * z; cam.aspect = 9 / 16; cam.lookAt(look); cam.updateProjectionMatrix(); render(t);
 };
