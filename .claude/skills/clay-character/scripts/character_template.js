@@ -468,6 +468,9 @@ export function makeHaru3(o = {}) {
     vE: (() => { const g = G(mouth); add(Sph(.026, 1.15, .32, .4), M.mouthIn, g); add(new THREE.BoxGeometry(.034, .005, .006), M.teeth, g, [0, .003, .007]); return g; })(),
     vO: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.015, 1, 1.2, .4), M.mouthIn, g); return g; })(),
     vU: (() => { const g = G(mouth); add(Sph(.009, 1, 1.1, .4), M.mouthIn, g); return g; })(),
+    // C: open for EH/AE, mid between E and A; D: wide open for AA
+    vC: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.024, 1.1, .5, .4), M.mouthIn, g); add(Sph(.011, 1.2, .4, .4), M.tongue, g, [0, -.006, .005]); add(new THREE.BoxGeometry(.03, .005, .006), M.teeth, g, [0, .007, .007]); return g; })(),
+    vD: (() => { const g = G(mouth, [0, -.007, 0]); add(Sph(.027, 1.05, 1.0, .4), M.mouthIn, g); add(Sph(.015, 1.2, .55, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.03, .006, .006), M.teeth, g, [0, .02, .007]); return g; })(),
     vM: capTube([[-.019, .001, 0], [0, -.001, .002], [.019, .001, 0]], .0034, M.dark, mouth),
     vF: (() => { const g = G(mouth); capTube([[-.018, -.004, 0], [.018, -.004, 0]], .0026, M.dark, g); add(new THREE.BoxGeometry(.022, .006, .006), M.teeth, g, [0, .001, .006]); return g; })(),
   };
@@ -514,7 +517,8 @@ export function makeHaru3(o = {}) {
   // ---- lip sync from Rhubarb Lip Sync (github.com/DanielSWolf/rhubarb-lip-sync), better than letters: it listens to the audio.
   // cues = its JSON "mouthCues": [{start, end, value}] with the standard shapes A..H, X. Run on the PC:
   //   rhubarb -f json -r phonetic --dialogFile line.txt line.wav > line_mouth.json   (then add the line's start time to every cue)
-  const RHUBARB = {A: 'vM', B: 'vE', C: 'vE', D: 'vA', E: 'vO', F: 'vU', G: 'vF', H: 'vA', X: null};
+  // A closed (M B P), B slightly open teeth, C open (EH), D wide (AA), E round (AO), F puckered (OO W), G teeth on lip (F V), H tongue (L)
+  const RHUBARB = {A: 'vM', B: 'vE', C: 'vC', D: 'vD', E: 'vO', F: 'vU', G: 'vF', H: 'vC', X: null};
   Pp.talkCues = (cues, t) => {
     const q = Math.floor(t * 12) / 12, c = cues.find(c => q >= c.start && q < c.end), m = c && RHUBARB[c.value];
     if (!m) { showMouth(Pp._mouth); return false; }

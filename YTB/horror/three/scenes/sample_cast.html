@@ -24,7 +24,12 @@ const cast = names.map((n, i) => { const P = makeChar(n); P.root.position.x = (i
 console.log('PT cast built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
 // t >= 20: talking test, character (t - 20) | 0 says a line; fraction = time in the line (0..1 over 2.4 s); it also blinks on its own rhythm
 const LINE = [['I', 0, .2], ['bought', .2, .55], ['a', .55, .65], ['magic', .65, 1.05], ['lamp', 1.05, 1.5], ['from', 1.6, 1.85], ['the', 1.85, 1.95], ['market', 1.95, 2.4]];
+// t >= 30: Rhubarb test, Haru on the Thanksgiving hook line h01 (cues from YTB/horror/thanksgiving/voice/mouths.json); fraction = 0..1 of 3.6 s
+let CUES = []; try { CUES = (await (await fetch('/data/test_mouths.json')).json()).h01.cues; } catch (e) {}
 window.renderAt = t => {
+  if (t >= 30) { const lt = .3 + (t - 30) * 3.6, P = cast[0]; P.expr('neutral'); P.talkCues(CUES, lt);
+    P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3());
+    cam.fov = 8; cam.position.set(h.x, h.y + .05, h.z + 4.2); cam.lookAt(h.x, h.y + .02, h.z); cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t); return; }
   if (t >= 20) { const i = Math.floor(t - 20), lt = (t - 20 - i) * 2.4, P = cast[i]; P.expr('neutral'); P.talk(LINE, lt); P.blink(lt + 40);
     P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3());
     cam.fov = 8; cam.position.set(h.x, h.y + .05, h.z + 4.2); cam.lookAt(h.x, h.y + .02, h.z); cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t); return; }
