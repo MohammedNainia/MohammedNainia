@@ -1,0 +1,371 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE MAGIC LAMP (9:16, 89.5 s), dark clay stop-motion in the Tooth Fairy / Thanksgiving style (clay.js kit, raster render).
+// Timed to YTB/horror/magic_lamp/voice/layout.json (copied to three/data). Poses held on twos; the clay boils every other pose.
+// Each place is its own group at the origin; only the one in use is shown (its lights go with it).
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts} from './clay.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render} = setup({bloom: .6, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+const DUR = 89.5, PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
+cam.near = .01; cam.far = 40; cam.updateProjectionMatrix();
+let rs = 9; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const box = (w, h, d, a = .01, f = 2, seg = 10) => lump(new THREE.BoxGeometry(w, h, d, seg, seg, seg), a, f);
+const LAY = Object.fromEntries((await (await fetch('/data/magic_lamp_layout.json')).json()).map(l => [l.name, l]));
+const MOUTH = await (await fetch('/data/magic_lamp_mouths.json')).json();
+const ST = n => LAY[n].start, EN = n => LAY[n].end;
+
+// ================================================================ materials
+const M = {
+  brass: gloss(0x8a6a2c, {roughness: .45, metalness: .55}), brassD: clay(0x4a3614, {bumpScale: 1.2}), brassL: gloss(0xb8923e, {roughness: .35, metalness: .6}),
+  oil: gloss(0x1a1006, {roughness: .05}), coin: gloss(0xc9a24a, {roughness: .3, metalness: .7}), hole: new THREE.MeshBasicMaterial({color: 0xffe0a8}),
+  wall: clay(0x3a2a24), wallB: clay(0x2a3446), floor: clay(0x3e2a20), wood: clay(0x5a3a26), woodD: clay(0x34221a), sheet: clay(0xcfc8b6), blanket: clay(0x3e5274),
+  cloth: clay(0x7a2a2a, {side: THREE.DoubleSide}), awn: clay(0xd8c48a, {side: THREE.DoubleSide}), awnR: clay(0xa83a2a, {side: THREE.DoubleSide}),
+  ground: clay(0x6a5e4e), sky: new THREE.MeshBasicMaterial({color: 0x46526a}), win: new THREE.MeshBasicMaterial({color: 0x1a2a48}), moonM: new THREE.MeshBasicMaterial({color: 0xe8ecdc}),
+  paper: clay(0xefe8d8), red: clay(0xb02020), fridge: clay(0xd8d2c4), tile: clay(0x9a9a8a), metal: gloss(0x9a9a98, {roughness: .3}),
+};
+
+// ================================================================ the magic lamp (a prop): brass, dented, an engraved band
+function magicLamp() {
+  const g = new THREE.Group();
+  const prof = [[0, 0], [.06, .005], [.08, .02], [.11, .05], [.12, .08], [.1, .11], [.06, .125], [.035, .13], [.03, .15], [0, .155]].map(([x, y]) => new THREE.Vector2(x, y));
+  add(lump(new THREE.LatheGeometry(prof, 32), .003, 20), M.brass, g).scale.z = .8;
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(.09, .07, 0), V(.17, .09, 0), V(.24, .14, 0), V(.29, .17, 0)]), 16, .018, 8), M.brass, g);
+  add(lump(new THREE.TorusGeometry(.055, .012, 8, 18, PI * 1.2), .001, 30), M.brass, g, [-.13, .09, 0], [0, 0, PI * .4]);
+  add(S(.03, 1, 1, 1, .001, 30), M.brass, g, [0, .165, 0]); add(S(.012), M.brass, g, [0, .2, 0]);
+  for (let i = 0; i < 20; i++) { const a = i / 20 * PI * 2; add(S(.006), M.brassD, g, [Math.sin(a) * .118, .085, Math.cos(a) * .094]); }
+  const glow = add(S(.014), new THREE.MeshBasicMaterial({color: 0xffb060}), g, [.297, .175, 0]); glow.visible = false;
+  g.userData.glow = glow; g.userData.tip = V(.3, .17, 0); return g;
+}
+
+// ================================================================ brass people: makePerson with every material turned brass
+const BRASS_KEEP = ['eye', 'white', 'mouth', 'gum', 'tooth'];
+function brassify(P, k = 1, tint = 0x8a6a2c) {
+  const t = new THREE.Color(tint);
+  for (const [n, m] of Object.entries(P.M)) { if (BRASS_KEEP.includes(n)) continue;
+    m.userData.c0 = m.userData.c0 || m.color.clone(); m.color.copy(m.userData.c0).lerp(t, k);
+    m.metalness = .55 * k; m.roughness = lerp(m.userData.r0 ?? (m.userData.r0 = m.roughness), .45, k); }
+}
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  P.chest.rotation.set(0, 0, 0); P.neck.rotation.set(0, 0, 0); P.head.rotation.set(0, 0, 0); P.back.rotation.set(0, 0, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  P.eyes('open'); P.brows(0); P.mouth('closed'); P.root.visible = true;
+}
+function walk(P, t, speed = 1, amp = 1) {
+  const ph = t * PI * 2 * speed, sw = Math.sin(ph);
+  P.hips.position.y = .82 - (1 - Math.cos(.42 * amp * sw)) * .74 + Math.abs(Math.cos(ph)) * .012 * amp;
+  P.legs.forEach(({th, sh, ft}, i) => { const q = i ? -sw : sw, kn = Math.max(0, Math.sin(ph + (i ? PI : 0) - .6)) * (.9 + .5 * (amp - 1));
+    th.rotation.x = -q * .42 * amp; sh.rotation.x = kn; ft.rotation.x = -kn * .5 + q * .2; });
+  P.arms.forEach(({up, fo}, i) => { const q = i ? sw : -sw; up.rotation.x = -q * .4 * amp; fo.rotation.x = -.2 - Math.max(0, q) * .4 * amp; });
+}
+function sitAt(P, x, y, z, ry, sc = 1) { P.root.rotation.y = ry; P.root.position.set(x, y - .82 * sc, z); P.legs.forEach(({th, sh}) => { th.rotation.x = -1.5; sh.rotation.x = 1.5; }); }
+function faceTo(P, v, k = 1) {
+  P.root.updateMatrixWorld(true); const hp = P.head.getWorldPosition(V(0, 0, 0));
+  let a = Math.atan2(v.x - hp.x, v.z - hp.z) - P.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a));
+  P.head.rotation.y = Math.max(-1.2, Math.min(1.2, a)) * k;
+  P.head.rotation.x = Math.max(-.6, Math.min(.6, -Math.atan2(v.y - hp.y, Math.hypot(v.x - hp.x, v.z - hp.z)))) * k;
+}
+// talking from Rhubarb cues: closed lips (A, X), slightly open (B, F, G), open (C, D, E, H)
+function talk(P, name, t) {
+  const c = (MOUTH[name] ? MOUTH[name].cues : []).find(c => t >= c.start && t < c.end);
+  if (!c || c.value === 'X' || c.value === 'A') return false;
+  P.mouth('open', {B: .35, F: .3, G: .3, C: .6, D: 1, E: .7, H: .55}[c.value] || .5); return true;
+}
+
+// ================================================================ INSIDE THE LAMP: a tall brass throat, oil sweating down, the hole of light far above
+const LAMP = G(scene); const Hh = 6, Rr = 2.3;
+const radius = y => { const u = y / Hh; return Rr * (1 - .15 * u) * (u < .55 ? 1 : 1 - Math.pow((u - .55) / .45, 1.6) * .9) + .035 * Math.sin(y * 16); };
+const prof = []; for (let i = 0; i <= 90; i++) { const y = i / 90 * Hh; prof.push(new THREE.Vector2(radius(y), y)); }
+const throat = add(lump(new THREE.LatheGeometry(prof, 72), .02, 3), clay(0x3a2c16, {side: THREE.BackSide}), LAMP); throat.castShadow = false;
+add(lump(new THREE.CircleGeometry(Rr, 48).rotateX(-PI / 2), .01, 4), clay(0x2e2212), LAMP, [0, .005, 0]);
+const hole = add(new THREE.CircleGeometry(radius(Hh) * 1.05, 24).rotateX(PI / 2), M.hole, LAMP, [0, Hh - .02, 0]);
+const wallAt = (a, y, inset = 0) => { const r = radius(y) - inset; return V(Math.sin(a) * r, y, Math.cos(a) * r); };
+for (let i = 0; i < 60; i++) { const y = .4 + rnd() * 4, a = rnd() * PI * 2, p = wallAt(a, y, .02);                      // oil drops and runs
+  add(S(.014 + rnd() * .01, 1, 1.6, .5), M.oil, LAMP, p.toArray()); if (rnd() < .5) add(Cp(.005, .15 + rnd() * .2), M.oil, LAMP, [p.x, p.y - .12, p.z]); }
+for (let i = 0; i < 8; i++) { const a = i * 2.3, r = .6 + (i % 4) * .35, h = G(LAMP, [Math.sin(a) * r, 0, Math.cos(a) * r]); h.rotation.set((i % 3 - 1) * .3, a, 0);   // hands in the floor
+  add(Cp(.03, .14), M.brassD, h, [0, .07, 0]); add(S(.04, 1, .9, .45), M.brassD, h, [0, .17, 0]);
+  for (let k = 0; k < 3; k++) add(Cp(.01, .045), M.brassD, h, [(k - 1) * .022, .225, .01], [-.3 - i * .05, 0, 0]); }
+const lampSpot = new THREE.SpotLight(0xffd9a0, 0, 9, .28, .8, 1.3); lampSpot.position.set(0, Hh - .1, 0); lampSpot.target.position.set(0, 0, 0); lampSpot.castShadow = true; lampSpot.shadow.mapSize.set(1024, 1024); LAMP.add(lampSpot, lampSpot.target);
+const lampAmb = new THREE.HemisphereLight(0x6a5030, 0x0a0604, .25); LAMP.add(lampAmb);
+const wallRake = []; for (let i = 0; i < 6; i++) { const a = i / 6 * PI * 2, s = new THREE.SpotLight(0xffd29a, 0, 9, .45, .95, 1.5);
+  s.position.set(Math.sin(a) * .3, Hh - .3, Math.cos(a) * .3); s.target.position.copy(wallAt(a, 1.0, .1)); LAMP.add(s, s.target); wallRake.push(s); }
+const keyL = new THREE.PointLight(0xffd8a8, 0, 2.6, 1.6); LAMP.add(keyL);                               // follows whoever the shot is about
+
+// the brass people
+const coinMan = makePerson({top: 0x6a5a3a, pants: 0x4a4030, longHair: false, hood: false, pocket: false, hair: 0x9a8a6a, scale: 1.05}); brassify(coinMan); LAMP.add(coinMan.root);
+const coinPos = wallAt(.9, 0, .8);
+const heap = G(LAMP, coinPos.toArray());
+add(lump(new THREE.SphereGeometry(.6, 30, 16, 0, PI * 2, 0, PI / 2).scale(1, .9, .9), .02, 6), M.brassD, heap);
+for (let i = 0; i < 260; i++) { const r = Math.sqrt(rnd()) * .58, a = rnd() * PI * 2, y = .54 * Math.sqrt(Math.max(0, 1 - (r / .6) ** 2));
+  add(new THREE.CylinderGeometry(.028, .028, .006, 12), M.coin, heap, [Math.sin(a) * r, y + .004, Math.cos(a) * r * .9], [(rnd() - .5), rnd() * 6, (rnd() - .5)]); }
+const fallingCoin = add(new THREE.CylinderGeometry(.028, .028, .006, 12), M.coin, LAMP);
+const mother = makePerson(Object.assign({}, mumOpts, {top: 0x4a3a40})); brassify(mother, 1, 0x7a5c28); LAMP.add(mother.root);
+const baby = makePerson({longHair: false, hood: false, pocket: false, hair: 0x8a7a5a, scale: .32}); brassify(baby, 1, 0x806028); LAMP.add(baby.root);
+const swaddle = add(S(.42, .8, 1.3, .7, .02, 6), M.brassD, baby.chest, [0, -.3, .02]);
+const motherPos = wallAt(-1.0, 0, .75);
+const boy = makePerson({top: 0x3a5a3a, pants: 0x4a4030, longHair: false, hood: false, scale: .8, hair: 0x2a2420}); brassify(boy, 1, 0x86662c); LAMP.add(boy.root);
+const boyA = 2.5, boyPos = wallAt(boyA, 0, .55);
+const boyArms = G(LAMP);
+const wallPeople = [];
+for (let i = 0; i < 9; i++) { const a = i / 9 * PI * 2 + .2; if ([.9, -1.0 + 2 * PI, boyA, PI].some(s => Math.abs(((a - s + PI) % (2 * PI) + 2 * PI) % (2 * PI) - PI) < .45)) continue;
+  const P = makePerson({top: [0x5a4a3a, 0x3a3a4a, 0x4a3a2a][i % 3], longHair: i % 2 === 0, bun: i % 3 === 1, hood: false, scale: .9 + rnd() * .2}); brassify(P, 1, i % 2 ? 0x6e5a2c : 0x7a6430);
+  const y = .2 + (i % 3) * .45, p = wallAt(a, y, .06); P.root.position.set(p.x, y - .02, p.z); P.root.rotation.y = a + PI;
+  P.arms.forEach(({up, fo}, k) => { up.rotation.set(-.3 - rnd() * .6, 0, (k ? 1 : -1) * (.3 + rnd() * .6)); fo.rotation.set(-rnd() * 1.2, 0, 0); });
+  add(lump(new THREE.TorusGeometry(.36, .08, 8, 30).scale(1, 2.2, .5), .01, 6), M.brassD, LAMP, wallAt(a, y + .82, -.02).toArray(), [0, a, 0]);   // melted brass round them
+  P.mouth('closed'); LAMP.add(P.root); wallPeople.push(P); }
+// the girl who comes out: an old dress (a long cone skirt over the legs), brass that warms into clay
+const girl = makePerson({top: 0x3e3038, pants: 0x3e3038, shoe: 0x2a2220, hood: false, pocket: false});
+const skirtG = add(lump(new THREE.CylinderGeometry(.14, .3, .72, 24, 6, true), .006, 8), clay(0x3e3038, {side: THREE.DoubleSide}), girl.hips, [0, -.38, 0]);
+girl.M.skirt = skirtG.material; brassify(girl, 1, 0x7a6230); LAMP.add(girl.root);
+
+// ================================================================ THE MARKET (late afternoon, overcast)
+const MK = G(scene);
+add(box(14, .1, 12, .01, 1.5), M.ground, MK, [0, -.05, 0]);
+add(new THREE.PlaneGeometry(16, 8), M.sky, MK, [0, 4, -4.5]);
+function stall(x, z, ry, col) { const g = G(MK, [x, 0, z]); g.rotation.y = ry;
+  add(box(1.4, .06, .7, .004, 4), M.wood, g, [0, .74, 0]); for (const [a, b] of [[-.64, -.3], [.64, -.3], [-.64, .3], [.64, .3]]) add(Cp(.03, .7), M.woodD, g, [a, .37, b]);
+  add(box(1.5, .02, .8, .003, 6), col, g, [0, .78, 0]); add(new THREE.PlaneGeometry(1.5, .3), col, g, [0, .64, .41]);
+  for (const sx of [-1, 1]) add(Cp(.02, 1.3), M.woodD, g, [sx * .7, 1.4, -.35]);
+  for (let i = 0; i < 6; i++) add(new THREE.PlaneGeometry(.26, .9), i % 2 ? M.awn : M.awnR, g, [-.65 + i * .26, 2.0, 0], [-1.25, 0, 0]);
+  return g; }
+const stallMain = stall(0, 0, 0, M.cloth);
+for (let i = 0; i < 5; i++) add(lump(new THREE.CylinderGeometry(.04, .045, .1 + rnd() * .08, 12), .002, 14), clay([0x5a7a6a, 0x9a6a3a, 0x6a5a8a][i % 3]), stallMain, [-.55 + i * .12, .84, -.2]);
+const lampMK = magicLamp(); stallMain.add(lampMK); lampMK.position.set(.15, .79, .12); lampMK.rotation.y = -.6;
+[[-2.0, -.6, .3], [2.0, -.6, -.3], [-1.1, -2.8, 0], [1.2, -2.9, 0]].forEach(([x, z, r], k) => stall(x, z, r, clay([0x3a5a8a, 0x8a3a5a, 0x4a7a5a, 0xb87a2e][k])));
+for (let i = 1; i < 18; i++) { const x = -3 + i * .35; add(new THREE.ConeGeometry(.07, .16, 3), clay([0xc9502e, 0xe0b040, 0x3a7a9a][i % 3]), MK, [x, 2.45 - Math.sin(i / 18 * PI) * .3, -1.1], [0, 0, PI]); }
+const mkSun = new THREE.DirectionalLight(0xffc890, 1.3); mkSun.position.set(3, 6, 4); mkSun.castShadow = true; mkSun.shadow.mapSize.set(2048, 2048);
+Object.assign(mkSun.shadow.camera, {left: -4, right: 4, top: 4, bottom: -2}); MK.add(mkSun, mkSun.target); MK.add(new THREE.HemisphereLight(0x8a96a8, 0x5a4a3a, .6));
+const mkFill = new THREE.DirectionalLight(0xb8c4e0, .9); mkFill.position.set(1, 2, 6); MK.add(mkFill);   // the sky behind the camera, so faces read
+
+// ================================================================ THE KITCHEN (night)
+const KI = G(scene);
+add(box(5, .1, 5, .01, 1.2), M.floor, KI, [0, -.05, 0]); add(box(5, 3, .1, .015, 1), clay(0x4a5246), KI, [0, 1.5, -2.2]).castShadow = false; add(box(.1, 3, 5, .015, 1), clay(0x4a5246), KI, [-2.3, 1.5, 0]).castShadow = false;
+add(box(2.6, .9, .6, .008, 3), clay(0x5a6a56), KI, [-.6, .45, -1.85]); add(box(2.64, .05, .64, .004, 6), M.tile, KI, [-.6, .92, -1.85]);
+add(box(.75, 1.8, .7, .01, 3), M.fridge, KI, [1.3, .9, -1.8]);
+add(box(1.2, .05, .8, .004, 4), M.wood, KI, [-.5, .74, -.2]); for (const [a, b] of [[-1.05, -.55], [.05, -.55], [-1.05, .15], [.05, .15]]) add(Cp(.025, .7), M.woodD, KI, [a, .36, b]);
+const kchair = G(KI, [-1.25, 0, -.2]); kchair.rotation.y = PI / 2; add(box(.42, .05, .4, .003, 6), M.wood, kchair, [0, .45, 0]); add(box(.42, .55, .04, .003, 6), M.wood, kchair, [0, .74, -.19]);
+const card = add(new THREE.PlaneGeometry(.21, .28), M.paper, KI, [-.85, .775, -.2], [-PI / 2, 0, .3]);
+add(new THREE.TorusGeometry(.03, .006, 6, 16), M.red, KI, [-.8, .78, -.27], [-PI / 2, 0, 0]);
+const pend = new THREE.PointLight(0xffc070, 3.2, 3.5, 1.5); pend.position.set(-.5, 1.85, -.2); pend.castShadow = true; pend.shadow.mapSize.set(1024, 1024); KI.add(pend);
+add(new THREE.ConeGeometry(.2, .16, 20, 1, true), clay(0x3a4a42, {side: THREE.DoubleSide}), KI, [-.5, 1.95, -.2]);
+add(S(.035), new THREE.MeshBasicMaterial({color: 0xffe0a0}), KI, [-.5, 1.88, -.2]);
+KI.add(new THREE.HemisphereLight(0x3a4050, 0x0a0806, .25));
+
+// ================================================================ THE BEDROOM (night; morning at the end)
+const BR = G(scene);
+add(box(5, .1, 5, .01, 1.2), M.floor, BR, [0, -.05, 0]); add(box(5, 3, .1, .015, 1), M.wallB, BR, [0, 1.5, -2.2]).castShadow = false; add(box(.1, 3, 5, .015, 1), M.wallB, BR, [-2.3, 1.5, 0]).castShadow = false;   // the moon comes in through the window
+add(new THREE.PlaneGeometry(.9, 1.0), M.win, BR, [-2.24, 1.55, -.8], [0, PI / 2, 0]); add(S(.08), M.moonM, BR, [-2.23, 1.8, -.6]);
+for (const [w, h, y, z] of [[.06, 1.06, 1.55, -1.25], [.06, 1.06, 1.55, -.35], [.06, .9, 2.05, -.8], [.06, .9, 1.05, -.8]]) add(box(.06, h, w === .06 && h > 1 ? .06 : .9, .002, 8), M.woodD, BR, [-2.22, y, z]);
+const bedG = G(BR, [-1.2, 0, -1.3]); add(box(1.0, .3, 2.0, .006, 3), M.woodD, bedG, [0, .15, 0]); add(box(1.0, .2, 2.0, .01, 3), M.sheet, bedG, [0, .38, 0]);
+add(box(1.04, .07, 1.2, .008, 4), M.blanket, bedG, [0, .5, .35]); add(box(.7, .12, .36, .01, 4), M.sheet, bedG, [0, .53, -.75]); add(box(1.0, .8, .08, .006, 4), M.woodD, bedG, [0, .4, -1.02]);
+const stand = add(box(.45, .55, .4, .006, 4), M.wood, BR, [-.35, .275, -1.95]);
+add(box(1.0, .03, .22, .003, 6), M.woodD, BR, [.6, 1.55, -2.08]); for (let i = 0; i < 5; i++) add(box(.035, .2, .14, .002, 10), clay([0x8a3a32, 0x3a5a7a, 0x6a7a3a, 0xc9a24a][i % 4]), BR, [.25 + i * .045, 1.665, -2.08]);
+const lampBR = magicLamp(); BR.add(lampBR);
+const moonL = new THREE.DirectionalLight(0x7088c0, 1.3); moonL.position.set(-4, 2.4, -.6); moonL.target.position.set(0, .5, -.8); moonL.castShadow = true; moonL.shadow.mapSize.set(1024, 1024);
+Object.assign(moonL.shadow.camera, {left: -3, right: 3, top: 3, bottom: -2}); BR.add(moonL, moonL.target);
+const brAmb = new THREE.HemisphereLight(0x3a4a6a, 0x080606, .25); BR.add(brAmb);
+const morningL = new THREE.DirectionalLight(0xffe2b8, 0); morningL.position.set(-4, 2.6, -.4); morningL.target.position.set(0, .6, -1); morningL.castShadow = true; BR.add(morningL, morningL.target);
+const lampGlowL = new THREE.PointLight(0xffa040, 0, 1.6, 1.6); BR.add(lampGlowL);
+const morningFill = new THREE.PointLight(0xffe2c4, 0, 4, 1.2); morningFill.position.set(-.25, 1.45, -1.45); BR.add(morningFill);   // daylight bouncing round the room
+const door = G(BR, [1.4, 0, -2.14]); add(box(.85, 2.0, .05, .004, 4), M.woodD, door, [.425, 1.0, 0]);
+
+// ================================================================ the cast
+const haru = makePerson(haruOpts); scene.add(haru.root);
+const fake = makePerson(haruOpts); scene.add(fake.root);                                                            // the thing wearing her
+const mum = makePerson(mumOpts); scene.add(mum.root);
+const seller = makePerson({top: 0x2e4a2e, pants: 0x3a3428, shoe: 0x2a2420, hair: 0xb8b2a8, longHair: false, hood: false, pocket: false, scale: 1.04, skin: 0xe2bc9e}); scene.add(seller.root);
+seller.arms.forEach(({hand}) => hand.children.forEach(m => { if (m.material === seller.M.skin) m.material = M.brass; }));        // brass fingertips
+const kid = makePerson({top: 0x4a7a3a, pants: 0x6a5a4a, hair: 0x1e1a18, longHair: false, hood: false, scale: .82, skin: 0x8d5a3b}); scene.add(kid.root);
+const CAST = [haru, fake, mum, seller, kid];
+
+// ================================================================ the timeline
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } };
+const show = place => { for (const g of [LAMP, MK, KI, BR]) g.visible = g === place; };
+const only = (...ps) => CAST.forEach(P => { P.root.visible = ps.includes(P); });
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
+let black = false;
+const HEAD = P => P.head.getWorldPosition(V(0, 0, 0));
+function lampLights(spot = 1, rake = 1, key = null, keyI = 1.6) {
+  lampSpot.intensity = 8 * spot; wallRake.forEach(s => s.intensity = 2.4 * rake); lampAmb.intensity = .25;
+  keyL.intensity = key ? keyI : 0; if (key) keyL.position.copy(key);
+}
+function lampPeople(q, look) {                                              // the brass people go on with their wishes
+  reset(coinMan); coinMan.root.position.set(coinPos.x, 0, coinPos.z); coinMan.root.rotation.y = .9 + PI;
+  coinMan.legs.forEach(({th, sh, ft}) => { th.rotation.x = -.2; sh.rotation.x = 1.6; ft.rotation.x = .5; }); coinMan.hips.position.y = .45;
+  const cyc = (q % 1.6) / 1.6; coinMan.chest.rotation.x = .45 + (cyc < .15 ? Math.sin(cyc / .15 * PI) * .2 : 0); coinMan.neck.rotation.x = .2;
+  coinMan.arms.forEach(({up, fo}) => { up.rotation.set(-.5, 0, 0); fo.rotation.set(-.5, 0, 0); }); coinMan.mouth('open', 1); coinMan.eyes('squeeze'); coinMan.brows(.6);
+  coinMan.root.updateMatrixWorld(true); const m = coinMan.face.localToWorld(V(0, -.06, .03)), f = clamp01((cyc - .12) / .35);
+  fallingCoin.visible = cyc > .1 && f < 1; fallingCoin.position.set(m.x, m.y - f * f * (m.y - .55), m.z); fallingCoin.rotation.set(f * 9, 0, f * 4);
+  reset(mother); mother.root.position.set(motherPos.x, 0, motherPos.z); mother.root.rotation.y = -1.0 + PI; sitAt(mother, motherPos.x, .45, motherPos.z, -1.0 + PI);
+  const rock = Math.sin(q * 2.2) * .12; mother.chest.rotation.set(.3, 0, rock); mother.neck.rotation.x = .45; mother.eyes('closed'); mother.mouth('closed');
+  mother.arms.forEach(({up, fo}, i) => { up.rotation.set(-.5, 0, (i ? 1 : -1) * .2); fo.rotation.set(-1.6, (i ? -1 : 1) * .8, 0); });
+  mother.root.updateMatrixWorld(true); const lap = mother.chest.localToWorld(V(0, .15, .2));
+  reset(baby); baby.root.position.copy(lap).add(V(0, -.35, 0)); baby.root.rotation.set(-.2, mother.root.rotation.y, rock * 1.5);
+  baby.eyes('open'); baby.brows(.8); baby.mouth(Math.floor(q * 3) % 2 ? 'open' : 'closed', .3); if (look) faceTo(baby, look, .8);
+  reset(boy); boy.root.position.set(boyPos.x, 0, boyPos.z); boy.root.rotation.y = boyA + PI; boy.arms.forEach(({up}, i) => up.rotation.set(-.2, 0, (i ? 1 : -1) * .9));
+  boy.eyes('wide'); boy.brows(1); boy.mouth('pressed'); if (look) faceTo(boy, look, .5);
+  for (const P of wallPeople) { P.eyes('open'); if (look) faceTo(P, look, .8); }
+}
+// the arms that hold the boy, built once (from the wall to his wrists, hair, mouth, chest, legs)
+{ reset(boy); boy.root.position.set(boyPos.x, 0, boyPos.z); boy.root.rotation.y = boyA + PI; boy.arms.forEach(({up}, i) => up.rotation.set(-.2, 0, (i ? 1 : -1) * .9)); boy.root.updateMatrixWorld(true);
+  const tg = [...boy.arms.map(a => a.hand.localToWorld(V(0, -.04, 0))), boy.head.localToWorld(V(0, .1, -.02)), boy.head.localToWorld(V(.07, .02, .05)), boy.head.localToWorld(V(-.06, 0, .06)),
+    boy.face.localToWorld(V(0, -.05, .02)), boy.chest.localToWorld(V(.1, .3, .1)), boy.chest.localToWorld(V(-.1, .15, .1)), ...boy.legs.map(l => l.sh.localToWorld(V(0, -.1, .05)))];
+  tg.forEach(p => { const w0 = wallAt(boyA + (rnd() - .5), Math.max(.2, p.y + (rnd() - .2) * .5), .02), el = w0.clone().lerp(p, .5).add(V(0, .12 + rnd() * .1, 0));
+    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([w0, el, p]), 16, .026, 8), M.brassD, boyArms); add(S(.04, 1.1, .8, .55), M.brassD, boyArms, p.toArray()); }); }
+
+function frame(t) {
+  const q = Math.floor(t * 12) / 12;
+  boil(Math.floor(t * 6));
+  black = false; CAST.forEach(reset); only(); girl.root.visible = false; lampBR.userData.glow.visible = false; lampBR.visible = true; lampGlowL.intensity = 0;
+  hole.scale.setScalar(1); lampMK.position.set(.15, .79, .12); haru.root.scale.setScalar(1); morningL.intensity = 0; morningFill.intensity = 0; moonL.intensity = 1.3; brAmb.intensity = .25;
+  const look = HEAD(haru);
+
+  if (t < ST('h02') - .3) {                                         // HOOK: Haru tiny at the bottom of the lamp; her own face leans over the hole
+    show(LAMP); only(haru, fake); lampLights(1, .6, V(.4, 1.6, .9));
+    haru.root.position.set(0, 0, .1); haru.neck.rotation.x = -.4; haru.head.rotation.x = -.5; haru.eyes('wide'); haru.brows(1); haru.mouth('pressed');
+    fake.root.position.set(0, Hh + .08, -1.45); fake.root.rotation.set(PI / 2, 0, 0); fake.mouth('smile'); fake.eyes('open');
+    if (t < 2.6) C(V(.3, 3.6, 1.0), V(0, .3, 0), 44);
+    else { lampLights(1, .3, V(0, Hh - .5, .1), 2.2); hole.scale.setScalar(1.6); C(V(.05, 1.35, .55), V(0, Hh + .15, 0), 16); }
+  } else if (t < ST('s01') - .1) {                                   // the market: the old man and his stall
+    show(MK); only(haru, seller);
+    seller.root.position.set(0, 0, -.62); haru.root.position.set(.15, 0, .78); haru.root.rotation.y = PI; faceTo(haru, lampMK.getWorldPosition(V(0, 0, 0)), .6);
+    C(V(1.1, 1.3, 2.4), V(0, 1.0, 0), 44);
+  } else if (t < ST('h02b') - .4) {                                 // "Look at it all you like. Just never rub it." He pushes it across with one finger.
+    show(MK); only(seller); seller.root.position.set(0, 0, -.62);
+    if (!talk(seller, 's01', t)) seller.mouth('closed'); seller.brows(.3);
+    const push = ease(clamp01((t - ST('s01') - 1.8) / 1.2)); lampMK.position.z = .12 + .18 * push;
+    seller.arms[1].up.rotation.set(-.9 - push * .2, 0, -.2); seller.arms[1].fo.rotation.set(-.5, 0, 0);
+    C(V(.32, 1.45, .7), V(0, 1.3, -.6), 34);
+  } else if (t < ST('h03') - .35) {                                 // the kitchen at night: the report card; Mum walks past to her night shift
+    show(KI); only(haru, mum);
+    sitAt(haru, -1.25, .47, -.2, PI / 2); haru.chest.rotation.x = .25; haru.neck.rotation.x = .35; haru.brows(.7); haru.mouth('pressed');
+    haru.arms.forEach(({up, fo}) => { up.rotation.set(-.9, 0, 0); fo.rotation.set(-.7, 0, 0); });
+    const mt = t - (ST('h02b') + 1.2), mx = lerp(-2.0, 2.4, clamp01(mt / 3.6));
+    mum.root.position.set(mx, 0, -1.25); mum.root.rotation.y = PI / 2; if (mt > 0 && mt < 3.6) walk(mum, q, 1.1); mum.eyes('open'); mum.neck.rotation.x = .1;
+    C(V(.25, 1.3, 1.7), V(-.95, .9, -.65), 50);
+  } else if (t < EN('h04') + .1) {                                   // three nights: shelf, pillow, lap; then she rubs it
+    show(BR); lampBR.userData.glow.visible = true;
+    const nights = ST('h04') - .2;
+    if (t < nights) {
+      const k = (t - (ST('h03') - .35)) / (nights - (ST('h03') - .35));
+      if (k < .5) { lampBR.position.set(.95, 1.565, -2.06); lampBR.rotation.set(0, .4, 0); C(V(.65, 1.65, -1.35), V(.95, 1.6, -2.05), 36); }
+      else { lampBR.position.set(-1.2, .6, -1.95); lampBR.rotation.set(0, -.6, 0); C(V(-.65, .95, -1.25), V(-1.2, .62, -1.95), 40); }
+      lampGlowL.intensity = .6; lampGlowL.position.copy(lampBR.position).add(V(.25, .25, .3));
+    } else {
+      only(haru); sitAt(haru, -.62, .5, -.9, PI / 2); haru.chest.rotation.x = .3; haru.neck.rotation.x = .35; haru.eyes('open'); haru.brows(-.2);
+      haru.root.updateMatrixWorld(true); const lap = haru.hips.localToWorld(V(0, .02, .2));
+      lampBR.position.copy(lap); lampBR.rotation.set(0, PI / 2 + .3, 0);
+      const rub = t > ST('h04') ? Math.sin(q * PI * 2 * 3) * .25 : 0;
+      haru.arms[0].up.rotation.set(-.7, 0, .15); haru.arms[0].fo.rotation.set(-1.0, 0, 0);
+      haru.arms[1].up.rotation.set(-.75 + rub * .3, 0, -.25 + rub); haru.arms[1].fo.rotation.set(-1.0, 0, 0);
+      lampGlowL.intensity = t > ST('h04') ? .8 : .3; lampGlowL.position.copy(lap).add(V(0, .2, .1));
+      C(V(.55, 1.05, -.35), lap.clone().add(V(0, .2, 0)), 34);
+    }
+  } else if (t < ST('h05') - .9) {                                   // the room drains into the spout, and her with it
+    show(BR); only(haru); const k = ease((t - EN('h04') - .1) / (ST('h05') - .9 - EN('h04') - .1));
+    sitAt(haru, -.62, .5, -.9, PI / 2); haru.eyes('wide'); haru.brows(1); haru.mouth('open', .8); haru.arms.forEach(({up}) => up.rotation.set(-2.2, 0, 0));
+    haru.root.updateMatrixWorld(true); const lap = haru.hips.localToWorld(V(0, .02, .2)); lampBR.position.copy(lap); lampBR.rotation.set(0, PI / 2 + .3, 0);
+    lampBR.updateMatrixWorld(true); const tip = lampBR.localToWorld(lampBR.userData.tip.clone());
+    if (k > .2) { const s = Math.max(.003, 1 - ease((k - .2) / .8)); haru.root.scale.setScalar(s); haru.root.position.lerp(tip, ease((k - .2) / .8)); }
+    lampBR.userData.glow.visible = true; lampGlowL.intensity = .5 + .8 * k; lampGlowL.position.copy(tip);
+    C(V(.55, 1.05, -.35).lerp(tip.clone().add(V(.1, .05, .15)), k * .85), tip, 34 - 12 * k);
+    if (k > .9) black = true;
+  } else if (t < ST('h06') - .4) {                                   // she falls into the lamp, lands, gets up
+    show(LAMP); only(haru); lampPeople(q, look);
+    const t0 = ST('h05') - .4, f = clamp01((t - (t0 - .5)) / .5);
+    haru.root.position.set(0, (1 - f * f) * 3, .1); haru.eyes('wide'); haru.brows(1);
+    if (t < t0) { haru.arms.forEach(({up}) => up.rotation.set(-2.6, 0, 0)); haru.mouth('open', 1); }
+    else { const r = ease((t - t0 - .4) / 1.4); haru.hips.position.y = lerp(.45, .82, r); haru.legs.forEach(({th, sh}) => { th.rotation.x = lerp(-1.6, 0, r); sh.rotation.x = lerp(2.2, 0, r); });
+      haru.chest.rotation.x = lerp(.6, .1, r); haru.mouth('pressed'); if (t > t0 + 2) { haru.neck.rotation.x = -.3; haru.head.rotation.y = Math.sin(q * .7) * .6; } }
+    lampLights(1, .7, V(.5, 1.5, 1.0));
+    C(V(.5, 1.25, 1.8), V(0, .95, 0), 50);
+  } else if (t < ST('h07') - .4) {                                   // the walls are people. They all turn their eyes to her.
+    show(LAMP); only(haru); lampPeople(q, look); lampLights(.8, 1, V(0, 1.8, -.5), .9);
+    haru.root.position.set(0, 0, .1); haru.root.rotation.y = PI * .85; haru.eyes('wide'); haru.brows(.8); haru.mouth('pressed');
+    const u = (t - (ST('h06') - .4)) / (ST('h07') - ST('h06'));
+    C(V(.6 + u * .2, 1.3, -1.35 + u * .3), V(-.2, .95, 2.2), 62);
+  } else if (t < ST('h08') - .4) {                                   // the man who wanted to be rich, still coughing up coins
+    show(LAMP); only(); lampPeople(q, look); lampLights(.5, .7, coinMan.chest.localToWorld(V(.6, .9, .9)), 2.4);
+    const p = coinMan.head.getWorldPosition(V(0, 0, 0)), fw = V(Math.sin(coinMan.root.rotation.y), 0, Math.cos(coinMan.root.rotation.y));
+    C(p.clone().add(fw.multiplyScalar(1.7)).add(V(.25, .05, 0)), p.clone().add(V(0, -.3, 0)), 44);
+  } else if (t < ST('h09') - .4) {                                   // the mother rocking a baby that never grew up; push in on its old face
+    show(LAMP); only(); lampPeople(q, look); lampLights(.5, .7, mother.chest.localToWorld(V(.5, .7, .8)), 2.4);
+    const u = ease(clamp01((t - ST('h08') - 2.4) / 2)), bh = baby.head.getWorldPosition(V(0, 0, 0)), mh = mother.head.getWorldPosition(V(0, 0, 0));
+    const fw = V(Math.sin(mother.root.rotation.y), 0, Math.cos(mother.root.rotation.y));
+    C(mh.clone().lerp(bh, .5).add(fw.clone().multiplyScalar(lerp(1.1, .5, u))).add(V(0, .05, 0)), mh.clone().lerp(bh, lerp(.5, 1, u)), lerp(40, 30, u));
+  } else if (t < ST('x01') - .1) {                                   // the boy who wanted never to be alone
+    show(LAMP); only(); lampPeople(q, look); lampLights(.5, .7, boy.chest.localToWorld(V(.5, .8, 1.1)), 2.6);
+    const p = boy.head.getWorldPosition(V(0, 0, 0)), fw = V(Math.sin(boy.root.rotation.y), 0, Math.cos(boy.root.rotation.y));
+    C(p.clone().add(fw.multiplyScalar(1.6)).add(V(.3, .1, 0)), p.clone().add(V(0, -.25, 0)), 48);
+  } else if (t < ST('h10') - .5) {                                   // "What do you want?" Every mouth in the walls moves; she backs away
+    show(LAMP); only(haru); lampPeople(q, look); lampLights(.8, 1.1, V(0, 1.8, -.5), 1);
+    const u = (t - (ST('x01') - .1)) / (ST('h10') - ST('x01'));
+    haru.root.position.set(0, 0, .1 - u * .4); haru.root.rotation.y = PI * .85; haru.eyes('wide'); haru.brows(1); haru.mouth('pressed');
+    haru.arms.forEach(({up, fo}) => { up.rotation.set(-.6, 0, 0); fo.rotation.set(-1.4, 0, 0); });
+    wallPeople.forEach((P, i) => P.mouth(Math.floor(q * 12 + i * 3) % 3 ? 'open' : 'closed', .4));
+    C(V(.6, 1.3, -1.3), V(-.2, .95, 2.2), 62);
+  } else if (t < ST('h11') - .1) {                                   // the oldest one peels herself out of the wall
+    show(LAMP); only(haru); lampPeople(q, look); girl.root.visible = true; brassify(girl, 1, 0x7a6230);
+    const u = ease((t - (ST('h10') - .5)) / (ST('h11') - ST('h10') + .4)), gp = wallAt(PI, 0, .2 + .4 * u);
+    girl.root.position.set(gp.x, 0, gp.z); girl.root.rotation.y = 0; girl.eyes('open'); girl.mouth('closed');
+    haru.root.position.set(0, 0, .2); haru.root.rotation.y = PI; haru.eyes('wide'); haru.brows(1);
+    lampLights(.6, .5, V(gp.x + .5, 1.6, gp.z + 1.2), 2.4);
+    C(V(gp.x + .45, 1.2, gp.z + 1.9), V(gp.x, .85, gp.z), 44);
+  } else if (t < ST('g01') - .4) {                                   // she warms from brass into clay, and her face becomes Haru's
+    show(LAMP); only(); girl.root.visible = true; const u = ease((t - (ST('h11') - .1)) / (ST('g01') - ST('h11') - .3));
+    brassify(girl, 1 - u, 0x7a6230); const gp = wallAt(PI, 0, .6); girl.root.position.set(gp.x, 0, gp.z); girl.eyes('open'); girl.mouth('smile');
+    lampLights(.4, .3, V(gp.x + .4, 1.5, gp.z + 1.0), 2.4);
+    const h = girl.head.getWorldPosition(V(0, 0, 0)); C(h.clone().add(V(.08, 0, .65)), h, 30);
+  } else if (t < ST('h12') - .8) {                                   // high on the wall she speaks down to Haru; then out, and the light shrinks
+    show(LAMP); only(haru); girl.root.visible = true; brassify(girl, 0);
+    const talkEnd = EN('g01') + .2, out = clamp01((t - talkEnd) / .9), y = lerp(1.1, 1.9, ease(clamp01((t - ST('g01') + .4) / 1.5))) + out * 3.2, gp = wallAt(PI, y, .3);
+    girl.root.position.set(gp.x, y - .82, gp.z); girl.root.rotation.set(0, 0, 0);
+    if (t < talkEnd) { faceTo(girl, look, 1); if (!talk(girl, 'g01', t)) girl.mouth('smile'); }
+    else { girl.root.rotation.y = PI; girl.arms.forEach(({up}, i) => up.rotation.set(-2.6 + Math.sin(q * 9 + i * PI) * .35, 0, 0)); }
+    haru.root.position.set(0, 0, .2); haru.root.rotation.y = PI; haru.neck.rotation.x = -.35; haru.head.rotation.x = -.45; haru.eyes('wide'); haru.brows(1);
+    hole.scale.setScalar(1 - .85 * out); lampLights(1 - .85 * out, .4, V(gp.x + .3, y + .4, gp.z + .9), 2.4);
+    C(look.clone().add(V(.35, .05, .55)), girl.head.getWorldPosition(V(0, 0, 0)).lerp(look, .25), 52);
+  } else if (t < ST('m01') - .5) {                                   // morning, seen from the lamp on the nightstand: she smooths the bed, practises the smile
+    show(BR); only(fake); moonL.intensity = 0; morningL.intensity = 2.0; morningFill.intensity = 2.6; brAmb.intensity = .5;
+    lampBR.visible = false; fake.root.position.set(-.6, 0, -.55); fake.root.rotation.y = PI - .35; fake.mouth('smile');
+    const s = clamp01((t - ST('h12')) / 3.2); fake.chest.rotation.x = .5 * (1 - ease(clamp01((s - .7) / .3)));
+    fake.arms.forEach(({up, fo}, i) => { up.rotation.set(-.9 * (1 - s), 0, (i ? 1 : -1) * .3); fo.rotation.set(-.3, 0, Math.sin(q * 6) * .2 * (1 - s)); });
+    const eye = V(-.33, .78, -1.92); if (s > .8) faceTo(fake, eye, 1);
+    C(eye, HEAD(fake).add(V(0, -.3, 0)), 56);
+  } else if (t < ST('h13') - .6) {                                   // Mum hugs her; over Mum's shoulder she looks straight into the lamp
+    show(BR); only(fake, mum); moonL.intensity = 0; morningL.intensity = 2.0; morningFill.intensity = 2.6; brAmb.intensity = .5;
+    const eye = V(-.33, .78, -1.92), k = ease(clamp01((t - ST('m01') + .2) / .8));
+    lampBR.visible = false; fake.root.position.set(-.5, 0, -.6); fake.root.rotation.y = PI - .12; mum.root.position.set(-.72, 0, -.36); mum.root.rotation.y = PI - .12;   // Mum hugs her from behind
+    mum.arms.forEach(({up, fo}, i) => { up.rotation.set(-.75 * k, 0, (i ? -.25 : .05) * k); fo.rotation.set(-.6 * k, 0, 0); }); mum.neck.rotation.x = .3 * k; mum.head.rotation.z = -.25 * k;   // hands on her shoulders, cheek towards her
+    // she does not hug back: arms at her sides, eyes on the lamp
+    if (!talk(mum, 'm01', t)) mum.mouth('smile'); mum.eyes(t > EN('m01') ? 'closed' : 'open'); faceTo(fake, eye, 1); fake.mouth('closed');
+    C(eye, HEAD(fake).add(V(-.08, .12, 0)), 46);
+  } else if (t < ST('g02') - .1) {                                   // she runs the stall now; a boy walks up and stares at the lamp
+    show(MK); only(fake, kid); fake.root.position.set(0, 0, -.62); fake.mouth('smile');
+    const k = clamp01((t - (ST('h13') - .5)) / 2.2); kid.root.position.set(lerp(1.6, .15, k), 0, lerp(1.6, .82, k)); kid.root.rotation.y = Math.atan2(-1.45, -.78);
+    if (k < 1) walk(kid, q, 1.2); else { kid.root.rotation.y = PI; faceTo(kid, lampMK.getWorldPosition(V(0, 0, 0)), .7); }
+    C(V(1.3, 1.25, 2.6), V(.1, .95, 0), 46);
+  } else if (t < 88.0) {                                             // "Look at it all you like. Just never rub it." The boy's hand reaches.
+    show(MK); only(fake, kid); fake.root.position.set(0, 0, -.62); kid.root.position.set(.15, 0, .82); kid.root.rotation.y = PI;
+    if (!talk(fake, 'g02', t)) fake.mouth('smile'); faceTo(fake, HEAD(kid), .6);
+    const push = ease(clamp01((t - ST('g02') - 1.8) / 1.2)); lampMK.position.z = .12 + .18 * push;
+    fake.arms[1].up.rotation.set(-.9 - push * .2, 0, -.2); fake.arms[1].fo.rotation.set(-.5, 0, 0);
+    const reach = ease(clamp01((t - EN('g02') + 1.2) / 1.0)); kid.arms[0].up.rotation.set(-1.3 * reach, 0, .1); kid.arms[0].fo.rotation.set(-.3 * reach, 0, 0);
+    if (t < EN('g02') - 1.4) { const h = HEAD(fake); C(V(h.x - .3, h.y - .05, h.z + 1.1), h.clone().add(V(0, -.1, 0)), 36); }
+    else C(V(.6, 1.25, 1.7), V(.12, .95, .3), 40);
+  } else {                                                           // back to the bottom of the lamp (loop)
+    show(LAMP); only(haru); lampLights(1, .6, V(.4, 1.6, .9));
+    haru.root.position.set(0, 0, .1); haru.neck.rotation.x = -.4; haru.head.rotation.x = -.5; haru.eyes('wide'); haru.brows(1);
+    C(V(.3, 3.6, 1.0), V(0, .3, 0), 44);
+  }
+}
+
+window.renderAt = t => { frame(t); if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
