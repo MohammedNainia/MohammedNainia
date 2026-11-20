@@ -463,14 +463,14 @@ export function makeHaru3(o = {}) {
     wobble: capTube([...Array(9)].map((_, i) => [-.022 + i * .0055, (i % 2 ? .004 : -.003), .003]), .0028, M.dark, mouth),
     o: (() => { const g = G(mouth); add(Sph(.011, 1, 1.15, .4), M.mouthIn, g); return g; })(),
     open: (() => { const g = G(mouth, [0, -.006, 0]); add(Sph(.034, 1.1, .8, .4), M.mouthIn, g); add(Sph(.02, 1.2, .5, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.04, .009, .006), M.teeth, g, [0, .017, .008]); return g; })(),
-    // talking shapes (swapped like replacement mouths in stop motion): A open, E wide with teeth, O round, U small, M pressed, F teeth on lip
-    vA: (() => { const g = G(mouth, [0, -.004, 0]); add(Sph(.022, 1.1, .75, .4), M.mouthIn, g); add(Sph(.012, 1.2, .5, .4), M.tongue, g, [0, -.009, .005]); add(new THREE.BoxGeometry(.026, .006, .006), M.teeth, g, [0, .011, .007]); return g; })(),
-    vE: (() => { const g = G(mouth); add(Sph(.026, 1.15, .32, .4), M.mouthIn, g); add(new THREE.BoxGeometry(.034, .005, .006), M.teeth, g, [0, .003, .007]); return g; })(),
+    // talking shapes (swapped like replacement mouths in stop motion; no teeth except F, so the teeth don't flash all the time): A open, E wide with teeth, O round, U small, M pressed, F teeth on lip
+    vA: (() => { const g = G(mouth, [0, -.004, 0]); add(Sph(.022, 1.1, .75, .4), M.mouthIn, g); add(Sph(.012, 1.2, .5, .4), M.tongue, g, [0, -.009, .005]); return g; })(),
+    vE: (() => { const g = G(mouth); add(Sph(.026, 1.15, .32, .4), M.mouthIn, g); return g; })(),
     vO: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.015, 1, 1.2, .4), M.mouthIn, g); return g; })(),
     vU: (() => { const g = G(mouth); add(Sph(.009, 1, 1.1, .4), M.mouthIn, g); return g; })(),
     // C: open for EH/AE, mid between E and A; D: wide open for AA
-    vC: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.024, 1.1, .5, .4), M.mouthIn, g); add(Sph(.011, 1.2, .4, .4), M.tongue, g, [0, -.006, .005]); add(new THREE.BoxGeometry(.03, .005, .006), M.teeth, g, [0, .007, .007]); return g; })(),
-    vD: (() => { const g = G(mouth, [0, -.007, 0]); add(Sph(.027, 1.05, 1.0, .4), M.mouthIn, g); add(Sph(.015, 1.2, .55, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.03, .006, .006), M.teeth, g, [0, .02, .007]); return g; })(),
+    vC: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.024, 1.1, .5, .4), M.mouthIn, g); add(Sph(.011, 1.2, .4, .4), M.tongue, g, [0, -.006, .005]); return g; })(),
+    vD: (() => { const g = G(mouth, [0, -.007, 0]); add(Sph(.027, 1.05, 1.0, .4), M.mouthIn, g); add(Sph(.015, 1.2, .55, .4), M.tongue, g, [0, -.014, .006]); return g; })(),
     vM: capTube([[-.019, .001, 0], [0, -.001, .002], [.019, .001, 0]], .0034, M.dark, mouth),
     vF: (() => { const g = G(mouth); capTube([[-.018, -.004, 0], [.018, -.004, 0]], .0026, M.dark, g); add(new THREE.BoxGeometry(.022, .006, .006), M.teeth, g, [0, .001, .006]); return g; })(),
   };
