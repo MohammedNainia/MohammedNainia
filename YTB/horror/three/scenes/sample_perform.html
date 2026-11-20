@@ -27,7 +27,7 @@ const slow = {to: B, cadence: .55, mood: .6, stride: .85}, fast = {to: C, run: 1
 const tWalk = 2.8, tRun = tWalk + walkDuration(P, A, B, slow), tStop = tRun + walkDuration(P, B, C, fast);
 const tTurn = tStop + .3, tZoom = tTurn + .7;
 const track = [
-  {start: 0, at: A, dir: Math.PI / 2, pose: [[0, pose('crouch')], ...getUp(1.0, wary, {dur: 1.4})]},
+  {start: 0, at: A, dir: Math.PI / 2, tremble: .9, pose: [[0, pose('crouch')], ...getUp(1.0, wary, {dur: 1.4})]},
   {start: tWalk, walk: slow},
   {start: tRun, walk: fast},
   {start: tStop, pose: [[tStop, pose('jump back'), 0], [tStop + .25, Q => Q.rest()]], at: C, dir: Math.PI / 2},

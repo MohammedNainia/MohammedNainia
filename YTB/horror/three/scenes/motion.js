@@ -73,9 +73,13 @@ export function gaitPose(P, G, tau) {
   P.hips.position.y = S.H; P.hips.rotation.set(0, tw, drop);
   P.chest.rotation.set(.04 + .25 * mood + .28 * run + (P.stoop || 0), -tw * 1.5, -drop * .8);
   P.neck.rotation.set(-.15 * mood - .2 * run - (P.stoop || 0) * .6, tw * .4, 0); P.head.rotation.set(0, 0, 0);
-  P.arms.forEach((a, i) => { const s = Math.sin(up * TAU + (i ? 0 : Math.PI));
-    a.up.rotation.set(-(.32 + .45 * run) * s * stride * (1 - .6 * mood) - .1 * mood, 0, a.sd * (.24 - .1 * mood - .05 * run));
-    a.fo.rotation.set(-.18 - Math.max(0, -s) * .35 * stride - .5 * mood - 1.15 * run, 0, 0); a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });
+  // arms swing from the shoulder against the opposite leg; the elbow bends more as the arm comes forward. Scared: a tighter,
+  // stiffer swing with the arms held in, plus a tremble
+  P.arms.forEach((a, i) => { const s = Math.sin(up * TAU + (i ? 0 : Math.PI)), amp = (.48 + .4 * run) * stride * (1 - .45 * mood);
+    a.up.rotation.set(-amp * s - .12 * mood, 0, a.sd * (.24 - .08 * mood - .05 * run));
+    a.fo.rotation.set(-.22 - Math.max(0, -s) * (.45 + .2 * run) * stride - .45 * mood - 1.1 * run, 0, 0);
+    a.hand.rotation.set(-.12 - Math.max(0, -s) * .2, -a.sd * Math.PI / 2, 0); });
+  if (mood > 0) tremble(P, tau, mood);
   // legs: inverse kinematics to the ankles; the thighs undo the pelvis twist so the knees point forward
   P.legs.forEach((l, i) => { const f = S.feet[i], hx = l.th.position.x;
     const hy = S.H + hx * Math.sin(drop), hz = S.hipZ - hx * Math.sin(tw);
@@ -187,6 +191,7 @@ export function perform(P, t, track, {fade = .3, floor = 0} = {}) {
   };
   const q = step12(t); let i = 0; while (i < track.length - 1 && q >= track[i + 1].start) i++;
   evalPart(track[i], q);
+  if (track[i].tremble) tremble(P, q, track[i].tremble);
   const k = i > 0 ? ease((q - track[i].start) / fade) : 1;
   if (k < 1) {                                                        // cross-fade from the previous part
     const B = saveRot(P), bp = P.root.position.clone(), bh = P.hair.map(h => h.rotation.clone());
@@ -197,4 +202,13 @@ export function perform(P, t, track, {fade = .3, floor = 0} = {}) {
     ground(P, floor);
   }
   return {part: i, position: P.root.position};
+}
+
+// trembling with fear: small quick shakes of the hands, forearms and head, different every stop-motion frame (a function of t).
+// amount 0..1. Call after the pose is set (it adds to it).
+export function tremble(P, t, amount = 1) {
+  const q = Math.floor(t * 12 + 1e-6), n = (k, j) => Math.sin((q * 12.9898 + k * 78.233 + j * 37.719) * 43758.5453 % 6.2831);
+  P.arms.forEach((a, i) => { a.fo.rotation.x += n(i, 1) * .06 * amount; a.fo.rotation.z += n(i, 2) * .05 * amount;
+    a.hand.rotation.x += n(i, 3) * .12 * amount; a.hand.rotation.z += n(i, 4) * .1 * amount; a.up.rotation.z += n(i, 5) * .02 * amount; });
+  P.head.rotation.z += n(5, 6) * .015 * amount; P.chest.rotation.x += n(6, 7) * .008 * amount;
 }
