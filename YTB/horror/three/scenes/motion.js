@@ -40,8 +40,10 @@ export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // moo
     // the front, so the foot lands and stops there (no skid). Running: the knee comes up high and the standing knee stays soft.
     const sw = ((p + Math.PI / 2) % TAU + TAU) % TAU, u = sw / Math.PI;
     const knee = (u < 1 ? Math.sin(Math.PI * Math.pow(u, .85 - .25 * run)) : 0) * (.55 + .3 * stride + 1.15 * run) + .05 + (u >= 1 ? .25 * run : 0);
-    l.th.rotation.set(-A * s - .15 * run, 0, 0); l.sh.rotation.set(knee, 0, 0);
-    l.ft.rotation.set(-(-A * s - .15 * run + knee) + footRoll(p, run) * stride, 0, 0);   // the foot's angle to the floor rolls through the step
+    // the thigh swings further forward than back (real hips extend little behind the body, most of all running)
+    const th = s > 0 ? -A * (1 + .25 * run) * s : -A * (.8 - .35 * run) * s;
+    l.th.rotation.set(th - .15 * run, 0, 0); l.sh.rotation.set(knee, 0, 0);
+    l.ft.rotation.set(-(th - .15 * run + knee) + footRoll(p, run) * stride, 0, 0);   // the foot's angle to the floor rolls through the step
   });
   P.arms.forEach((a, i) => {
     const s = Math.sin(ph * TAU + (i ? 0 : Math.PI));

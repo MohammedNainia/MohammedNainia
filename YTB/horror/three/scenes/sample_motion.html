@@ -26,6 +26,11 @@ window.renderAt = t => {
     jolt(F, u, .5); F.root.updateMatrixWorld(true);
     cam.fov = 26; cam.aspect = 16 / 9; cam.position.set(0, 1.0, 4.5); cam.lookAt(0, .75, 0); cam.updateProjectionMatrix(); render(t); return;
   }
+  if (t >= 70) {                                          // running, close side view: t - 70 = run time
+    const u = t - 70; F.root.visible = false; L.root.visible = false; H.root.visible = true;
+    walk(H, u, {from: [-2, 0], dir: Math.PI / 2, run: 1, cadence: 1.45, stride: 1.1}); face(H, u, {expr: [[0, 'effort']]}); H.root.updateMatrixWorld(true);
+    const x = H.root.position.x; cam.fov = 22; cam.position.set(x, .7, 4.2); cam.lookAt(x, .6, 0); cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t); return;
+  }
   if (t >= 50) {                                          // close side view following Haru: t - 50 = walk time
     const u = t - 50; F.root.visible = false; H.root.visible = true; L.root.visible = false;
     walkTo(H, u, Object.assign({start: 0}, A)); face(H, u, {expr: [[0, 'neutral']]}); H.root.updateMatrixWorld(true);

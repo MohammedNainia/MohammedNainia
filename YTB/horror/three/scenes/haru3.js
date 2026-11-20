@@ -275,7 +275,9 @@ export function makeHaru3(o = {}) {
   // the thigh takes over only below the hem (soft band of .12)
   const HEM = .5 + DY;
   skinIt(meshSDF(pantsSDF, V(0, .4 + DY / 2, 0), .38, 112), M.pants, [hips], p => {
-    const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM - .06, HEM - .2, p.y);        // the pelvis stays with the hips; the thighs take over lower down
+    // above the hem the trousers stay with the hips (they must not poke out through the hoodie); below it the thigh takes over
+    // over a long band, so a leg swinging back bends smoothly from the hip, not with a kink at the hem
+    const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM + .01, HEM - .16, p.y);
     return [[[hips], 1 - t], [[l.th, l.sh, l.ft], t]];
   });
   if (SHORT_SLEEVES || SHORTS) skinIt(meshSDF(limbsSDF, V(0, .5 + DY / 2, 0), .55, 140), M.skin, [hips, ...arms.flatMap(a => [a.up, a.fo, a.hand]), ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
