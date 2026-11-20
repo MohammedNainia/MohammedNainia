@@ -71,11 +71,12 @@ export function gaitPose(P, G, tau) {
   // upper body: arms swing against the legs, pelvis twists and drops, chest counter-twists (phase: left foot lands at ph = 0)
   const up = ph - .25, tw = Math.sin(up * TAU) * (.11 + .05 * run) * stride, drop = Math.cos(up * TAU) * .045 * stride;
   P.hips.position.y = S.H; P.hips.rotation.set(0, tw, drop);
-  P.chest.rotation.set(.04 + .25 * mood + .28 * run + (P.stoop || 0), -tw * 1.5, -drop * .8);
-  P.neck.rotation.set(-.15 * mood - .2 * run - (P.stoop || 0) * .6, tw * .4, 0); P.head.rotation.set(0, 0, 0);
+  // upright: a frightened walk only draws the shoulders in a little; running leans into the run
+  P.chest.rotation.set(.07 * mood + .18 * run + (P.stoop || 0), -tw * 1.5, -drop * .8);
+  P.neck.rotation.set(-.05 * mood - .14 * run - (P.stoop || 0) * .6, tw * .4, 0); P.head.rotation.set(0, 0, 0);
   // arms swing from the shoulder against the opposite leg; the elbow bends more as the arm comes forward. Scared: a tighter,
   // stiffer swing with the arms held in, plus a tremble
-  P.arms.forEach((a, i) => { const s = Math.sin(up * TAU + (i ? 0 : Math.PI)), amp = (.48 + .4 * run) * stride * (1 - .45 * mood);
+  P.arms.forEach((a, i) => { const s = Math.sin(up * TAU + (i ? Math.PI : 0)), amp = (.48 + .4 * run) * stride * (1 - .45 * mood);
     a.up.rotation.set(-amp * s - .12 * mood, 0, a.sd * (.24 - .08 * mood - .05 * run));
     a.fo.rotation.set(-.22 - Math.max(0, -s) * (.45 + .2 * run) * stride - .45 * mood - 1.1 * run, 0, 0);
     a.hand.rotation.set(-.12 - Math.max(0, -s) * .2, -a.sd * Math.PI / 2, 0); });

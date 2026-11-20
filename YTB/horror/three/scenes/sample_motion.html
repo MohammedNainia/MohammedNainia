@@ -62,5 +62,11 @@ window.worst = (o) => { const P = H; let prev = null, out = [];
     pts.forEach((p, k) => { if (p.y < -.002) out.push(`f${f} ${['L heel','L ball','L tip','R heel','R ball','R tip'][k]} sinks ${(-p.y*1000).toFixed(1)} mm`); });
     prev = pts.map(p => p.clone()); }
   return out.slice(0, 14).join('\n'); };
+window.armleg = (o = {}) => { const P = H, rows = [];
+  for (let f = 0; f < 12; f++) { walk(P, f / 12, Object.assign({from: [0, 0], dir: 0, start: 0}, o)); P.root.updateMatrixWorld(true);
+    const z = v => v.getWorldPosition(new THREE.Vector3()).z, hz = z(P.hips);
+    const lf = z(P.legs[0].ft) - hz, rf = z(P.legs[1].ft) - hz, lh = z(P.arms[0].hand) - hz, rh = z(P.arms[1].hand) - hz, head = z(P.head) - hz;
+    rows.push(`f${f}: foot ahead L ${lf.toFixed(2)} R ${rf.toFixed(2)} | hand ahead L ${lh.toFixed(2)} R ${rh.toFixed(2)} | head ahead of hips ${head.toFixed(3)}  (legs[0].sd ${P.legs[0].sd}, arms[0].sd ${P.arms[0].sd})`); }
+  return rows.join('\n'); };
 window.renderAt(0); window.ready = true;
 </script></body></html>
