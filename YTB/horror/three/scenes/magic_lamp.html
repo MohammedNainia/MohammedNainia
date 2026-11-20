@@ -1,0 +1,250 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/",
+ "three/examples/jsm/":"/node_modules/three/examples/jsm/","three-gpu-pathtracer":"/node_modules/three-gpu-pathtracer/build/index.module.js","three-mesh-bvh":"/node_modules/three-mesh-bvh/build/index.module.js"}}</script>
+<script type="module">
+// THE MAGIC LAMP (reel, 9:16, 89.5 s). Script: YTB/horror/magic_lamp/script.txt, voices: magic_lamp/voice (layout + Rhubarb mouths
+// copied to three/data). Every set is built at the origin and only the one in use is shown.
+//   ?s=.5 half size   ?pt=64&dn=1&b=4&d=.6 path traced (final)   render: --step 12 --dur 89.5
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {room, bed, nightstand, lamp, wardrobe, rug, chair, LIGHTS, setupLights, setPreview, dressBedroom, windowView, boilSet, kitchen, magicLamp} from './sets.js';
+import {face, step12, ease, poseBlend, walkTo, jolt, tremble, ground} from './motion.js';
+import {POSES, getUp, armIK} from './haru3_poses.js';
+import {lampInterior, floorHand, coinMan, motherAndBaby, heldBoy, wallFigures, lampGirl, seller, marketStall, marketStreet, lookAt, brassEnvironment, faceCam, keyOn} from './lamp_world.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), PTS = +(q.get('pt') || 0), DET = +(q.get('d') || 1);
+const {scene, cam, renderer, render, grain} = setup({bloom: .3, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+grain.uniforms.vig.value = .85; renderer.toneMappingExposure = 1.0; renderer.shadowMap.type = THREE.VSMShadowMap;
+scene.background = new THREE.Color(0x020101); setupLights(); setPreview(!PTS);
+const LAY = Object.fromEntries((await (await fetch('/data/magic_lamp_layout.json')).json()).map(l => [l.name, l]));
+const MOUTH = await (await fetch('/data/magic_lamp_mouths.json')).json();
+const S = n => LAY[n].start, E = n => LAY[n].end, cues = n => MOUTH[n] ? MOUTH[n].cues : [];
+const V = (x, y, z) => new THREE.Vector3(x, y, z), pose = n => POSES.find(p => p.name === n).fn;
+const lerp = (a, b, k) => a + (b - a) * k, clamp = x => Math.min(1, Math.max(0, x));
+
+// ================================================================ the sets (all at the origin, one shown at a time)
+// inside the lamp
+const W = lampInterior(); scene.add(W.group);
+W.group.add(new THREE.HemisphereLight(0x5a4628, 0x0a0704, PTS ? .03 : .1));
+for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, sp = new THREE.SpotLight(0xffd29a, PTS ? 2.5 : 4.5, 10, .45, .95, 1.6);
+  sp.position.set(Math.sin(a) * .3, W.H - .3, Math.cos(a) * .3); sp.target.position.copy(W.wallPoint(a, 1.0, .1)); W.group.add(sp, sp.target); }
+for (let i = 0; i < 9; i++) { const h = floorHand({grip: .2 + i * .08}), a = i * 2.3, r = .6 + (i % 4) * .35; h.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); h.rotation.set((i % 3 - 1) * .3, a, (i % 2 - .5) * .4); W.group.add(h); }
+const CM = coinMan(); CM.P.root.position.copy(W.wallPoint(.9, .05, .75)); CM.P.root.rotation.y = .9 + Math.PI; W.group.add(CM.P.root);
+const MB = motherAndBaby(); MB.M.root.position.copy(W.wallPoint(-1.0, .02, .7)); MB.M.root.rotation.y = -1.0 + Math.PI; W.group.add(MB.M.root, MB.B.root);
+const BOY = heldBoy(W, 2.5);
+const WF = wallFigures(W, 11, {skip: [.9, -1.0, 2.5, Math.PI]});
+const GIRL = lampGirl(); W.group.add(GIRL.P.root);
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshStandardMaterial({color: 0, emissive: 0xffe2b0, emissiveIntensity: 1.6}));
+ceiling.rotation.x = Math.PI / 2; ceiling.position.y = W.H + 1.4; W.group.add(ceiling); ceiling.visible = false;
+ceiling.material.emissiveIntensity = .7;
+const lid = new THREE.Mesh(new THREE.RingGeometry(W.radius(W.H) * 1.05, 4, 48), new THREE.MeshStandardMaterial({color: 0x1a1208, side: THREE.DoubleSide})); lid.rotation.x = Math.PI / 2; lid.position.y = W.H + .01; W.group.add(lid);
+const faceLight = new THREE.PointLight(0xffd8a8, 1.2, 2, 2); faceLight.position.set(0, W.H - .15, .05); W.group.add(faceLight); faceLight.visible = false;   // seen through the spout when the face leans over
+// the market (late, overcast)
+const MK = new THREE.Group(); scene.add(MK);
+const ST = marketStall(); MK.add(ST.group); const STREET = marketStreet(); MK.add(STREET.group);
+const sun = new THREE.DirectionalLight(0xffc890, 1.0); sun.position.set(3, 6, 4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left: -4, right: 4, top: 4, bottom: -1, near: .5, far: 20}); MK.add(sun, sun.target);
+MK.add(new THREE.HemisphereLight(0x8a96a8, 0x8a7a5a, .45));
+const ground0 = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({color: 0x9a8a72, roughness: 1})); ground0.rotation.x = -Math.PI / 2; ground0.receiveShadow = true; MK.add(ground0);
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(20, 8), new THREE.MeshStandardMaterial({color: 0x55627a})); backdrop.position.set(0, 4, -4); MK.add(backdrop);
+const MKSKY = new THREE.Group(); MK.add(MKSKY); MKSKY.visible = !!PTS;
+{ const r1 = new THREE.RectAreaLight(0xc8d0e0, 2.2, 8, 6); r1.position.set(2, 6, 5); r1.lookAt(0, 1, 0); const r2 = new THREE.RectAreaLight(0xffc890, 1.4, 4, 3); r2.position.set(4, 3, 3); r2.lookAt(0, 1, 0); MKSKY.add(r1, r2); }
+// the kitchen at night: Haru's report card on the table
+const K = kitchen(); scene.add(K.R.group); const KL = LIGHTS.pendant(K.R, K.P.lamp); K.R.group.add(KL.group); KL.on(true);
+const card = new THREE.Mesh(new THREE.PlaneGeometry(.21, .28), new THREE.MeshStandardMaterial({map: (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 170; const x = c.getContext('2d');
+  x.fillStyle = '#efe8d8'; x.fillRect(0, 0, 128, 170); x.fillStyle = '#555'; for (let i = 0; i < 9; i++) x.fillRect(14, 30 + i * 14, 70, 4);
+  x.strokeStyle = '#c02020'; x.lineWidth = 6; x.beginPath(); x.arc(100, 40, 18, 0, 7); x.stroke(); x.fillStyle = '#c02020'; x.font = 'bold 26px sans-serif'; x.fillText('D', 92, 49);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })(), roughness: .9}));
+card.rotation.x = -Math.PI / 2; card.rotation.z = .3; card.position.set(-.95, .77, -1.38); K.R.group.add(card);
+// the bedroom (night; morning for the end)
+const R = room({w: 4, d: 3.6, h: 2.6}); scene.add(R.group);
+const B = bed(); B.position.set(-1.3, 0, -2.4); R.group.add(B);
+const N = nightstand(); N.position.set(-.5, 0, -3.25); R.group.add(N);
+const LA = lamp(); LA.position.set(-.5, .55, -3.25); R.group.add(LA);
+const WR = wardrobe(); WR.position.set(1.45, 0, -3.25); R.group.add(WR);
+const RU = rug(); RU.position.set(-.1, 0, -1.8); R.group.add(RU);
+const CH = chair(); CH.position.set(.4, 0, -3.1); CH.rotation.y = .4; R.group.add(CH);
+dressBedroom(R, {chair: CH}); windowView(R);
+const MOON = LIGHTS.moon(R); R.group.add(MOON.group);
+const MORNING = new THREE.Group(); R.group.add(MORNING);
+{ const sunR = new THREE.RectAreaLight(0xffe8c8, PTS ? 30 : 45, 1.0, 1.1); sunR.position.set(-R.wallX - .2, 1.45, R.window.z); sunR.lookAt(0, .8, R.window.z + .8); MORNING.add(sunR);
+  const fillR = new THREE.RectAreaLight(0xdfe6f0, PTS ? 1.5 : 3, 4, 3); fillR.position.set(0, 2.2, 3); fillR.lookAt(0, 1, -2); MORNING.add(fillR); }
+const ML = magicLamp(); ML.userData.noBoil = true; R.group.add(ML);                               // Haru's lamp (moves: shelf, pillow, lap, nightstand)
+// the market's lamp on the stall cloth is ST.lamp
+
+// ================================================================ the cast
+const mk = (n, o = {}) => { const P = makeChar(n, Object.assign({detail: DET}, o), true); scene.add(P.root); return P; };
+const H = mk('haru');                 // Haru
+const FAKE = mk('haru');              // the thing that came out wearing her
+const MUM = mk('mum');
+const KID = mk('leo', {stripes: 0xe0b44a});
+const SELL = seller(); scene.add(SELL.root);
+const CAST = [H, FAKE, MUM, KID, SELL];
+keyOn(H, {power: 2.2}); keyOn(GIRL.P, {power: 2.4}); keyOn(CM.P, {power: 2.6}); keyOn(MB.M, {power: 2.6, height: .2}); keyOn(BOY.P, {power: 2.4});
+const WFK = WF.figures.map(P => keyOn(P, {power: .55, dist: .6}));
+brassEnvironment(renderer, scene, PTS ? .08 : .12);
+
+let PT = null, last = '';
+if (PTS) { W.shaft.visible = false; const {pathTracer} = await import('./pt.js');
+  PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x1a1208, 0x050302], envIntensity: .35, denoise: q.get('dn') === '1', bounces: +(q.get('b') || 4)}); }
+
+// ================================================================ poses used here
+const sitChair = (P, hipY = .6) => { P.rest(); P.hips.position.y = hipY; P.legs.forEach(l => { l.th.rotation.set(-1.5, 0, l.sd * .05); l.sh.rotation.set(1.5, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
+const climb = (P, k) => { P.rest(); const s = Math.sin(k * Math.PI * 2);            // climbing the wall, seen from behind the wall: arms reach up in turn
+  P.arms.forEach((a, i) => { a.up.rotation.set(-2.6 + (i ? s : -s) * .35, 0, a.sd * .25); a.fo.rotation.set(-.4, 0, 0); });
+  P.legs.forEach((l, i) => { l.th.rotation.set(-.6 + (i ? -s : s) * .4, 0, 0); l.sh.rotation.set(.9, 0, 0); }); };
+const hug = (P, k = 1) => P.arms.forEach(a => { a.up.rotation.set(-1.25 * k, 0, a.sd * (.24 + .5 * k)); a.fo.rotation.set(-.9 * k, -a.sd * .8 * k, 0); });
+const lookUp = (P, k = 1) => { P.neck.rotation.x = -.35 * k; P.head.rotation.x = -.45 * k; };
+
+// ================================================================ the shots
+// each: [from time, id, set, fn(t, u) -> sets the cast + returns {cam, at, fov, focus}]   (u = 0..1 through the shot)
+const show = (...ps) => CAST.forEach(P => P.root.visible = ps.includes(P));
+const place = (P, x, z, ry, y = 0) => { P.root.position.set(x, y, z); P.root.rotation.set(0, ry, 0); };
+const HOOK = (t, u, top) => {                                          // inside the lamp: Haru tiny at the bottom; her own face over the hole
+  show(H, FAKE); place(H, 0, .1, 0); H.rest(); ground(H); lookUp(H); face(H, t, {expr: [[0, 'afraid']]}); tremble(H, t, .6);
+  ceiling.visible = true; W.hole.visible = false; faceLight.visible = !top;
+  FAKE.rest(); FAKE.root.position.set(0, W.H + .2, -1.14); FAKE.root.rotation.set(Math.PI / 2, 0, 0); face(FAKE, t, {expr: [[0, 'smile']]});   // lying on the lid, only her head over the hole
+  if (top) return {cam: V(.35, 3.9, 1.0), at: V(0, .3, 0), fov: 44};
+  const h = H.head.getWorldPosition(V(0, 0, 0)); return {cam: h.clone().add(V(0, .05, .12)), at: V(0, W.H + .2, 0), fov: 15};
+};
+const MARKET = (t, u, close) => {
+  show(H, SELL); place(SELL, 0, -.65, 0); SELL.rest(); face(SELL, t, {expr: [[0, 'neutral']], cues: cues('s01')});
+  place(H, .15, .75, Math.PI); H.rest(); face(H, t, {expr: [[0, 'curious']]}); lookAt(H, ST.lamp.getWorldPosition(V(0, 0, 0)), .6);
+  // he pushes the lamp across the cloth with one finger
+  const push = clamp((t - S('s01') - 1.8) / 1.2); ST.lamp.position.set(.15, .79, .12 + .18 * ease(push));
+  const fa = SELL.arms[1]; if (push > 0 && push < 1) { SELL.root.updateMatrixWorld(true); armIK(SELL, fa, ST.lamp.getWorldPosition(V(0, 0, 0)).add(V(0, .12, -.06)), {range: {ux: [-1.8, 0], uz: [-.1, 1.2], fx: [-2, 0]}}); }
+  if (close) { const f = faceCam(SELL, 1.25, -.12, .3); return {cam: f.pos, at: f.at.clone().add(V(0, -.18, 0)), fov: 36}; }
+  return {cam: V(1.1, 1.25, 2.4), at: V(0, .95, 0), fov: 44};
+};
+const KITCHEN = (t, u) => {
+  show(H, MUM); place(H, -1.3, -1.4, Math.PI / 2); sitChair(H); H.chest.rotation.x = .25; H.head.rotation.x = .3;
+  H.arms.forEach(a => { a.up.rotation.set(-.9, 0, a.sd * .1); a.fo.rotation.set(-.7, 0, 0); });
+  face(H, t, {expr: [[0, 'worried']]});
+  walkTo(MUM, t, {from: [-1.9, -2.55], to: [2.2, -2.55], start: S('h02b') + 1.4, cadence: 1.0}); face(MUM, t, {expr: [[0, 'tired']]});
+  return {cam: V(.75, 1.15, .35), at: V(-1.15, .85, -1.9), fov: 46};
+};
+const BEDROOM_NIGHT = (t, u) => {                                       // three nights: the lamp on the shelf, on her pillow, in her lap
+  const n = u < .33 ? 0 : u < .66 ? 1 : 2; show(...(n === 2 ? [H] : []));
+  if (n === 0) { ML.position.set(-1.25, 1.565, -3.48); ML.rotation.set(0, .4, 0); return {cam: V(-.9, 1.62, -2.7), at: V(-1.2, 1.6, -3.45), fov: 38}; }
+  if (n === 1) { ML.position.set(-1.3, .6, -3.05); ML.rotation.set(0, -.6, 0); return {cam: V(-.75, .95, -2.35), at: V(-1.3, .62, -3.05), fov: 40}; }
+  return RUB(t, 0);
+};
+const RUB = (t, rub) => {                                              // Haru on the edge of the bed, the lamp in her lap
+  show(H); place(H, -.72, -2.2, Math.PI / 2); sitChair(H, .66); face(H, t, {expr: [[0, rub ? 'wary' : 'curious']]});
+  H.root.updateMatrixWorld(true); const k0 = H.legs[0].sh.getWorldPosition(V(0, 0, 0)), k1 = H.legs[1].sh.getWorldPosition(V(0, 0, 0)), hp = H.hips.getWorldPosition(V(0, 0, 0));
+  const lap = k0.clone().add(k1).multiplyScalar(.5).lerp(hp, .45).add(V(0, .06, 0));
+  ML.position.copy(lap); ML.rotation.set(0, Math.PI / 2 + .3, 0);
+  armIK(H, H.arms[0], ML.localToWorld(V(-.12, .1, 0)), {range: {ux: [-1.8, 0], uz: [-.2, 1], fx: [-2.2, 0]}});
+  const rubX = rub ? Math.sin(step12(t) * Math.PI * 2 * 3) * .05 : 0;
+  armIK(H, H.arms[1], ML.localToWorld(V(.02 + rubX, .14, 0)), {range: {ux: [-1.8, 0], uz: [-.2, 1], fx: [-2.2, 0]}});
+  H.chest.rotation.x = .3; H.head.rotation.x = .35;
+  return {cam: V(.55, 1.05, -1.75), at: lap.clone().add(V(0, .2, 0)), fov: rub ? 32 : 42};
+};
+const SUCK = (t, u) => {                                               // the room drains into the spout, and her with it
+  const r = RUB(t, 1), k = ease(u), tip = ML.localToWorld(V(.3, .17, 0)); ML.userData.glow(.4 + .6 * k);
+  if (k > .15) { const s = Math.max(.002, 1 - ease((u - .15) / .85)); H.root.scale.setScalar(.8 * s); H.root.position.lerp(tip, ease((u - .15) / .85)); }
+  return {cam: r.cam.clone().lerp(tip.clone().add(V(.15, .05, .2)), k * .85), at: tip, fov: 30 - 10 * k};
+};
+const LAND = (t, u) => {                                               // she drops into the lamp, lands, gets up
+  show(H); H.root.scale.setScalar(.8); place(H, 0, .1, 0); const t0 = S('h05') - .25;
+  poseBlend(H, t, [[t0 - .5, pose('jump back'), 3.5], [t0, pose('crouch'), 0], ...getUp(t0 + 1.0, P => P.rest(), {dur: 1.4})]);
+  jolt(H, t, t0, 1.2); face(H, t, {expr: [[0, 'shock'], [t0 + .9, 'afraid']]}); if (t > t0 + 2.4) lookUp(H, .4);
+  return {cam: V(.9 - u * .3, 1.0, 2.2 - u * .4), at: V(0, .6, 0), fov: 46};
+};
+const WALLS = (t, u, whisper) => {                                      // over her shoulder: the walls are people, and they look back
+  show(H); H.root.scale.setScalar(.8); place(H, 0, .1 - (whisper ? .35 * ease(u) : 0), Math.PI * .15); H.rest(); face(H, t, {expr: [[0, whisper ? 'scared' : 'afraid']]}); tremble(H, t, .8);
+  WF.update(t, H.head.getWorldPosition(V(0, 0, 0)), whisper);
+  const a = -.2 + u * .25; return {cam: V(.6 + Math.sin(a) * .3, 1.3, -1.3 + u * .3), at: V(-.2, .95, 2.2), fov: 62};
+};
+const FIGURE = (t, P, dist, up, side, fov, aimAt) => { show(); CM.update(t); MB.update(t, H.head.getWorldPosition(V(0, 0, 0))); lookAt(BOY.P, V(0, 1, 0), .6);
+  const f = faceCam(P, dist, up, side); return {cam: f.pos, at: aimAt || f.at, fov}; };
+const GIRL_OUT = (t, u) => {                                            // the oldest one peels out of the wall
+  show(H); place(H, 0, .1, Math.PI); H.rest(); face(H, t, {expr: [[0, 'scared']]});
+  GIRL.P.root.position.copy(W.wallPoint(Math.PI, 0, .25 + .35 * ease(u))); GIRL.P.root.rotation.set(0, 0, 0); GIRL.P.rest(); GIRL.warm(0);
+  face(GIRL.P, t, {expr: [[0, 'neutral']]});
+  const f = faceCam(GIRL.P, 1.6, -.1, .4); return {cam: f.pos, at: f.at.clone().add(V(0, -.3, 0)), fov: 44};
+};
+const GIRL_FACE = (t, u) => { GIRL_OUT(t, 1); GIRL.warm(.15 + .85 * ease(u)); face(GIRL.P, t, {expr: [[0, 'smile']]});
+  const f = faceCam(GIRL.P, .85, 0, .1); return {cam: f.pos, at: f.at, fov: 32}; };
+const GIRL_CLIMB = (t, u) => {                                          // high on the wall, she turns and speaks down to Haru; then out
+  show(H); place(H, 0, .1, Math.PI); H.rest(); lookUp(H); face(H, t, {expr: [[0, 'scared']]}); tremble(H, t, .7);
+  GIRL.warm(1); const talkEnd = E('g01') + .2, out = clamp((t - talkEnd) / .9), y = lerp(1.1, 1.9, ease(clamp(u / .35))) + out * 3.2;
+  GIRL.P.root.position.copy(W.wallPoint(Math.PI, y, .3)); GIRL.P.root.rotation.set(0, 0, 0);
+  if (t < talkEnd) { GIRL.P.rest(); lookAt(GIRL.P, H.head.getWorldPosition(V(0, 0, 0)), 1); face(GIRL.P, t, {expr: [[0, 'smile']], cues: cues('g01')}); }
+  else { GIRL.P.root.rotation.set(0, Math.PI, 0); climb(GIRL.P, t * 1.5); }
+  const shrink = 1 - .85 * out; W.hole.scale.setScalar(shrink); W.spot.intensity = 10 * shrink;
+  const h = H.head.getWorldPosition(V(0, 0, 0)); return {cam: h.clone().add(V(.35, .05, .55)), at: GIRL.P.head.getWorldPosition(V(0, 0, 0)).lerp(h, .25), fov: 52};
+};
+const LAMP_POV = V(-.48, .82, -3.22);                                   // the lamp on the nightstand: the camera for Haru's view out
+const MORNING_SHOT = (t, u) => {
+  show(FAKE); FAKE.root.scale.setScalar(.8); place(FAKE, -1.0, -1.25, -.4); FAKE.rest(); face(FAKE, t, {expr: [[0, 'smile']]});
+  ML.position.set(-.5, .55, -3.3); ML.rotation.set(0, -.3, 0);                // the lamp sits on the nightstand now
+  // she smooths the blanket, then turns and practises the smile at us
+  const s = clamp((t - S('h12')) / 3.2); FAKE.chest.rotation.x = .45 * (1 - ease(clamp((s - .7) / .3)));
+  FAKE.arms.forEach(a => { a.up.rotation.set(-.9 * (1 - s), 0, a.sd * .3); a.fo.rotation.set(-.3, 0, Math.sin(step12(t) * 6) * .2 * (1 - s)); });
+  if (s > .8) lookAt(FAKE, LAMP_POV, 1);
+  return {cam: LAMP_POV, at: V(-.9, .95, -1.0), fov: 52};
+};
+const HUG = (t, u) => {
+  show(FAKE, MUM); place(FAKE, -.65, -1.55, Math.PI - .25); FAKE.rest(); place(MUM, -.42, -1.95, -.25); MUM.rest();
+  const k = ease(clamp((t - S('m01') + .2) / .8)); hug(MUM, k); hug(FAKE, k * .9); MUM.chest.rotation.x = .15 * k;
+  face(MUM, t, {expr: [[0, 'smile']], cues: cues('m01')}); face(FAKE, t, {expr: [[0, 'neutral']]}); lookAt(FAKE, LAMP_POV, 1);
+  return {cam: LAMP_POV, at: FAKE.head.getWorldPosition(V(0, 0, 0)).add(V(0, -.15, 0)), fov: 40};
+};
+const MARKET_END = (t, u, close) => {                                   // she runs the stall now; a boy stops and stares
+  show(FAKE, KID); FAKE.root.scale.setScalar(.8); place(FAKE, 0, -.65, 0); FAKE.rest(); face(FAKE, t, {expr: [[0, 'smile']], cues: cues('g02')});
+  walkTo(KID, t, {from: [1.6, 1.4], to: [.15, .75], start: S('h13') - .5, cadence: 1.0}); face(KID, t, {expr: [[0, 'curious']]});
+  KID.root.updateMatrixWorld(true); if (t > S('h13') + 1.5) lookAt(KID, ST.lamp.getWorldPosition(V(0, 0, 0)), .7);
+  const push = clamp((t - S('g02') - 1.8) / 1.2); ST.lamp.position.set(.15, .79, .12 + .18 * ease(push));
+  if (push > 0) { FAKE.root.updateMatrixWorld(true); armIK(FAKE, FAKE.arms[1], ST.lamp.getWorldPosition(V(0, 0, 0)).add(V(0, .12, -.06)), {range: {ux: [-1.8, 0], uz: [-.1, 1.2], fx: [-2, 0]}}); }
+  const reach = clamp((t - E('g02') + 1.2) / 1.0); if (reach > 0 && t > S('h13') + 2) { KID.rest(); armIK(KID, KID.arms[0], ST.lamp.getWorldPosition(V(0, 0, 0)).add(V(0, .15, .1 * (1 - reach))), {range: {ux: [-1.8, 0], uz: [-.2, 1], fx: [-2, 0]}}); }
+  if (close) { const f = faceCam(FAKE, 1.1, -.12, -.25); return {cam: f.pos, at: f.at.clone().add(V(0, -.12, 0)), fov: 36}; }
+  return {cam: V(1.3, 1.2, 2.6), at: V(.1, .9, 0), fov: 46};
+};
+const SHOTS = [
+  [0, 'hook_top', 'lamp', t => HOOK(t, 0, true)],
+  [2.6, 'hook_up', 'lamp', t => HOOK(t, 0, false)],
+  [S('h02') - .3, 'market', 'market', t => MARKET(t, 0, false)],
+  [S('s01') - .1, 'market_seller', 'market', t => MARKET(t, 0, true)],
+  [S('h02b') - .4, 'kitchen', 'kitchen', KITCHEN],
+  [S('h03') - .35, 'nights', 'bedroom', BEDROOM_NIGHT, S('h04') - .2],
+  [S('h04') - .2, 'rub', 'bedroom', t => RUB(t, 1)],
+  [E('h04') + .1, 'suck', 'bedroom', SUCK],
+  [S('h05') - .9, 'land', 'lamp', LAND],
+  [S('h06') - .4, 'walls', 'lamp', (t, u) => WALLS(t, u, false)],
+  [S('h07') - .4, 'coins', 'lamp', t => FIGURE(t, CM.P, 1.3, -.05, .35, 42, faceCam(CM.P).at.clone().add(V(0, -.25, 0)))],
+  [S('h08') - .4, 'mother', 'lamp', (t, u) => FIGURE(t, MB.M, lerp(1.1, .7, ease(clamp((u - .55) / .4))), -.1, -.15, 38, MB.M.head.getWorldPosition(V(0, 0, 0)).lerp(MB.B.head.getWorldPosition(V(0, 0, 0)), lerp(.6, 1, ease(clamp((u - .55) / .4)))))],
+  [S('h09') - .4, 'boy', 'lamp', t => FIGURE(t, BOY.P, 1.7, .1, .3, 48, faceCam(BOY.P).at.clone().add(V(0, -.25, 0)))],
+  [S('x01') - .1, 'whisper', 'lamp', (t, u) => WALLS(t, u, true)],
+  [S('h10') - .5, 'girl_out', 'lamp', GIRL_OUT],
+  [S('h11') - .1, 'girl_face', 'lamp', GIRL_FACE],
+  [S('g01') - .4, 'girl_climb', 'lamp', GIRL_CLIMB],
+  [S('h12') - .8, 'morning', 'bedroom_day', MORNING_SHOT],
+  [S('m01') - .5, 'hug', 'bedroom_day', HUG],
+  [S('h13') - .6, 'market_end', 'market', t => MARKET_END(t, 0, false)],
+  [S('g02') - .1, 'market_fake', 'market', t => MARKET_END(t, 0, true)],
+  [88.0, 'loop', 'lamp', t => HOOK(t, 0, true)],
+];
+window.TOTAL = 89.5;
+const SETS = {lamp: [W.group], market: [MK], kitchen: [K.R.group], bedroom: [R.group], bedroom_day: [R.group]};
+window.renderAt = t => {
+  let i = 0; while (i < SHOTS.length - 1 && t >= SHOTS[i + 1][0]) i++;
+  const [t0, id, set] = SHOTS[i], t1 = i < SHOTS.length - 1 ? SHOTS[i + 1][0] : window.TOTAL, u = clamp((t - t0) / (t1 - t0));
+  for (const g of [W.group, MK, K.R.group, R.group]) g.visible = SETS[set].includes(g);
+  MOON.group.visible = set === 'bedroom'; MORNING.visible = set === 'bedroom_day'; LA.userData.bulb.material.emissiveIntensity = 0;
+  ceiling.visible = false; W.hole.visible = true; W.hole.scale.setScalar(1); W.spot.intensity = 10; ML.userData.glow(0); ML.visible = set === 'bedroom'; LA.visible = set === 'bedroom';   // day shots look out from the lamp on the nightstand: hide both lamps there
+  H.root.scale.setScalar(.8); ST.lamp.position.set(.15, .79, .12); GIRL.P.root.visible = id.startsWith('girl');
+  const sh = SHOTS[i][3](t, u);
+  boilSet(SETS[set][0], t);
+  cam.fov = sh.fov; cam.aspect = 9 / 16; cam.position.copy(sh.cam); cam.lookAt(sh.at); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+  if (PT) {
+    if (id !== last) { scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== W.spot) o.visible = o.getWorldPosition(V(0, 0, 0)).distanceTo(sh.at) < 3; });
+      WFK.forEach(l => l.visible = false); W.spot.intensity = 18; }
+    PT.render({samples: PTS, focus: sh.at, fStop: 2.4, rebuild: id !== last}); last = id; return;
+  }
+  render(t);
+};
+window.shotAt = t => { let i = 0; while (i < SHOTS.length - 1 && t >= SHOTS[i + 1][0]) i++; return SHOTS[i][1]; };
+if (!PT) window.renderAt(0); window.ready = true;
+</script></body></html>
