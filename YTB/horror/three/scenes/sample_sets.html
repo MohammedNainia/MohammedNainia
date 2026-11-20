@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/",
+ "three/examples/jsm/":"/node_modules/three/examples/jsm/","three-gpu-pathtracer":"/node_modules/three-gpu-pathtracer/build/index.module.js","three-mesh-bvh":"/node_modules/three-mesh-bvh/build/index.module.js"}}</script>
+<script type="module">
+// The new sets, 9:16. renderAt(i): 0 kitchen (pendant lamp), 1 kitchen at night (open fridge), 2 hallway (one light failing),
+// 3 bathroom (mirror light), 4 the magic lamp glowing on the kitchen table.   ?s=.5   ?pt=64&dn=1&b=4&d=.6 path traced
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {groundIt} from './haru3_poses.js';
+import {kitchen, hallway, bathroom, magicLamp, LIGHTS, setupLights} from './sets.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), PTS = +(q.get('pt') || 0), DET = +(q.get('d') || 1);
+const {scene, cam, renderer, render, grain} = setup({bloom: .25, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+grain.uniforms.vig.value = .5; renderer.toneMappingExposure = 1.1; renderer.shadowMap.type = THREE.VSMShadowMap;
+scene.background = new THREE.Color(0x010103); setupLights();
+const t0 = performance.now();
+const K = kitchen(), HW = hallway(), BA = bathroom();
+for (const s of [K, HW, BA]) scene.add(s.R.group);
+const ML = magicLamp(); ML.position.set(-.75, .765, -1.35); ML.rotation.y = .5; K.R.group.add(ML);
+// Haru in each place (copies of one build: instant), at set scale .8
+const haru = (parent, x, z, ry, e) => { const P = makeChar('haru', {detail: DET}); P.root.position.set(x, 0, z); P.root.rotation.y = ry; P.expr(e);
+  P.root.scale.multiplyScalar(.8); parent.add(P.root); groundIt(P, THREE); return P; };
+const HK = haru(K.R.group, -.1, -2.4, -.3, 'curious'), HH = haru(HW.R.group, 0, -2.3, Math.PI, 'nervous'), HB = haru(BA.R.group, .55, -2.2, Math.PI / 2, 'scared');
+// lights: one preset per shot
+const L = [LIGHTS.pendant(K.R, K.P.lamp), LIGHTS.fridge(K.R, K.P.fridge), LIGHTS.hall(HW.R, HW.P.lights), LIGHTS.mirror(BA.R, BA.P.mirrorLight),
+  (() => { const g = new THREE.Group(); const r = new THREE.RectAreaLight(0xffa040, 2, .3, .3); r.position.set(-.75, 1.2, -1.35); r.lookAt(-.75, 0, -1.35); g.add(r);
+    return {group: g, update() {}, on(k) { ML.userData.glow(k ? 1 : 0); }}; })()];
+L.forEach(l => scene.add(l.group));
+console.log('PT sets built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
+let PT = null, last = -1;
+if (PTS) { const {pathTracer} = await import('./pt.js');
+  PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x0c1424, 0x020306], envIntensity: .5, denoise: q.get('dn') === '1', bounces: +(q.get('b') || 4)}); }
+const SHOTS = [
+  {room: K, cam: [1.35, 1.5, 1.4], at: [-.5, .95, -2.2], fov: 50, look: HK},
+  {room: K, cam: [-1.3, 1.35, .6], at: [1.0, 1.0, -2.9], fov: 52, look: HK},
+  {room: HW, cam: [.15, 1.35, .5], at: [0, 1.1, -4.5], fov: 52, look: HH},
+  {room: BA, cam: [-1.05, 1.5, .1], at: [.7, 1.15, -2.1], fov: 52, look: HB},
+  {room: K, cam: [-.15, 1.2, -.35], at: [-.74, .85, -1.35], fov: 40, look: null},
+];
+window.renderAt = t => {
+  const i = Math.round(t) % 5, S = SHOTS[i];
+  for (const s of [K, HW, BA]) s.R.group.visible = s === S.room;
+  L.forEach((l, j) => { l.group.visible = j === i; l.on && l.on(j === i); });
+  L[i].update(t);
+  cam.fov = S.fov; cam.aspect = 9 / 16; cam.position.set(...S.cam); cam.lookAt(...S.at); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+  if (PT) { const f = S.look ? S.look.head.getWorldPosition(new THREE.Vector3()) : ML.getWorldPosition(new THREE.Vector3());
+    PT.render({samples: PTS, focus: f, fStop: 2.2, rebuild: i !== last}); last = i; return; }
+  render(t);
+};
+if (!PT) window.renderAt(0); window.ready = true;
+</script></body></html>
