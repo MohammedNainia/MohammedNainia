@@ -170,7 +170,11 @@ export function makeHaru3(o = {}) {
   const CHIN = TOP === 'hoodie' ? 1.122 : 1.075, HB = CHIN - 1.06 + .13 * HEAD;
   const chest = B(hips, [0, .04, 0]), neck = B(chest, [0, .44, 0]), head = B(neck, [0, HB, 0]);
   const arms = [-1, 1].map(sd => { const up = B(chest, [sd * .185, .32, 0]); up.rotation.z = sd * BIND_ARM; const fo = B(up, [0, -.2, 0]); const hand = B(fo, [0, -.24, 0]); return {up, fo, hand, sd}; });
-  const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .098, 0, 0]); const sh = B(th, [0, -.33, 0]); const ft = B(sh, [0, -.31, 0]); return {th, sh, ft, sd}; });
+  // leg bones grow with the leg length option (Haru: .33 + .31 with DY .152), so every character's ankle is just above the floor
+  const LX = DY - .152;
+  const legs = [-1, 1].map(sd => { const th = B(hips, [sd * .098, 0, 0]); const sh = B(th, [0, -(.33 + LX * .52), 0]); const ft = B(sh, [0, -(.31 + LX * .48), 0]);
+    const toe = B(ft, [0, -.061, .0875]);                 // the ball of the foot, on the sole: the toes bend here when pushing off
+    return {th, sh, ft, toe, sd}; });
   root.updateMatrixWorld(true);
   const W = b => b.getWorldPosition(V(0, 0, 0));
   const J = {hips: W(hips), chest: W(chest), neck: W(neck), head: W(head)};
@@ -434,13 +438,18 @@ export function makeHaru3(o = {}) {
     return smax(d, -(y + .036), .006);                                                     // the upper stops where the sole begins
   };
   const shoeSole = (x, y, z) => smax(shoeUpper(x, -.03, z) - .0035, Math.abs(y + .0405) - .0105, .006);   // overlaps the upper: no gap at the toe
+  // each shoe in two pieces that overlap a little at the ball of the foot: the back piece on the foot bone, the toe piece on the
+  // toe bone, so the shoe bends there (like a real sneaker creasing) instead of tipping up on its point
+  const BALL = .07, SS = V(1.3, 1.2, 1.25), TOE = V(0, -.061, .0875);
+  const upperL = (x, y, z) => { let d = shoeUpper(x, y, z);
+    for (let i = 0; i < 3; i++) d = smax(d, -sdCapsule(x, y, z, V(-.018, .03 - i * .006, .03 + i * .018), V(.018, .03 - i * .006, .03 + i * .018), .0028), .003);   // laces
+    return d; };
   legs.forEach(l => {
-    rigid((x, y, z) => {
-      let d = shoeUpper(x, y, z);
-      for (let i = 0; i < 3; i++) d = smax(d, -sdCapsule(x, y, z, V(-.018, .03 - i * .006, .03 + i * .018), V(.018, .03 - i * .006, .03 + i * .018), .0028), .003);   // laces
-      return d + lumps(x, y, z, .3);
-    }, V(0, -.01, .02), .13, 64, M.shoe, l.ft).scale.set(1.3, 1.2, 1.25);
-    rigid((x, y, z) => shoeSole(x, y, z) + lumps(x, y, z, .15), V(0, -.04, .02), .13, 64, M.sole, l.ft).scale.set(1.3, 1.2, 1.25);
+    const back = (sdf, mat, c) => rigid((x, y, z) => smax(sdf(x, y, z), z - (BALL + .006), .006) + lumps(x, y, z, .3), c, .13, 64, mat, l.ft).scale.copy(SS);
+    const front = (sdf, mat, c) => { const m = rigid((x, y, z) => smax(sdf(x, y, z), (BALL - .006) - z, .006) + lumps(x, y, z, .3), c, .13, 64, mat, l.toe);
+      m.scale.copy(SS); m.position.copy(TOE).multiplyScalar(-1); return m; };
+    back(upperL, M.shoe, V(0, -.01, .02)); front(upperL, M.shoe, V(0, -.01, .02));
+    back(shoeSole, M.sole, V(0, -.04, .02)); front(shoeSole, M.sole, V(0, -.04, .02));
   });
 
   // ---- face pieces (same as v2)
@@ -572,7 +581,7 @@ export function makeHaru3(o = {}) {
   Pp.stoop = AGE * .22;                                     // older characters lean forward a little
   Pp.rest = () => { chest.rotation.x = Pp.stoop; neck.rotation.x = -Pp.stoop * .6; arms.forEach(a => { a.up.rotation.set(0, 0, a.sd * .24); a.fo.rotation.set(-.08, 0, 0);
     a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });   // relaxed: palms face the thighs, thumbs forward, fingers curling a little
-    legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
+    legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); l.toe.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
   root.userData.noBoil = true;                              // characters are animated: the set boil (sets.js) leaves them alone
   Pp._hipY0 = hips.position.y;                             // standing hip height (motion.js raises the hips from here)
