@@ -1,8 +1,8 @@
-THE MAGIC LAMP v3 (9:16, target 85-95 s, dark clay, one line per voice generation)
+THE MAGIC LAMP v4 (9:16, target 85-95 s, dark clay, one line per voice generation)
 Hook text at frame 0: I RUBBED A MAGIC LAMP. / SOMETHING CAME OUT. / I WENT IN.
 Rule: the old man at the market: look at it all you like, never rub it.
-Haru's flaw/choice: curiosity. Three nights, then she rubs it, and when the lamp asks for her wish she says
-       "I wish I could see inside". It grants it, literally, like every wish in there.
+Haru's flaw/choice: curiosity. Three nights, then she breaks the rule and rubs it "just to see if it was real".
+       Outcome: the lamp takes her, like everyone who ever rubbed it.
 Twist: there is no genie. The lamp is full of everyone who ever made a wish, and when you rub it, the one who has been
        inside longest climbs out wearing your face. The old man who sold it was one of them.
 Ending/loop: the thing wearing Haru sells the lamp to the next child, with the same words. Cut to frame 0.
@@ -18,19 +18,16 @@ s01  SELLER   Look at it all you like. Just never rub it.
 h03  HARU     I lasted three nights.
               [Haru's bedroom, night one: the lamp on the shelf. Night two: on her pillow. Night three: in her lap, her thumb
                hovering over the brass.]
-h04  HARU     On the third night I rubbed it. Something inside asked what I wanted.
-              [her thumb on the brass. The spout lets out one slow breath of smoke.]
-l01  LAMP     (a whisper from inside the brass) What is your wish?
-              [the smoke curls toward her face.]
-h04b HARU     (whispering back) I wish I could see inside.
-              [the wish is granted. The spout breathes in. The room tilts toward the lamp like water toward a drain; her hair,
-               the curtains, her blanket all stream into the spout, then her.]
+h04  HARU     On the third night, I rubbed it. Just to see if it was real.
+              [her thumb rubs the brass once. The spout breathes in. The room tilts toward the lamp like water toward a drain;
+               her hair, the curtains, her blanket all stream into the spout, then her.]
 h05  HARU     It was warm in there. Like the inside of a mouth.
               [the interior: curved brass walls with ridges like a throat, sweating drops of oil. The floor gives under her
                feet. Somewhere, slow breathing that is not hers.]
-h06  HARU     There was no genie. There were people.
+h06  HARU     There was no genie. Just everyone who had ever rubbed it.
               [her eyes adjust: the walls are covered in brass figures, fused into the metal at the back, green with age.
                Every one of them turns its eyes to her.]
+h06b HARU     And it had given each of them exactly what they wanted.
 h07  HARU     A man had wished to be rich. He was still coughing up coins.
               [a brass man on his knees, a heap of coins around him to the waist; he heaves, and another coin falls out.]
 h08  HARU     A mother had wished her baby would never grow up. It never did.
@@ -60,7 +57,7 @@ g02  GIRL     Look at it all you like. Just never rub it.
               [she pushes the lamp across the cloth with one finger. The boy's hand reaches for it. Cut to frame 0 (loop).]
 
 VOICES: Haru = Samara X. Seller = an old man (new Artlist voice, not Grandpa). Girl = Samara X, same voice, slower and
-flatter, a touch of reverb. Lamp = one deep slow whisper (Hushed). Walls = "Hushed", layered several times. Mum = the tooth fairy mum voice.
+flatter, a touch of reverb. Walls = "Hushed", layered several times. Mum = the tooth fairy mum voice.
 
 WHAT WE BUILD FOR THE INSIDE OF THE LAMP (clay, dark, lit only from the hole above and the brass's own dull shine):
   - the throat: a tall curved brass chamber with ridges, oil sweat, a soft floor that dents under feet
