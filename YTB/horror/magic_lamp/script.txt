@@ -3,7 +3,7 @@ Hook text at frame 0: I RUBBED A MAGIC LAMP. / SOMETHING CAME OUT. / I WENT IN.
 Rule: the old man at the market: look at it all you like, never rub it.
 Haru's flaw/choice: curiosity. Three nights, then she breaks the rule and rubs it "just to see if it was real".
        Outcome: the lamp takes her, like everyone who ever rubbed it.
-Twist: there is no genie. The lamp is full of everyone who ever made a wish, and when you rub it, the one who has been
+Twist: there is no genie. The lamp is full of everyone who ever rubbed it, and when you rub it, the one who has been
        inside longest climbs out wearing your face. The old man who sold it was one of them.
 Ending/loop: the thing wearing Haru sells the lamp to the next child, with the same words. Cut to frame 0.
 Unspoken question: who is the next child, and was anyone at that market ever who they look like?
@@ -28,15 +28,15 @@ h06  HARU     There was no genie. Just everyone who had ever rubbed it.
               [her eyes adjust: the walls are covered in brass figures, fused into the metal at the back, green with age.
                Every one of them turns its eyes to her.]
 h06b HARU     And it had given each of them exactly what they wanted.
-h07  HARU     A man had wished to be rich. He was still coughing up coins.
+h07  HARU     A man had wanted to be rich. He was still coughing up coins.
               [a brass man on his knees, a heap of coins around him to the waist; he heaves, and another coin falls out.]
-h08  HARU     A mother had wished her baby would never grow up. It never did.
+h08  HARU     A mother had wanted her baby to never grow up. It never did.
               [a brass mother rocking a newborn-sized baby, as she has for three hundred years. Close on the baby: its eyes are
-               old and tired, sunk in wrinkles. It looks at Haru, and its tiny mouth starts the whisper: make a wish.]
-h09  HARU     A boy had wished never to be alone.
+               old and tired, sunk in wrinkles. It looks at Haru, and its tiny mouth starts the whisper: what do you want?]
+h09  HARU     A boy had wanted to never be alone.
               [a boy in the middle of a ring of arms. Each arm grows out of the wall and ends in a hand holding him: his
                wrists, his hair, his mouth. Dozens.]
-x01  WALLS    (whispers, many voices) Make a wish. Make a wish. Make a wish.
+x01  WALLS    (whispers, many voices) What do you want? What do you want?
               [the figures' lips move together. Haru backs away and steps on something soft: a hand in the floor.]
 h10  HARU     Then the oldest one stood up.
               [a girl in a dress three hundred years old peels herself out of the wall, flakes of brass falling off her. She
@@ -44,7 +44,7 @@ h10  HARU     Then the oldest one stood up.
 h11  HARU     She had my face.
               [close: as she climbs into the light, the brass on her skin warms into clay pink. Her hair darkens and grows
                long. She turns once and smiles down. It is Haru's smile, almost.]
-g01  GIRL     (Haru's own voice, slower) Thank you for the wish.
+g01  GIRL     (Haru's own voice, slower) Your turn.
               [she climbs out of the spout. The hole of light shrinks to a coin.]
 h12  HARU     She sleeps in my bed now. Mum hasn't noticed.
               [through the spout from below: the bedroom. Mum tucks the girl in and kisses her forehead. The girl looks past
