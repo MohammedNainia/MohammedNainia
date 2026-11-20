@@ -38,6 +38,7 @@ function sdRoundBox(px, py, pz, c, b, r) {
   const ox = Math.max(qx, 0), oy = Math.max(qy, 0), oz = Math.max(qz, 0);
   return Math.sqrt(ox * ox + oy * oy + oz * oz) + Math.min(Math.max(qx, qy, qz), 0) - r;
 }
+const sdPlane = (x, y, z, p, n) => (x - p.x) * n.x + (y - p.y) * n.y + (z - p.z) * n.z;   // > 0 on the side n points to
 // value noise for the hand-made lumps
 const P = new Uint8Array(512); { let s = 7; const p = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { s = (s * 16807) % 2147483647; const j = s % (i + 1); [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 512; i++) P[i] = p[i & 255]; }
 const fade = t => t * t * (3 - 2 * t);
@@ -114,6 +115,18 @@ const mottleC = canvas(512, (g, n) => {
 });
 const tex = c => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
 const detail = tex(detailC), mottle = tex(mottleC); mottle.colorSpace = THREE.SRGBColorSpace;
+// knitted stripes: both colours painted into the texture (base and bands), then the clay mottle multiplied over them;
+// the material colour is set to white so it does not tint the bands
+const stripeCache = new Map();
+function stripes(c2, base) {
+  const key = c2 + '/' + base; if (stripeCache.has(key)) return stripeCache.get(key);
+  const hex = c => '#' + new THREE.Color(c).getHexString();
+  const cv = canvas(512, (g, n) => {
+    g.fillStyle = hex(base); g.fillRect(0, 0, n, n);
+    g.fillStyle = hex(c2); for (let y = 0; y < n; y += n / 4) g.fillRect(0, y, n, n / 8);
+    g.globalCompositeOperation = 'multiply'; g.drawImage(mottleC, 0, 0); });
+  const t = tex(cv); t.colorSpace = THREE.SRGBColorSpace; stripeCache.set(key, t); return t;
+}
 export const clay3 = (c, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({color: c, map: mottle, bumpMap: detail, bumpScale: 1.8,
   roughness: .86, metalness: 0, sheen: .3, sheenRoughness: .8, sheenColor: new THREE.Color(c).lerp(new THREE.Color(0xffffff), .3)}, o));
 
@@ -126,7 +139,8 @@ export function makeHaru3(o = {}) {
   DETAIL = o.detail || 1;
   GEO_CACHE = true; GEO_KEY = JSON.stringify(Object.assign({}, o, {detail: DETAIL})); GEO_N = 0;      // same options = same meshes: built once, copied after
   // ---- options (defaults = Haru). top: hoodie | sweater | cardigan; bottom: pants | skirt; hairStyle: haru | bun | horseshoe | curlybob
-  const TOP = o.top || 'hoodie', BOTTOM = o.bottom || 'pants', HAIR = o.hairStyle || 'haru';
+  const TOP = o.top || 'hoodie', BOTTOM = o.bottom || 'pants', HAIR = o.hairStyle || 'haru';   // + top tshirt, bottom shorts, hair ponytail | boyshort
+  const SHORT_SLEEVES = TOP === 'tshirt', SHORTS = BOTTOM === 'shorts';
   const LEG = o.legs === undefined ? .152 : o.legs;          // extra leg length (adults: more)
   const HEAD = o.head || 1.37, BELLY = o.belly || 0, AGE = o.age || 0, HEIGHT = o.height || 1;
   const M = {
@@ -161,10 +175,21 @@ export function makeHaru3(o = {}) {
     const U = a.U.clone().add(V(0, -DY, 0)), F = a.F.clone().add(V(0, -DY, 0)), Hh = a.H.clone().add(V(0, -DY, 0));
     const cuffDir = Hh.clone().sub(F).normalize(), cuff = Hh.clone().sub(cuffDir.clone().multiplyScalar(.012));
     let d = sdEll(x, y, z, a.U.clone().add(V(-a.sd * .03, -.04 - DY, 0)), V(.07, .075, .07));
+    if (SHORT_SLEEVES) {                                                               // T-shirt: the sleeve ends half way down the upper arm
+      const E = U.clone().lerp(F, .55), dir = F.clone().sub(U).normalize();
+      d = smin(d, sdRoundCone(x, y, z, U, E, .068, .066), .03);
+      d = smax(d, sdPlane(x, y, z, E, dir), .01);
+      return smin(d, sdTorusAxis(x, y, z, E.clone().sub(dir.clone().multiplyScalar(.008)), dir, .058, .012), .008);
+    }
     d = smin(d, sdRoundCone(x, y, z, U, F, .064, .062), .03);
     d = smin(d, sdRoundCone(x, y, z, F, cuff, .062, .07), .025);
     return smin(d, sdTorusAxis(x, y, z, cuff, cuffDir, .048, .022), .012);
   };
+  // bare arms under short sleeves, bare legs under shorts: one skin piece, bending with the bones
+  const limbsSDF = (x, y, z) => { let d = 1e9;
+    if (SHORT_SLEEVES) for (const a of arms) { d = Math.min(d, sdRoundCone(x, y, z, a.U.clone().lerp(a.F, .3), a.F, .042, .038)); d = smin(d, sdRoundCone(x, y, z, a.F, a.H, .038, .033), .02); }
+    if (SHORTS) for (const l of legs) { d = Math.min(d, sdRoundCone(x, y, z, l.T.clone().lerp(l.S, .5), l.S, .055, .048)); d = smin(d, sdRoundCone(x, y, z, l.S, l.F.clone().add(V(0, .04, 0)), .048, .036), .02); }
+    return d + lumps(x, y, z, .4); };
   const belly = (d, x, y, z) => BELLY ? smin(d, sdEll(x, y, z, V(0, .6, .03), V(.16 + .03 * BELLY, .14, .13 + .07 * BELLY)), .06) : d;
   const torsoSDF = (x, y, z) => { y -= DY;
     const d = smax(belly(sdRoundCone(x / 1.08, y, z / .8, V(0, .45, 0), V(0, .88, 0), .175, .13) * .8, x, y, z), .5 - y, .03);
@@ -200,6 +225,7 @@ export function makeHaru3(o = {}) {
       d = smin(d, sdTorusY(x, y, z, ankle.clone().add(V(0, .01, 0)), .072, .011), .01);
     }
     d = smax(d, y - (.56 + DY), .02);                // nothing above the hoodie hem (+.06): it could only poke through the hoodie
+    if (SHORTS) { const ky = legs[0].S.y + .1; d = smax(d, ky - y, .015); for (const l of legs) d = smin(d, sdTorusY(x, y, z, V(l.S.x, ky + .012, l.S.z), .078, .012), .01); }
     return d + lumps(x, y, z, .9);
   };
   const skinIt = (geo, mat, boneSets, groups = null) => {
@@ -241,6 +267,8 @@ export function makeHaru3(o = {}) {
     const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM - .035, HEM - .15, p.y);
     return [[[hips], 1 - t], [[l.th, l.sh, l.ft], t]];
   });
+  if (SHORT_SLEEVES || SHORTS) skinIt(meshSDF(limbsSDF, V(0, .5 + DY / 2, 0), .55, 140), M.skin, [hips, ...arms.flatMap(a => [a.up, a.fo, a.hand]), ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
+  if (o.stripes) { M.hood.map = stripes(o.stripes, o.hood || 0xcf9132); M.hood.color.set(0xffffff); }
   const rigid = (sdf, center, half, res, mat, parent) => { const m = new THREE.Mesh(meshSDF(sdf, center, half, res), mat); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
 
   // ---- drawstrings (thin, hang from the hood roll)
@@ -320,6 +348,32 @@ export function makeHaru3(o = {}) {
     d = smax(d, z - .03, .02);                                                           // only behind the ears
     return d + lumps(x, y, z, 1.1);
   }, V(0, -.03, -.03), .2, 90, M.hair, hs);
+  // ponytail: pulled back over the skull to a hair tie, a long tail down the back, a short side-swept fringe (a friend of Haru)
+  if (HAIR === 'ponytail') rigid((x, y, z) => {
+    let d = sdEll(x, y, z, V(0, -.004, -.012), V(.138, .134, .142));
+    d = smax(d, -sdEll(x, y, z, V(0, -.05, .08), V(.106, .14, .088)), .02);             // face opening
+    d = smax(d, (z < -.03 ? -.1 : -.06) - y, .02);                                       // above the ears, lower at the nape
+    const tie = V(0, .02, -.155);
+    d = smin(d, sdRoundCone(x, y, z, tie, V(0, -.16, -.2), .045, .03), .03);            // the tail
+    d = smin(d, sdRoundCone(x, y, z, V(0, -.16, -.2), V(0, -.26, -.17), .03, .016), .02);   // its tip, curling in
+    let f = sdRoundCone(x, y, z, V(.04, .1, .07), V(-.07, .055, .108), .022, .015);     // fringe: two locks swept to her right
+    f = smin(f, sdRoundCone(x, y, z, V(.045, .1, .065), V(-.02, .062, .12), .021, .015), .01);
+    d = smin(d, f, .02);
+    for (const k of [-1, 0, 1]) d = smax(d, -sdCapsule(x, y, z, V(k * .05, .12, .04), V(k * .015, .06, -.15), .003), .003);   // combed lines
+    return d + lumps(x, y, z, .7);
+  }, V(0, -.08, -.06), .26, 108, M.hair, hs);
+  if (HAIR === 'ponytail') { const t = new THREE.Mesh(new THREE.TorusGeometry(.03, .009, 8, 20), clay3(o.tie || 0xc94a5a, {bumpScale: .4}));
+    t.position.set(0, .02, -.16); t.rotation.x = .5; hs.add(t); }
+  // short boy's hair: close to the head, messy clay tufts on top, a little fringe
+  if (HAIR === 'boyshort') rigid((x, y, z) => {
+    let d = sdEll(x, y, z, V(0, .0, -.012), V(.135, .135, .142));
+    d = smax(d, -sdEll(x, y, z, V(0, -.06, .085), V(.108, .15, .09)), .02);
+    d = smax(d, (z < -.03 ? -.09 : -.035) - y, .02);                                     // short: above the ears
+    const tufts = [[.0, .13, .02, -.02, .17, .06], [.06, .12, -.03, .1, .15, .0], [-.06, .12, -.02, -.1, .155, .02], [.03, .11, .07, .04, .07, .12],
+                   [-.03, .115, .07, -.05, .07, .115], [.0, .12, -.08, .02, .15, -.11], [-.08, .1, -.07, -.12, .1, -.08], [.08, .1, -.07, .12, .1, -.06]];
+    for (const [a, b, c, e, f, g] of tufts) d = smin(d, sdRoundCone(x, y, z, V(a, b, c), V(e, f, g), .03, .012), .02);
+    return d + lumps(x, y, z, 1.0);
+  }, V(0, .0, -.01), .22, 100, M.hair, hs);
   // curly bob: a soft cap of small curls, jaw length (Grandma)
   if (HAIR === 'curlybob') rigid((x, y, z) => {
     let d = sdEll(x, y, z, V(0, .005, -.015), V(.15, .145, .152));
@@ -389,6 +443,13 @@ export function makeHaru3(o = {}) {
     wobble: capTube([...Array(9)].map((_, i) => [-.022 + i * .0055, (i % 2 ? .004 : -.003), .003]), .0028, M.dark, mouth),
     o: (() => { const g = G(mouth); add(Sph(.011, 1, 1.15, .4), M.mouthIn, g); return g; })(),
     open: (() => { const g = G(mouth, [0, -.006, 0]); add(Sph(.034, 1.1, .8, .4), M.mouthIn, g); add(Sph(.02, 1.2, .5, .4), M.tongue, g, [0, -.014, .006]); add(new THREE.BoxGeometry(.04, .009, .006), M.teeth, g, [0, .017, .008]); return g; })(),
+    // talking shapes (swapped like replacement mouths in stop motion): A open, E wide with teeth, O round, U small, M pressed, F teeth on lip
+    vA: (() => { const g = G(mouth, [0, -.004, 0]); add(Sph(.022, 1.1, .75, .4), M.mouthIn, g); add(Sph(.012, 1.2, .5, .4), M.tongue, g, [0, -.009, .005]); add(new THREE.BoxGeometry(.026, .006, .006), M.teeth, g, [0, .011, .007]); return g; })(),
+    vE: (() => { const g = G(mouth); add(Sph(.026, 1.15, .32, .4), M.mouthIn, g); add(new THREE.BoxGeometry(.034, .005, .006), M.teeth, g, [0, .003, .007]); return g; })(),
+    vO: (() => { const g = G(mouth, [0, -.002, 0]); add(Sph(.015, 1, 1.2, .4), M.mouthIn, g); return g; })(),
+    vU: (() => { const g = G(mouth); add(Sph(.009, 1, 1.1, .4), M.mouthIn, g); return g; })(),
+    vM: capTube([[-.019, .001, 0], [0, -.001, .002], [.019, .001, 0]], .0034, M.dark, mouth),
+    vF: (() => { const g = G(mouth); capTube([[-.018, -.004, 0], [.018, -.004, 0]], .0026, M.dark, g); add(new THREE.BoxGeometry(.022, .006, .006), M.teeth, g, [0, .001, .006]); return g; })(),
   };
   // ---- age: creases (forehead lines, smile lines, crow's feet) pressed into the clay, in a darker skin tone
   if (AGE > 0) {
@@ -411,11 +472,37 @@ export function makeHaru3(o = {}) {
   const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
 
   const Pp = {root, hips, chest, neck, head, face, arms, legs, M};
-  Pp.eyes = s => { const open = s === 'open' || s === 'wide';
+  Pp.eyes = s => { Pp._eyes = s; const open = s === 'open' || s === 'wide';
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? .9 : 1); }); whites.forEach(w => w.visible = s === 'wide');
     lids.forEach(l => l.visible = s === 'closed'); squeeze.forEach(l => l.visible = s === 'squeeze'); };
   Pp.brows = (k, lift = 0) => brows.forEach((b, i) => { const sd = i ? 1 : -1; b.rotation.z = -sd * k * .45; b.position.y = BROW_Y + lift * .008 + Math.abs(k) * .0025; });
-  Pp.mouth = s => { for (const [k, m] of Object.entries(mouths)) m.visible = k === s; };
+  Pp.mouth = s => { Pp._mouth = s; for (const [k, m] of Object.entries(mouths)) m.visible = k === s; };
+  const showMouth = s => { for (const [k, m] of Object.entries(mouths)) m.visible = k === s; };
+  // ---- lip sync from word timings: words = [[text, start, end], ...] (the words.json our voice step makes, for this character's lines).
+  // Each 1/12 s shows the mouth for the letter being spoken; between words the expression's own mouth comes back.
+  const VIS = c => 'ai'.includes(c) ? 'vA' : c === 'e' || c === 'y' ? 'vE' : c === 'o' ? 'vO' : 'uwq'.includes(c) ? 'vU' :
+    'mbp'.includes(c) ? 'vM' : 'fv'.includes(c) ? 'vF' : 'vE';
+  Pp.talk = (words, t) => {
+    const q = Math.floor(t * 12) / 12;
+    const w = words.find(w => q >= w[1] && q < w[2]);
+    if (!w) { showMouth(Pp._mouth); return false; }
+    const L = String(w[0]).toLowerCase().replace(/[^a-z]/g, '') || 'a', p = (q - w[1]) / Math.max(.05, w[2] - w[1]);
+    let c = L[Math.min(L.length - 1, Math.floor(p * L.length))];
+    if (p > .85 && 'mbp'.includes(L[L.length - 1])) c = L[L.length - 1];             // a word ending in m/b/p closes the lips
+    showMouth(VIS(c)); return true;
+  };
+  // ---- blinking: two stop-motion frames with the eyes shut every 2 to 5 s (each character on its own rhythm)
+  const seed = (o.seed !== undefined ? o.seed : JSON.stringify(o).length) * 7.31;
+  Pp.blink = t => {
+    const q = Math.floor(t * 12);                                                        // stop-motion frame
+    let k = 0, at = (Math.sin(seed) * .5 + .5) * 2;                                     // first blink time
+    while (at * 12 < q - 2) { k++; at += 2 + 3 * (Math.sin(seed + k * 12.9898) * .5 + .5); }
+    const shut = q >= Math.floor(at * 12) && q < Math.floor(at * 12) + 2 && (Pp._eyes === 'open' || Pp._eyes === 'wide');
+    const s = Pp._eyes;
+    if (shut) { eyes.forEach(e => e.visible = false); whites.forEach(w => w.visible = false); lids.forEach(l => l.visible = true); }
+    else Pp.eyes(s);
+    return shut;
+  };
   Pp.tears = on => tears.visible = on; Pp.sweat = on => sweat.visible = on;
   Pp.expr = name => {
     Pp.tears(false); Pp.sweat(false);

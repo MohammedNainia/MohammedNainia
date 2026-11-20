@@ -39,10 +39,16 @@ const server = http.createServer((req, res) => {
 
 async function openPage(browser, port) {
   const page = await browser.newPage({ viewport: { width: W, height: H } });
-  page.on('pageerror', e => console.error('page error:', e.message));
+  let failed = null; page.on('pageerror', e => { console.error('page error:', e.message); failed = failed || e; });
   page.on('console', m => { if (m.text().startsWith('PT')) console.log(m.text()); });
   await page.goto(`http://127.0.0.1:${port}/scenes/${SCENE}.html${QUERY ? '?' + QUERY : ''}`);
-  await page.waitForFunction('window.ready === true', null, { timeout: 600000 });
+  // wait for the scene, but stop at once if it crashed while loading (instead of waiting 10 minutes)
+  const t0 = Date.now();
+  while (!(await page.evaluate('window.ready === true').catch(() => false))) {
+    if (failed) throw new Error('the scene crashed while loading: ' + failed.message);
+    if (Date.now() - t0 > 600000) throw new Error('the scene did not finish loading in 10 minutes');
+    await new Promise(r => setTimeout(r, 250));
+  }
   return page;
 }
 const grab = (page, t, type) => page.evaluate(([t, type]) => {

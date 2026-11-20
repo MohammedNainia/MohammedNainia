@@ -20,13 +20,18 @@ const rim = new THREE.DirectionalLight(0xffffff, .6); rim.position.set(0, 4, -6)
 renderer.shadowMap.type = THREE.VSMShadowMap;
 const t0 = performance.now();
 const names = Object.keys(CAST);
-const cast = names.map((n, i) => { const P = makeChar(n); P.root.position.x = (i - 1.5) * .85; P.expr('neutral'); scene.add(P.root); return P; });
+const cast = names.map((n, i) => { const P = makeChar(n); P.root.position.x = (i - (names.length - 1) / 2) * .78; P.expr('neutral'); scene.add(P.root); return P; });
 console.log('PT cast built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
+// t >= 20: talking test, character (t - 20) | 0 says a line; fraction = time in the line (0..1 over 2.4 s); it also blinks on its own rhythm
+const LINE = [['I', 0, .2], ['bought', .2, .55], ['a', .55, .65], ['magic', .65, 1.05], ['lamp', 1.05, 1.5], ['from', 1.6, 1.85], ['the', 1.85, 1.95], ['market', 1.95, 2.4]];
 window.renderAt = t => {
+  if (t >= 20) { const i = Math.floor(t - 20), lt = (t - 20 - i) * 2.4, P = cast[i]; P.expr('neutral'); P.talk(LINE, lt); P.blink(lt + 40);
+    P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3());
+    cam.fov = 8; cam.position.set(h.x, h.y + .05, h.z + 4.2); cam.lookAt(h.x, h.y + .02, h.z); cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t); return; }
   cast.forEach(P => P.root.rotation.y = t >= 1 && t < 2 ? -.6 : 0);
   if (t >= 10) { const P = cast[Math.round(t - 10)]; P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3());
     cam.fov = 8; cam.position.set(h.x, h.y + .05, h.z + 4.2); cam.lookAt(h.x, h.y + .02, h.z); }
-  else { cam.fov = 17; cam.position.set(0, 1.0, 9.6); cam.lookAt(0, .95, 0); }
+  else { cam.fov = 17; cam.position.set(0, 1.0, 9.6 + (names.length - 4) * 2.2); cam.lookAt(0, .95, 0); }
   cam.aspect = 16 / 9; cam.updateProjectionMatrix(); render(t);
 };
 window.renderAt(0); window.ready = true;
