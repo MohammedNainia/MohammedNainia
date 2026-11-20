@@ -503,7 +503,8 @@ export function makeHaru3(o = {}) {
   for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) add(Sph(.0055 - i * .0008, 1, 1.4, .6), M.tear, tears, [sd * .044, -.016 - i * .016, onSkin(sd * .044, -.016 - i * .016, .002)]);
   const sweat = G(hs, [.088, .03, .1]); add(Sph(.014, 1, 1.5, .7), M.sweat, sweat);
 
-  const Pp = {root, hips, chest, neck, head, face, arms, legs, M};
+  const hair = hs.children.filter(m => m.isMesh && m.material === M.hair);       // for hair sway (motion.js)
+  const Pp = {root, hips, chest, neck, head, face, arms, legs, M, hair, hs};
   // eyes: open | wide | closed | squeeze | half (heavy lids: sleepy, suspicious, dead tired)
   Pp.eyes = s => { Pp._eyes = s; const open = s === 'open' || s === 'wide' || s === 'half'; halfLids.forEach(l => l.visible = s === 'half');
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? .9 : 1); }); whites.forEach(w => w.visible = s === 'wide');
@@ -562,6 +563,7 @@ export function makeHaru3(o = {}) {
     a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });   // relaxed: palms face the thighs, thumbs forward, fingers curling a little
     legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
+  Pp._hipY0 = hips.position.y;                             // standing hip height (motion.js raises the hips from here)
   root.scale.setScalar(HEIGHT);                            // last: everything above was built at size 1
   return Pp;
 }

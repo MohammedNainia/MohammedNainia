@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}canvas{display:block}</style></head><body>
+<!-- Motion check. renderAt(t): Haru walks across (side view) from t = 0, then stops; Leo walks scared. window.slip(): how far the
+     standing foot slides on the floor over 4 s of walking (should be ~0). renderAt(100 + t): pose blending and face test. -->
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {walkTo, walk, poseBlend, face, jolt, walkDuration, stanceLeg} from './motion.js';
+import {POSES, groundIt} from './haru3_poses.js';
+const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: 1600, h: 900});
+grain.uniforms.vig.value = .1; scene.background = new THREE.Color(0xdcdcdc); renderer.shadowMap.type = THREE.VSMShadowMap;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({color: 0xdedede, roughness: 1})); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(10, 40, 0xb0b0b0, 0xc4c4c4); grid.position.y = .001; scene.add(grid);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b4ae, 1.25));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0); key.position.set(-3, 6, 7); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6;
+Object.assign(key.shadow.camera, {left: -4, right: 4, top: 3, bottom: -1, near: .5, far: 20}); scene.add(key);
+const H = makeChar('haru'), L = makeChar('leo'), F = makeChar('haru');
+for (const P of [H, L, F]) scene.add(P.root);
+const A = {from: [-2.2, 0], to: [1.8, 0]}, B = {from: [-2.6, -1.2], to: [1.2, -1.2]};
+const byName = n => POSES.find(p => p.name === n).fn;
+window.renderAt = t => {
+  if (t >= 100) {                                         // pose blending + face: stand -> jump back -> crouch, scared face, a jolt
+    const u = t - 100; H.root.visible = L.root.visible = false; F.root.visible = true; F.root.position.set(0, 0, 0); F.root.rotation.set(0, 0, 0);
+    poseBlend(F, u, [[0, P => P.rest()], [.6, byName('jump back'), .25], [1.4, byName('crouch')]]);
+    face(F, u, {expr: [[0, 'curious'], [.5, 'scared'], [1.4, 'nervous']]});
+    jolt(F, u, .5); F.root.updateMatrixWorld(true);
+    cam.fov = 26; cam.aspect = 16 / 9; cam.position.set(0, 1.0, 4.5); cam.lookAt(0, .75, 0); cam.updateProjectionMatrix(); render(t); return;
+  }
+  if (t >= 50) {                                          // close side view following Haru: t - 50 = walk time
+    const u = t - 50; F.root.visible = false; H.root.visible = true; L.root.visible = false;
+    walkTo(H, u, Object.assign({start: 0}, A)); face(H, u, {expr: [[0, 'neutral']]}); H.root.updateMatrixWorld(true);
+    const x = H.root.position.x; cam.fov = 24; cam.aspect = 16 / 9; cam.position.set(x, .75, 4.2); cam.lookAt(x, .7, 0); cam.updateProjectionMatrix(); render(t); return;
+  }
+  F.root.visible = false; H.root.visible = L.root.visible = true;
+  walkTo(H, t, Object.assign({start: .2}, A)); face(H, t, {expr: [[0, 'neutral']]});
+  walkTo(L, t, Object.assign({start: 0, mood: 1, cadence: 1.1, stride: .8}, B)); face(L, t, {expr: [[0, 'scared']]});
+  cam.fov = 30; cam.aspect = 16 / 9; cam.position.set(0, 1.0, 6.5); cam.lookAt(0, .7, -.5); cam.updateProjectionMatrix(); render(t);
+};
+// slip test: track each foot's sole in world space at every stop-motion frame; while a foot is the lower one and stays
+// low for two frames, it should not move along the floor
+window.slip = () => {
+  const out = []; for (const [P, o] of [[H, Object.assign({start: 0}, A)], [L, Object.assign({start: 0, mood: 1, cadence: 1.1, stride: .8}, B)]]) {
+    let prev = null, worst = 0, sum = 0, n = 0;
+    for (let f = 0; f < 48; f++) { walk(P, f / 12, {from: o.from, dir: Math.PI / 2, start: 0, mood: o.mood || 0, cadence: o.cadence || .9, stride: o.stride || 1}); P.root.updateMatrixWorld(true);
+      const ft = P.legs.map(l => l.ft.localToWorld(new THREE.Vector3(0, -.05, .03))), st = stanceLeg(((f / 12) * (o.cadence || .9)) % 1);
+      if (prev && prev.st === st) { const d = Math.hypot(ft[st].x - prev.p.x, ft[st].z - prev.p.z); worst = Math.max(worst, d); sum += d; n++; }
+      prev = {st, p: ft[st].clone(), y: ft[st].y}; }
+    out.push(`${P === H ? 'Haru' : 'Leo (scared)'}: walk ${walkDuration(P, o.from, o.to, o).toFixed(1)} s for ${(o.to[0] - o.from[0]).toFixed(1)} m; standing foot slides on average ${(sum / n * 1000).toFixed(1)} mm per frame, worst ${(worst * 1000).toFixed(1)} mm`); }
+  return out.join('\n');
+};
+window.dump = () => { const P = H, rows = [];
+  for (let f = 0; f < 26; f++) { walk(P, f / 12, {from: [0, 0], dir: Math.PI / 2, start: 0}); P.root.updateMatrixWorld(true);
+    const ft = P.legs.map(l => l.ft.localToWorld(new THREE.Vector3(0, -.05, .03)));
+    rows.push(f + ': root ' + P.root.position.x.toFixed(3) + '  L ' + ft[0].x.toFixed(3) + ',' + ft[0].y.toFixed(3) + '  R ' + ft[1].x.toFixed(3) + ',' + ft[1].y.toFixed(3)); }
+  return rows.join('\n'); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
