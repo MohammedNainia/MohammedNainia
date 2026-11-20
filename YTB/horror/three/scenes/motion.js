@@ -23,14 +23,14 @@ export const contact = pts => { let b = 0; for (let k = 1; k < pts.length; k++) 
 const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
 function footRoll(p, run = 0) {
   const u = ((p - Math.PI / 2) % TAU + TAU) % TAU / TAU;           // 0 = heel strike, .5 = toe-off, 1 = next strike
-  const strike = -.32 * (1 - run * .8), off = .65 + .35 * run, hang = .3;
+  const strike = -.32 * (1 - run * .8), off = .6 + .15 * run, hang = .1;
   if (u < .5) {                                                    // on the ground
     const flat = smooth(0, .12, u);                                // toes come down to flat
     const peel = smooth(.28, .5, u);                               // heel peels up towards toe-off
     return strike * (1 - flat) + off * peel;
   }
   const v = (u - .5) / .5;                                         // in the air
-  return off + (hang - off) * smooth(0, .25, v) + (strike - hang) * smooth(.6, 1, v);
+  return off + (hang - off) * smooth(0, .1, v) + (strike - hang) * smooth(.6, 1, v);   // toes come up fast after push-off: no scuff
 }
 export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // mood: 0 normal, 1 scared (hunched, small steps, arms in); run: 0 walk .. 1 run
   const A = (.42 + .3 * run) * stride * (1 - .35 * mood);
@@ -39,7 +39,8 @@ export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // moo
     // swing = p from -90 to +90 deg: the knee bends most early in the swing and is straight exactly when the foot reaches
     // the front, so the foot lands and stops there (no skid). Running: the knee comes up high and the standing knee stays soft.
     const sw = ((p + Math.PI / 2) % TAU + TAU) % TAU, u = sw / Math.PI;
-    const knee = (u < 1 ? Math.sin(Math.PI * Math.pow(u, .85 - .25 * run)) : 0) * (.55 + .3 * stride + 1.15 * run) + .05 + (u >= 1 ? .25 * run : 0);
+    // stance (u >= 1): the knee gives a little under the weight and straightens again (zero at landing and take-off, so no jumps)
+    const knee = (u < 1 ? Math.sin(Math.PI * Math.pow(u, .62 - .2 * run)) * (.55 + .3 * stride + 1.15 * run) : Math.sin(Math.PI * (u - 1)) * (.08 + .3 * run)) + .05 + .12 * mood;
     // the thigh swings further forward than back (real hips extend little behind the body, most of all running)
     const th = s > 0 ? -A * (1 + .25 * run) * s : -A * (.8 - .35 * run) * s;
     l.th.rotation.set(th - .15 * run, 0, 0); l.sh.rotation.set(knee, 0, 0);
@@ -79,7 +80,7 @@ function cycleTable(P, opt) {
   const dist = [0], lift = [];
   for (let i = 0; i <= N; i++) {
     const st = Math.cos((i / N) * TAU) < 0 ? 0 : 1;                                     // standing foot: the one moving back under the body
-    lift.push(restLow - low[i]);                                                         // the lowest heel or toe touches the floor, none goes through it
+    lift.push(-low[i]);                                                                  // the lowest heel or toe is exactly on the floor (any character's proportions)
     // the body moves forward exactly as far as the point of the standing foot that touches the floor (heel, sole or toe:
     // the lowest one) moves back, so that point stays put while the foot rolls over it
     const c = contact(feet[i][st]);

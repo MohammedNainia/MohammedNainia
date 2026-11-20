@@ -58,5 +58,49 @@ window.dump = () => { const P = H, rows = [];
     const ft = P.legs.map(l => l.ft.localToWorld(new THREE.Vector3(0, -.05, .03)));
     rows.push(f + ': root ' + P.root.position.x.toFixed(3) + '  L ' + ft[0].x.toFixed(3) + ',' + ft[0].y.toFixed(3) + '  R ' + ft[1].x.toFixed(3) + ',' + ft[1].y.toFixed(3)); }
   return rows.join('\n'); };
+// full gait check: for walk, scared walk and run, over 6 s at 12 frames a second:
+//  slide  = how far the touching point of the planted foot moves along the floor between frames (should be ~0)
+//  sink   = how far any heel/toe goes below the floor (should be 0)
+//  float  = frames where the planted foot is more than 5 mm above the floor (should be 0 for walks; a run may leave the floor briefly)
+//  scuff  = frames where the swinging foot drags on the floor away from its landing / take-off (toe < 3 mm while mid-swing)
+window.gait = () => { const rows = [];
+  for (const [name, o] of [['walk', {}], ['scared walk', {mood: 1, cadence: 1.1, stride: .8}], ['run', {run: 1, cadence: 1.45, stride: 1.1}]]) for (const P of [H, L]) {
+    let prev = null, slide = 0, sink = 0, flo = 0, scuff = 0;
+    for (let f = 0; f < 72; f++) { const t = f / 12, cad = o.cadence || .9;
+      walk(P, t, Object.assign({from: [0, 0], dir: Math.PI / 2, start: 0}, o)); P.root.updateMatrixWorld(true);
+      const ph = (t * cad) % 1, st = stanceLeg(ph), sw = 1 - st;
+      const pts = l => SOLE.map(v => P.legs[l].ft.localToWorld(v.clone()));
+      const S = pts(st), W = pts(sw), c = contact(S);
+      sink = Math.min(sink, ...S.map(p => p.y), ...W.map(p => p.y));
+      if (S[c].y > .005) flo++;
+      const swu = ((ph + (sw ? .5 : 0)) % 1);   // swing progress for the other leg (cos<0 half = stance)
+      const lowW = Math.min(...W.map(p => p.y)), mid = Math.abs(Math.cos(((ph + (sw === 0 ? 0 : .5)) % 1) * Math.PI * 2)) > .5;
+      if (lowW < .003 && mid) scuff++;
+      if (prev && prev.st === st) { const q = P.legs[st].ft.localToWorld(SOLE[c].clone()); slide = Math.max(slide, Math.hypot(q.x - prev.p[c].x, q.z - prev.p[c].z)); }
+      prev = {st, p: S}; }
+    rows.push(`${name.padEnd(12)} ${P === H ? 'Haru' : 'Leo '}: slide max ${(slide * 1000).toFixed(1)} mm, sink ${(-sink * 1000).toFixed(1)} mm, planted foot floating ${flo}/72 frames, swing foot scuffing ${scuff}/72`); }
+  return rows.join('\n'); };
+window.clear = () => { const rows = [];
+  for (const [name, o] of [['walk', {}], ['scared walk', {mood: 1, cadence: 1.1, stride: .8}], ['run', {run: 1, cadence: 1.45, stride: 1.1}]]) {
+    let minMid = 1, drag = 0; const P = H, cad = o.cadence || .9;
+    for (let f = 0; f < 144; f++) { const t = f / 24; walk(P, t, Object.assign({from: [0, 0], dir: Math.PI / 2, start: 0}, o)); P.root.updateMatrixWorld(true);
+      const ph = (t * cad) % 1, sw = 1 - stanceLeg(ph), p = (ph * Math.PI * 2 + (sw ? Math.PI : 0)), u = (((p + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / Math.PI;
+      const lo = Math.min(...SOLE.map(v => P.legs[sw].ft.localToWorld(v.clone()).y));
+      if (u > .12 && u < .88) { minMid = Math.min(minMid, lo); if (lo < .004) drag++; } }
+    rows.push(`${name.padEnd(12)}: lowest point of the swinging foot mid-swing ${(minMid * 1000).toFixed(1)} mm, frames dragging ${drag}`); }
+  return rows.join('\n'); };
+window.runswing = () => { const P = H, rows = [];
+  for (let f = 0; f < 36; f++) { const t = f / 24; walk(P, t, {from: [0, 0], dir: Math.PI / 2, start: 0, run: 1, cadence: 1.45, stride: 1.1}); P.root.updateMatrixWorld(true);
+    const ph = (t * 1.45) % 1, sw = 1 - stanceLeg(ph), p = ph * Math.PI * 2 + (sw ? Math.PI : 0), u = (((p + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / Math.PI;
+    const h = SOLE.map(v => P.legs[sw].ft.localToWorld(v.clone()).y * 1000);
+    if (u > .05 && u < .95) rows.push('swing ' + u.toFixed(2) + '  heel ' + h[0].toFixed(0) + ' mm  toe ' + h[2].toFixed(0) + ' mm'); }
+  return rows.join('\n'); };
+window.landing = () => { const P = H, rows = []; let prevW = null;
+  for (let f = 0; f < 40; f++) { const t = f / 12; walk(P, t, {from: [0, 0], dir: Math.PI / 2, start: 0}); P.root.updateMatrixWorld(true);
+    const ph = (t * .9) % 1, st = stanceLeg(ph), sw = 1 - st, W = SOLE.map(v => P.legs[sw].ft.localToWorld(v.clone())), Sx = SOLE.map(v => P.legs[st].ft.localToWorld(v.clone()));
+    const lo = Math.min(...W.map(p => p.y));
+    if (lo < .002 && prevW && prevW.sw === sw) rows.push(`frame ${f}: swinging foot touching (lowest ${(lo*1000).toFixed(1)} mm), its touching point (${['heel','sole','toe'][contact(W)]}) moved ${(Math.hypot(W[contact(W)].x - prevW.W[contact(W)].x, W[contact(W)].z - prevW.W[contact(W)].z) * 1000).toFixed(0)} mm since last frame; planted foot lowest ${(Math.min(...Sx.map(p => p.y)) * 1000).toFixed(1)} mm`);
+    prevW = {sw, W}; }
+  return rows.join('\n') || 'no touching swing foot'; };
 window.renderAt(0); window.ready = true;
 </script></body></html>
