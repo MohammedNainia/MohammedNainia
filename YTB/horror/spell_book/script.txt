@@ -1,0 +1,24 @@
+THE SPELL BOOK (draft v1)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
+
+h01  HARU  I read one spell from my dead gran's book. Now, on my street, green means stop.
+h02  HARU  Mum found it in the attic, the week after the funeral. A spell book. In Gran's handwriting.
+h03  HARU  On the first page, she'd written a rule. "The other side runs backwards. To come home, read the spell backwards. And bring nothing back."
+h04  HARU  I never said goodbye to her. I was too scared to go into the hospital room.
+h05  HARU  So I read the spell for finding what you've lost.
+h06  HARU  The attic went dark. When the light came back, the window looked out on our street. Almost.
+h07  HARU  Cars stopped at green and screamed through red. Rain fell up off the pavement. Mr Hale from next door was walking his dog backwards. So was the dog.
+h08  HARU  The swings were full of crying kids. Across the road, a funeral was laughing.
+h09  HARU  Then everyone on the street turned to look at me. Their faces were on the backs of their heads.
+h10  HARU  Gran was in her armchair. Alive.
+g01  GRAN  Goodbye, sweetheart.
+h11  HARU  That's how they say hello there.
+h12  HARU  She took my hand. Her skin was cold, and getting softer, like she was going younger under my fingers.
+g02  GRAN  Read it backwards now. And don't you let go of me.
+h13  HARU  Over there, everything means the opposite. Even that.
+h14  HARU  I read it backwards. And I held on.
+h15  HARU  I woke up in the attic. My hand was empty. I thought it hadn't worked.
+h16  HARU  Then the kitchen clock started ticking backwards.
+m01  MUM   (walks in backwards, smiling) Goodbye, love.
+h17  HARU  Every morning, something else on our street turns around. Yesterday, it was the traffic lights.
+h18  HARU  And up in the attic, someone is reading Gran's book. Starting from the last page.
+(loop: cut to the street, cars stopping at green = hook)
