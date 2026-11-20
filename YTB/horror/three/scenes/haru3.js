@@ -563,6 +563,7 @@ export function makeHaru3(o = {}) {
     a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });   // relaxed: palms face the thighs, thumbs forward, fingers curling a little
     legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); };
   Pp.expr('neutral'); Pp.rest();
+  root.userData.noBoil = true;                              // characters are animated: the set boil (sets.js) leaves them alone
   Pp._hipY0 = hips.position.y;                             // standing hip height (motion.js raises the hips from here)
   root.scale.setScalar(HEIGHT);                            // last: everything above was built at size 1
   return Pp;

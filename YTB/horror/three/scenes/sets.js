@@ -122,7 +122,11 @@ import {RectAreaLightUniformsLib} from 'three/addons/lights/RectAreaLightUniform
 let rectInit = false;
 export const setupLights = () => { if (!rectInit) { RectAreaLightUniformsLib.init(); rectInit = true; } };
 const rect = (color, power, w, h, pos, target) => { const l = new THREE.RectAreaLight(color, power, w, h); l.position.set(...pos); l.lookAt(...target); return l; };
-const fill = (g, power = .25) => g.add(rect(0x6a7fa8, power, 4, 3, [0, 2.2, 3.5], [0, 1, -1]));   // a faint night fill from the camera side
+// a faint night fill from the camera side. The quick preview has no light bouncing round the room, so it is much darker than
+// the path-traced final: setPreview(true) lifts this fill for previews only (the path tracer gets the real value)
+let PREVIEW = 1;
+export const setPreview = on => { PREVIEW = on ? 3.5 : 1; };
+const fill = (g, power = .25) => g.add(rect(0x6a7fa8, power * PREVIEW, 4, 3, [0, 2.2, 3.5], [0, 1, -1]));
 export const LIGHTS = {
   // moonlight through the window: cold, soft, from the left
   moon: R => { const g = new THREE.Group(); const W = R.window;
@@ -260,10 +264,19 @@ export function curtainRail({len = 1.6, c = 0x7a9aa8} = {}) {                   
   return g;
 }
 // ---- the magic lamp: brass oil lamp (body, spout, handle, lid with a knob). glow(k) lights it up from inside
-export function magicLamp({c = 0xc49a3a} = {}) {
-  const g = G(), brass = new THREE.MeshPhysicalMaterial({color: c, metalness: 1, roughness: .32, clearcoat: .3});
+export function magicLamp({c = 0xb88a34} = {}) {
+  // hand-made brass: metal, but with the clay finger marks and a slightly dented, uneven body (not a perfect machined shape)
+  const g = G(), brass = clay3(c, {metalness: .75, roughness: .38, bumpScale: 1.1, sheen: 0});
   const prof = [[0, 0], [.06, .005], [.08, .02], [.11, .05], [.12, .08], [.1, .11], [.06, .125], [.035, .13], [.03, .15], [0, .155]].map(([x, y]) => new THREE.Vector2(x, y));
-  const body = mesh(new THREE.LatheGeometry(prof, 32), brass, g); body.scale.z = .8;
+  const lg = new THREE.LatheGeometry(prof, 40), lp = lg.attributes.position;
+  for (let i = 0; i < lp.count; i++) {                                                     // dents and a hand-shaped wobble
+    const x = lp.getX(i), y = lp.getY(i), z = lp.getZ(i), a = Math.atan2(x, z), r = Math.hypot(x, z);
+    const k = 1 + .035 * Math.sin(a * 3 + y * 40) + .025 * Math.sin(a * 7 - y * 70) - .05 * Math.exp(-((a - 1.2) ** 2 + ((y - .07) / .03) ** 2) * 4);
+    lp.setXYZ(i, x * k, y, z * k); }
+  lg.computeVertexNormals();
+  const body = mesh(lg, brass, g); body.scale.z = .8;
+  // engraved band round the shoulder: a darker ring of little clay dots
+  for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; mesh(new THREE.SphereGeometry(.006, 6, 4), clay3(0x6e4e1e, {bumpScale: .3}), g, [Math.sin(a) * .118, .085, Math.cos(a) * .118 * .8]); }
   cyl(.05, .06, .02, c, g, [0, .01, 0]).material = brass;                                       // foot
   const spout = new THREE.CatmullRomCurve3([[.09, .07, 0], [.17, .09, 0], [.24, .14, 0], [.29, .17, 0]].map(p => new THREE.Vector3(...p)));
   mesh(new THREE.TubeGeometry(spout, 20, .018, 10, false), brass, g); const tip = mesh(new THREE.SphereGeometry(.014, 10, 8), brass, g, [.29, .17, 0]);
@@ -329,3 +342,108 @@ Object.assign(LIGHTS, {
     g.add(rect(0xe8f2ff, 80, .5, .05, p.toArray(), [p.x - 1, p.y - .6, p.z])); fill(g, .06);
     return {group: g, update() {}}; },
 });
+
+
+// ================================================================ dressing: clutter that makes a room lived in
+// (each returns a group standing on y = 0, facing +z; all clay, low triangle counts)
+export function books({n = 5, seed = 3} = {}) {
+  const g = G(); let x = 0, s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const cols = [0x8a3a32, 0x3a5a7a, 0x6a7a3a, 0xc9a24a, 0x4a3a5a, 0x7a5a3a];
+  for (let i = 0; i < n; i++) { const w = .03 + r() * .025, h = .17 + r() * .07, d = .13 + r() * .03;
+    const b = block(w, h, d, cols[Math.floor(r() * cols.length)], g, [x + w / 2, h / 2, 0], .006); b.rotation.z = i === n - 1 ? -.25 : (r() - .5) * .04; x += w + .002; }
+  return g;
+}
+export function shelf({w = 1.0, c = 0x6e4e38} = {}) {                    // a wall shelf (hang it at the height you want)
+  const g = G(); block(w, .03, .22, c, g, [0, 0, 0], .008);
+  for (const sx of [-1, 1]) block(.02, .12, .02, 0x3a3a3a, g, [sx * (w / 2 - .1), -.06, -.09], .004);
+  const b = books({n: 6}); b.position.set(-w / 2 + .05, .015, 0); g.add(b);
+  const t = teddy({s: .55}); t.position.set(w / 2 - .14, .015, 0); g.add(t);
+  return g;
+}
+export function teddy({s = 1, c = 0x9a6a42} = {}) {                      // a small clay teddy bear, sitting
+  const g = G(), m = (r, sx, sy, sz, p, col = c) => mesh(new THREE.SphereGeometry(r * s, 16, 12).scale(sx, sy, sz), clayM(col, .2), g, p.map(v => v * s));
+  m(.09, 1, 1.1, .9, [0, .09, 0]); m(.07, 1, 1, 1, [0, .22, .01]);                                // body, head
+  for (const sx of [-1, 1]) { m(.028, 1, 1, .7, [sx * .05, .28, 0]); m(.03, 1, 1.4, 1, [sx * .085, .1, .03]); m(.035, 1.2, .8, 1.4, [sx * .05, .02, .07]); }   // ears, arms, legs
+  m(.03, 1.2, .9, .8, [0, .2, .065], 0xc9a07a); m(.011, 1, 1, 1, [0, .21, .09], 0x1a1210);           // snout, nose
+  for (const sx of [-1, 1]) m(.009, 1, 1, 1, [sx * .028, .245, .062], 0x1a1210);                     // button eyes
+  return g;
+}
+export function poster({w = .5, h = .7, seed = 1} = {}) {                // a paper poster pinned to the wall (faces +z)
+  const g = G(), cv = document.createElement('canvas'); cv.width = 128; cv.height = 180; const x = cv.getContext('2d');
+  const pal = [['#2a4a6a', '#e8c64a'], ['#6a2a3a', '#e8dcc0'], ['#2a5a4a', '#f0a050']][seed % 3];
+  x.fillStyle = pal[0]; x.fillRect(0, 0, 128, 180); x.fillStyle = pal[1];
+  x.beginPath(); x.arc(64, 70, 34, 0, 7); x.fill(); x.fillRect(16, 130, 96, 12); x.fillRect(30, 150, 68, 8);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
+  mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({map: t, roughness: .9}), g, [0, 0, .002]);
+  for (const [px, py] of [[-1, 1], [1, 1]]) mesh(new THREE.SphereGeometry(.01, 8, 6), clayM(0xb8302a, .1), g, [px * (w / 2 - .03), py * (h / 2 - .03), .008]);
+  return g;
+}
+export function clothes({c = 0x5a7a9a} = {}) {                          // a jumper thrown over something (put it on a chair seat or the floor)
+  const g = G();
+  for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2;
+    mesh(new THREE.SphereGeometry(.09, 14, 10).scale(1.4, .35, 1), clayM(c, .3), g, [Math.sin(a) * .08, .03 + (i % 2) * .02, Math.cos(a) * .06]).rotation.y = a; }
+  mesh(new THREE.CylinderGeometry(.04, .045, .32, 12).rotateZ(Math.PI / 2 - .3), clayM(c, .3), g, [.12, .02, .12]);   // a sleeve hanging down
+  return g;
+}
+export function mug({c = 0xd9d2c2} = {}) {
+  const g = G(); cyl(.04, .036, .09, c, g, [0, .045, 0]); cyl(.035, .035, .005, 0x3a2418, g, [0, .085, 0]);
+  mesh(new THREE.TorusGeometry(.025, .008, 6, 12), clayM(c, .1), g, [.045, .05, 0], [0, 0, 0]); return g;
+}
+// cracks in a wall: thin dark clay lines (call with the wall's own space: a group facing +z, x/y in metres)
+export function crack({len = .6, seed = 2} = {}) {
+  const g = G(); let s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  let p = new THREE.Vector3(0, 0, .004); const pts = [p.clone()];
+  for (let i = 0; i < 8; i++) { p = p.clone().add(new THREE.Vector3((r() - .5) * .12, -len / 8, 0)); pts.push(p); }
+  mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 30, .004, 5), clayM(0x2a2622, .3), g);
+  const b = pts[3]; mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([b, b.clone().add(new THREE.Vector3(.08, -.06, 0)), b.clone().add(new THREE.Vector3(.13, -.08, 0))]), 12, .003, 5), clayM(0x2a2622, .3), g);
+  return g;
+}
+// a bedroom dressed: shelf with books and a teddy, posters, clothes on the chair, a mug, a crack above the bed
+export function dressBedroom(R, {bed, chair} = {}) {
+  const g = R.group, back = -R.d + .06;
+  const sh = shelf(); sh.position.set(-1.1, 1.55, back + .06); g.add(sh);
+  const p1 = poster({seed: 0}); p1.position.set(.25, 1.55, back); g.add(p1);
+  const p2 = poster({seed: 2, w: .4, h: .55}); p2.position.set(R.w / 2 - .04, 1.5, -1.0); p2.rotation.y = -Math.PI / 2; g.add(p2);
+  const cr = crack(); cr.position.set(-1.55, 2.3, back); g.add(cr);
+  if (chair) { const c = clothes(); c.position.copy(chair.position).add(new THREE.Vector3(0, .5, 0)); c.rotation.y = chair.rotation.y; g.add(c); }
+  return g;
+}
+
+// ================================================================ outside the window: night sky, moon, trees (one painted backdrop)
+const skyTex = (() => { let t = null; return () => { if (t) return t;
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512; const x = cv.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#0a1430'); gr.addColorStop(.7, '#1c2c50'); gr.addColorStop(1, '#2a3858');
+  x.fillStyle = gr; x.fillRect(0, 0, 1024, 512);
+  let s = 5; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(255,255,240,${.3 + r() * .7})`; x.fillRect(r() * 1024, r() * 300, 1.5, 1.5); }
+  const mg = x.createRadialGradient(700, 130, 10, 700, 130, 110); mg.addColorStop(0, 'rgba(220,230,255,.5)'); mg.addColorStop(1, 'rgba(220,230,255,0)');
+  x.fillStyle = mg; x.fillRect(560, 0, 300, 280); x.fillStyle = '#eef0e6'; x.beginPath(); x.arc(700, 130, 38, 0, 7); x.fill();   // the moon and its halo
+  x.fillStyle = '#05070c';                                                                  // trees and a fence: black shapes
+  for (let i = 0; i < 9; i++) { const tx = i * 125 + r() * 60, th = 160 + r() * 140; x.beginPath(); x.moveTo(tx - 50, 512); x.lineTo(tx, 512 - th); x.lineTo(tx + 50, 512); x.fill();
+    for (let k = 0; k < 6; k++) { x.beginPath(); x.arc(tx + (r() - .5) * 60, 512 - th * (.3 + r() * .5), 20 + r() * 25, 0, 7); x.fill(); } }
+  x.fillRect(0, 470, 1024, 42); for (let i = 0; i < 1024; i += 22) x.fillRect(i, 440, 9, 40);
+  t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }; })();
+// put a night view behind a window of room R (R.window from room()): a glowing painted plane a little outside the wall
+export function windowView(R, {brightness = 1} = {}) {
+  const W = R.window, g = G(); if (!W) return g;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.6), new THREE.MeshStandardMaterial({color: 0x000000, emissive: 0xffffff, emissiveMap: skyTex(), emissiveIntensity: .55 * brightness}));
+  m.position.set(-R.wallX - 1.2, (W.y0 + W.y1) / 2 + .1, W.z); m.rotation.y = Math.PI / 2; g.add(m); R.group.add(g);
+  return g;
+}
+
+// ================================================================ clay boil for the sets
+// Real clay sets are touched between frames: every 1/6 s the props shift a hair and the finger marks change. boilSet(group, t)
+// nudges each prop of a set (a pure function of t: any frame can be rendered alone) by up to 0.6 mm and 0.2 degrees.
+const homes = new WeakMap();
+export function boilSet(group, t, amount = 1) {
+  const k = Math.floor(t * 6 + 1e-6);
+  group.children.forEach((o, i) => {
+    if (o.isLight || o.userData.noBoil) return;
+    if (!homes.has(o)) homes.set(o, {p: o.position.clone(), r: o.rotation.clone()});
+    const h = homes.get(o), n = j => Math.sin((k * 12.9898 + i * 78.233 + j * 37.719) * 43758.5453 % 6.2831);
+    o.position.set(h.p.x + n(1) * .0006 * amount, h.p.y + Math.max(0, n(2)) * .0003 * amount, h.p.z + n(3) * .0006 * amount);
+    o.rotation.set(h.r.x, h.r.y + n(4) * .0035 * amount, h.r.z);
+  });
+}
+// call after moving a prop on purpose (so boil works round its new place)
+export const rehome = o => homes.delete(o);

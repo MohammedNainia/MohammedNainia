@@ -9,11 +9,11 @@
 import {THREE, setup} from './lib.js';
 import {makeChar} from './characters.js';
 import {groundIt} from './haru3_poses.js';
-import {kitchen, hallway, bathroom, magicLamp, LIGHTS, setupLights} from './sets.js';
+import {kitchen, hallway, bathroom, magicLamp, LIGHTS, setupLights, setPreview, boilSet} from './sets.js';
 const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), PTS = +(q.get('pt') || 0), DET = +(q.get('d') || 1);
 const {scene, cam, renderer, render, grain} = setup({bloom: .25, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
 grain.uniforms.vig.value = .5; renderer.toneMappingExposure = 1.1; renderer.shadowMap.type = THREE.VSMShadowMap;
-scene.background = new THREE.Color(0x010103); setupLights();
+scene.background = new THREE.Color(0x010103); setupLights(); setPreview(!PTS);
 const t0 = performance.now();
 const K = kitchen(), HW = hallway(), BA = bathroom();
 for (const s of [K, HW, BA]) scene.add(s.R.group);
