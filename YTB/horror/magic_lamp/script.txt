@@ -1,0 +1,69 @@
+THE MAGIC LAMP v1 (9:16, target 85-95 s, dark clay, one line per voice generation)
+Hook text at frame 0: I RUBBED A MAGIC LAMP. / SOMETHING CAME OUT. / I WENT IN.
+Rule: the old man at the market: look at it all you like, never rub it.
+Haru's flaw/choice: she can't leave it alone. Three nights, then she rubs it for "just one wish".
+Twist: there is no genie. The lamp is full of everyone who ever made a wish, and when you rub it, the one who has been
+       inside longest climbs out wearing your face. The old man who sold it was one of them.
+Ending/loop: the thing wearing Haru sells the lamp to the next child, with the same words. Cut to frame 0.
+Unspoken question: who is the next child, and was anyone at that market ever who they look like?
+
+h01  HARU     I rubbed a magic lamp. Something came out. I went in.
+              [frame 0: inside the lamp. Haru, small, at the bottom of a brass throat, looking up. Far above, a round hole of
+               warm light: her bedroom ceiling. A face leans over the hole and looks down at her. It is her own face.]
+h02  HARU     The old man at the market sold it to me for one coin.
+              [daytime market, clay stalls. A tiny old man in a green coat, his skin faintly metallic at the fingertips.]
+s01  SELLER   Look at it all you like. Just never rub it.
+              [he pushes the lamp across the cloth with one finger, as if it were hot.]
+h03  HARU     I lasted three nights.
+              [Haru's bedroom, night one: the lamp on the shelf. Night two: on her pillow. Night three: in her lap, her thumb
+               hovering over the brass.]
+h04  HARU     I only wanted one wish. Just one.
+              [she rubs. The spout breathes in. The room tilts toward the lamp like water toward a drain; her hair, the
+               curtains, her blanket all stream into the spout, then her.]
+h05  HARU     It was warm in there. Like the inside of a mouth.
+              [the interior: curved brass walls with ridges like a throat, sweating drops of oil. The floor gives under her
+               feet. Somewhere, slow breathing that is not hers.]
+h06  HARU     There was no genie. There were people.
+              [her eyes adjust: the walls are covered in brass figures, fused into the metal at the back, green with age.
+               Every one of them turns its eyes to her.]
+h07  HARU     A man had wished to be rich. He was still coughing up coins.
+              [a brass man on his knees, a heap of coins around him to the waist; he heaves, and another coin falls out.]
+h08  HARU     A woman had wished to be beautiful forever. Someone had polished her face smooth.
+              [a woman in an old gown, perfectly still, where her face should be a flawless mirror shine. Haru sees her own
+               reflection in it. The woman's chest still rises and falls.]
+h09  HARU     A boy had wished never to be alone.
+              [a boy in the middle of a ring of arms. Each arm grows out of the wall and ends in a hand holding him: his
+               wrists, his hair, his mouth. Dozens.]
+x01  WALLS    (whispers, many voices) Make a wish. Make a wish. Make a wish.
+              [the figures' lips move together. Haru backs away and steps on something soft: a hand in the floor.]
+h10  HARU     Then the oldest one stood up.
+              [a girl in a dress three hundred years old peels herself out of the wall, flakes of brass falling off her. She
+               walks past Haru without hurry, up the curve of the throat toward the light.]
+h11  HARU     She had my face.
+              [close: as she climbs into the light, the brass on her skin warms into clay pink. Her hair darkens and grows
+               long. She turns once and smiles down. It is Haru's smile, almost.]
+g01  GIRL     (Haru's own voice, slower) Thank you for the wish.
+              [she climbs out of the spout. The hole of light shrinks to a coin.]
+h12  HARU     She sleeps in my bed now. Mum hasn't noticed.
+              [through the spout from below: the bedroom. Mum tucks the girl in and kisses her forehead. The girl looks past
+               Mum, straight down into the lamp.]
+m01  MUM      Night, Haru.
+h13  HARU     Every Saturday she takes the lamp to the market.
+              [the market again. Behind the old man's stall, a new seller: the girl in Haru's hoodie. A small boy in a
+               striped shirt stops and stares at the brass.]
+g02  GIRL     Look at it all you like. Just never rub it.
+              [she pushes the lamp across the cloth with one finger. The boy's hand reaches for it. Cut to frame 0 (loop).]
+
+VOICES: Haru = Samara X. Seller = an old man (new Artlist voice, not Grandpa). Girl = Samara X, same voice, slower and
+flatter, a touch of reverb. Walls = "Hushed", layered several times. Mum = the tooth fairy mum voice.
+
+WHAT WE BUILD FOR THE INSIDE OF THE LAMP (clay, dark, lit only from the hole above and the brass's own dull shine):
+  - the throat: a tall curved brass chamber with ridges, oil sweat, a soft floor that dents under feet
+  - the hole of light at the top (Haru's bedroom ceiling seen through the spout)
+  - the coin man (kneeling, coin heap, coins dropping from his mouth on a loop)
+  - the polished woman (mirror face that reflects Haru)
+  - the held boy (a ring of wall arms holding him)
+  - wall figures whose eyes follow Haru and whose lips move on the whispers
+  - hands in the floor
+  - the girl who climbs out: brass to clay, Haru's face
+  - the market stall (day) and Haru's bedroom (night) from the existing set kit
