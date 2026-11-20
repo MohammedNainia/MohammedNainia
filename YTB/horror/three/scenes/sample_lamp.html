@@ -42,12 +42,16 @@ const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(20, 8), new THREE.MeshSt
 brassEnvironment(renderer, scene, PTS ? .08 : .12);                  // dark theme: the brass barely reflects anything
 // each character keeps a soft light of its own: readable, while the brass behind falls into the dark
 keyOn(H, {power: 2.2}); keyOn(CM.P, {power: 2.6}); keyOn(MB.M, {power: 2.6, height: .2}); keyOn(BOY.P, {power: 2.4}); keyOn(GIRL.P, {power: 2.4});
-WF.figures.forEach(P => keyOn(P, {power: .55, dist: .6}));
+const WFK = WF.figures.map(P => keyOn(P, {power: .55, dist: .6}));
 // the market: late, overcast, a little wrong
 sun.intensity = 1.0; sun.color.set(0xffc890); sky.intensity = .45; sky.color.set(0x8a96a8); backdrop.material.color.set(0x55627a);
+// path tracing ignores directional and hemisphere lights: the market's overcast sky as two big soft area lights
+const MKSKY = new THREE.Group(); MK.add(MKSKY); MKSKY.visible = false;
+{ const r1 = new THREE.RectAreaLight(0xc8d0e0, 2.2, 8, 6); r1.position.set(2, 6, 5); r1.lookAt(0, 1, 0); const r2 = new THREE.RectAreaLight(0xffc890, 1.4, 4, 3); r2.position.set(4, 3, 3); r2.lookAt(0, 1, 0); MKSKY.add(r1, r2); }
 console.log('PT lamp world built in ' + ((performance.now() - t0) / 1000).toFixed(2) + ' s');
 let PT = null, last = -1;
-if (PTS) { const {pathTracer} = await import('./pt.js'); PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x1a1208, 0x050302], envIntensity: .4, denoise: q.get('dn') === '1', bounces: +(q.get('b') || 4)}); }
+if (PTS) { W.shaft.visible = false;                       // the drawn light shaft is a see-through cone: the path tracer turns it into noise
+  const {pathTracer} = await import('./pt.js'); PT = pathTracer({renderer, scene, cam}, {softboxes: [], env: [0x1a1208, 0x050302], envIntensity: .4, denoise: q.get('dn') === '1', bounces: +(q.get('b') || 4)}); }
 const face0 = () => H.head.getWorldPosition(new THREE.Vector3());
 const SHOTS = [
   {cam: [.4, 4.6, 1.4], at: [0, .3, 0], fov: 45, lamp: true},                                     // Haru far below, the walls all round
@@ -67,7 +71,13 @@ window.renderAt = t => {
   boilSet(W.group, t);
   const v = x => typeof x === 'function' ? x() : new THREE.Vector3(...x);
   cam.fov = S.fov; cam.aspect = 9 / 16; cam.position.copy(v(S.cam)); cam.lookAt(v(S.at)); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
-  if (PT) { PT.render({samples: PTS, focus: v(S.at), fStop: 2.4, rebuild: i !== last}); last = i; return; }
+  if (PT) {
+    // path tracing: each light shares the samples, so many small lights mean noise. Keep only the lights near what the
+    // camera looks at (within 3 m), plus the light from the hole; the market gets a big soft sky of its own
+    if (i !== last) { const at = v(S.at); scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && o !== W.spot) {
+      o.visible = o.getWorldPosition(new THREE.Vector3()).distanceTo(at) < 3; } }); MKSKY.visible = !S.lamp;  WFK.forEach(l => l.visible = false);   // the wall figures' own little lights speckle the metal when path traced
+      W.spot.intensity = 18; }
+    PT.render({samples: PTS, focus: v(S.at), fStop: 2.4, rebuild: i !== last}); last = i; return; }
   render(t);
 };
 if (!PT) window.renderAt(0); window.ready = true;
