@@ -11,7 +11,7 @@ import {THREE, setup} from './lib.js';
 import {makeChar} from './characters.js';
 import {setupLights, setPreview, boilSet} from './sets.js';
 import {face, step12} from './motion.js';
-import {lampInterior, floorHand, coinMan, motherAndBaby, heldBoy, wallFigures, lampGirl, seller, marketStall, lookAt, brassEnvironment, faceCam} from './lamp_world.js';
+import {lampInterior, floorHand, coinMan, motherAndBaby, heldBoy, wallFigures, lampGirl, seller, marketStall, marketStreet, lookAt, brassEnvironment, faceCam} from './lamp_world.js';
 const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), PTS = +(q.get('pt') || 0);
 const {scene, cam, renderer, render, grain} = setup({bloom: .35, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
 grain.uniforms.vig.value = .55; renderer.toneMappingExposure = 1.15; renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -19,6 +19,9 @@ scene.background = new THREE.Color(0x020101); setupLights(); setPreview(!PTS);
 const t0 = performance.now();
 // ---- inside the lamp
 const W = lampInterior(); scene.add(W.group);
+// light from the hole rakes down the walls (so the figures in the wall read): a ring of soft spots aimed at the wall
+for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, sp = new THREE.SpotLight(0xffd29a, PTS ? 9 : 16, 10, .6, .85, 1.2);
+  sp.position.set(Math.sin(a) * .3, W.H - .3, Math.cos(a) * .3); sp.target.position.copy(W.wallPoint(a, 1.0, .1)); W.group.add(sp, sp.target); }
 const glow = new THREE.HemisphereLight(0x8a6a3a, 0x1a1208, PTS ? .15 : .55); W.group.add(glow);       // the brass's own dull glow
 for (let i = 0; i < 9; i++) { const h = floorHand({grip: .2 + i * .08}); const a = i * 2.3, r = .6 + (i % 4) * .35; h.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); h.rotation.set((i % 3 - 1) * .3, a, (i % 2 - .5) * .4); W.group.add(h); }
 const H = makeChar('haru', {}, true); H.root.position.set(0, .02, .1); W.group.add(H.root); H.expr('afraid');
@@ -29,7 +32,7 @@ const WF = wallFigures(W, 11, {skip: [.9, -1.0, 2.5, Math.PI]});
 const GIRL = lampGirl(); GIRL.P.root.position.copy(W.wallPoint(Math.PI, .0, .55)); GIRL.P.root.rotation.y = 0; W.group.add(GIRL.P.root);
 // ---- the market (somewhere else entirely, daylight)
 const MK = new THREE.Group(); MK.position.set(40, 0, 0); scene.add(MK);
-const ST = marketStall(); MK.add(ST.group);
+const ST = marketStall(); MK.add(ST.group); const STREET = marketStreet(); MK.add(STREET.group);
 const SL = seller(); SL.root.position.set(0, 0, -.65); MK.add(SL.root); SL.expr('neutral');
 const sun = new THREE.DirectionalLight(0xfff0d8, 2.4); sun.position.set(43, 6, 4); sun.target.position.set(40, 0, 0); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, {left: -3, right: 3, top: 3, bottom: -1, near: .5, far: 20}); MK.add(sun, sun.target);
@@ -46,7 +49,7 @@ const SHOTS = [
   {cam: () => faceCam(CM.P, 1.3, -.05, .35).pos, at: () => faceCam(CM.P).at.clone().add(new THREE.Vector3(0, -.25, 0)), fov: 42, lamp: true},
   {cam: () => faceCam(MB.M, 1.1, -.1, -.15).pos, at: () => MB.M.head.getWorldPosition(new THREE.Vector3()).lerp(MB.B.head.getWorldPosition(new THREE.Vector3()), .6), fov: 38, lamp: true},
   {cam: () => faceCam(BOY.P, 1.7, .1, .3).pos, at: () => faceCam(BOY.P).at.clone().add(new THREE.Vector3(0, -.25, 0)), fov: 48, lamp: true},
-  {cam: [.7, 1.45, -.95], at: [-.3, 1.0, 2.2], fov: 58, lamp: true},                                 // over Haru's shoulder: the wall looking back
+  {cam: [.6, 1.3, -1.3], at: [-.2, .95, 2.2], fov: 64, lamp: true},                                 // over Haru's shoulder: the wall looking back
   {cam: () => faceCam(GIRL.P, 1.2, 0, .15).pos, at: () => faceCam(GIRL.P).at.clone().add(new THREE.Vector3(0, -.15, 0)), fov: 40, lamp: true},
   {cam: [40.6, 1.3, 2.3], at: [40, 1.0, 0], fov: 42, lamp: false},
 ];

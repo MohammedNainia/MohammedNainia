@@ -146,14 +146,14 @@ export function makeHaru3(o = {}) {
   DETAIL = o.detail || 1;
   GEO_CACHE = true; GEO_KEY = JSON.stringify(Object.assign({}, o, {detail: DETAIL})); GEO_N = 0;      // same options = same meshes: built once, copied after
   // ---- options (defaults = Haru). top: hoodie | sweater | cardigan; bottom: pants | skirt; hairStyle: haru | bun | horseshoe | curlybob
-  const TOP = o.top || 'hoodie', BOTTOM = o.bottom || 'pants', HAIR = o.hairStyle || 'haru';   // + top tshirt, bottom shorts, hair ponytail | boyshort
+  const TOP = o.top || 'hoodie', BOTTOM = o.bottom || 'pants', HAIR = o.hairStyle || 'haru';   // + top tshirt, bottom shorts | gown, hair ponytail | boyshort
   const SHORT_SLEEVES = TOP === 'tshirt', SHORTS = BOTTOM === 'shorts';
   const LEG = o.legs === undefined ? .152 : o.legs;          // extra leg length (adults: more)
   const HEAD = o.head || 1.37, BELLY = o.belly || 0, AGE = o.age || 0, HEIGHT = o.height || 1;
   const M = {
     skin: clay3(o.skin || 0xe39a72, {bumpScale: .9, roughness: .66}), hood: clay3(o.hood || 0xcf9132), pants: clay3(o.pants || 0x5c5b60, {bumpScale: 1.8}),
     shoe: clay3(o.shoe || 0xf0eee8, {bumpScale: 1.0}), sole: clay3(o.sole || new THREE.Color(o.shoe || 0xf0eee8).multiplyScalar(.8).getHex(), {bumpScale: .6}), skirt: clay3(o.skirt || 0x4d4a5c, {bumpScale: 1.6}), button: gloss(o.button || 0xe8e0cc),
-    crease: clay3(new THREE.Color(o.skin || 0xe39a72).multiplyScalar(.62).getHex(), {bumpScale: .3}), rim: gloss(o.rim || 0x2a2522), lens: new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: .05, transmission: .9, transparent: true, opacity: .25}),
+    lace: clay3(o.lace || 0xe8e0cc, {bumpScale: .5}), crease: clay3(new THREE.Color(o.skin || 0xe39a72).multiplyScalar(.62).getHex(), {bumpScale: .3}), rim: gloss(o.rim || 0x2a2522), lens: new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: .05, transmission: .9, transparent: true, opacity: .25}),
     hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),
     eye: gloss(0x0a0a0c), white: gloss(0xf6f4ee), dark: clay3(o.brow || 0x2a1a16, {bumpScale: .3}), nose: clay3(0xd98a62, {bumpScale: .6}),
     mouthIn: clay3(0x4a1418, {bumpScale: .2}), tongue: clay3(0xd06a70, {bumpScale: .4}), teeth: gloss(0xfaf6ee),
@@ -299,6 +299,24 @@ export function makeHaru3(o = {}) {
     const k = new THREE.Mesh(new THREE.SphereGeometry(.014, 12, 8).scale(1, 1, .5), M.button); k.position.set(.014, yb - .59, zb + .006); chest.add(k);
   }
   // ---- skirt: one piece from the waist, flaring to below the knee, over the legs (which become tights)
+  // gown: a long old-fashioned dress over the legs, gathered at the waist (soft folds) down to the ankles, a frilled hem
+  if (BOTTOM === 'gown') {
+    const gownSDF = (x, y, z) => {
+      const top = .62 + DY, bot = .07, u = Math.min(1, Math.max(0, (top - y) / (top - bot)));
+      const r = .17 + .2 * Math.pow(u, .8), a = Math.atan2(x, z), fold = 1 + .06 * Math.sin(a * 9) * u;   // folds deepen down the skirt
+      let d = (Math.hypot(x, z / .9) - r * fold) * .8;
+      d = smax(d, y - top, .02); d = smax(d, bot - y, .02);
+      d = smin(d, sdTorusY(x, y, z, V(0, bot + .02, 0), r * 1.0, .025, 1, .9), .02);            // the frilled hem
+      return d + lumps(x, y, z, .9);
+    };
+    skinIt(meshSDF(gownSDF, V(0, .36 + DY / 2, 0), .48, 120), M.skirt, [hips], p => {
+      const t = Math.max(0, Math.min(1, (.55 + DY - p.y) / .5)) * .3, l = legs[p.x < 0 ? 0 : 1];
+      return [[[hips], 1 - t], [[l.th], t]];
+    });
+    // a lace collar on the top: a ring of small scallops
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, m = new THREE.Mesh(new THREE.SphereGeometry(.026, 10, 6).scale(1, .5, 1), M.lace);
+      m.position.set(Math.sin(a) * .1, 1.0 - .59 + (Math.cos(a) > 0 ? -.01 : 0), Math.cos(a) * .09 + .005); m.rotation.x = .5 * Math.cos(a); chest.add(m); }
+  }
   if (BOTTOM === 'skirt') {
     const skirtSDF = (x, y, z) => {
       let d = sdRoundCone(x, y, z / .85, V(0, .64 + DY, 0), V(0, .2 + DY * .5, 0), .165 + .02 * BELLY, .24) ;

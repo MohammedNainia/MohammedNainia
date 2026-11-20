@@ -141,13 +141,27 @@ export function heldBoy(world, angle, y = .05) {
     P.head.localToWorld(V(-.07, .02, .07)), P.face.localToWorld(V(0, -.06, .03)), P.chest.localToWorld(V(.1, .3, .1)), P.chest.localToWorld(V(-.12, .2, .1)),
     P.chest.localToWorld(V(0, .1, -.12)), P.legs[0].sh.localToWorld(V(0, -.1, .05)), P.legs[1].sh.localToWorld(V(0, -.1, .05)), P.hips.localToWorld(V(.12, -.05, 0))];
   const armM = brassM(0x8a6a30);
+  // each arm: from a ring of melted brass in the wall, an upper arm to an elbow (bent outwards and up), a forearm thinning to
+  // a wrist, and a hand with three fingers closed round the spot it holds
+  const limb = (a, b, r1, r2) => { const d = b.clone().sub(a), m = mesh(new THREE.CapsuleGeometry(1, 1, 6, 12), armM, g);
+    m.position.copy(a).add(b).multiplyScalar(.5); m.scale.set(1, 1, 1); m.geometry = new THREE.CylinderGeometry(r2, r1, d.length(), 12);
+    m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); mesh(new THREE.SphereGeometry(Math.max(r1, r2) * 1.05, 10, 8), armM, g, b.toArray()); return m; };
   targets.forEach((tp, i) => {
-    const a0 = angle + (rnd() - .5) * .9, y0 = Math.max(.2, tp.y + (rnd() - .3) * .7), w0 = world.wallPoint(a0, y0, .02);
-    const mid = w0.clone().lerp(tp, .55).add(V(0, .12 + rnd() * .15, 0));
-    const curve = new THREE.CatmullRomCurve3([w0, mid, tp]);
-    mesh(new THREE.TubeGeometry(curve, 20, .028, 8, false), armM, g);
-    const h = mesh(new THREE.SphereGeometry(.04, 12, 8).scale(1.1, .8, .5), armM, g, tp.toArray()); h.lookAt(w0);
-    mesh(new THREE.SphereGeometry(.03, 10, 8), armM, g, w0.toArray());   // where it comes out of the wall
+    const a0 = angle + (rnd() - .5) * 1.0, y0 = Math.max(.25, tp.y + (rnd() - .2) * .6), w0 = world.wallPoint(a0, y0, .02);
+    const elbow = w0.clone().lerp(tp, .5).add(V(0, .14 + rnd() * .12, 0)).add(w0.clone().sub(tp).cross(V(0, 1, 0)).normalize().multiplyScalar((rnd() - .5) * .2));
+    const wrist = tp.clone().lerp(elbow, .18);
+    mesh(new THREE.TorusGeometry(.05, .02, 8, 16), armM, g, w0.toArray()).lookAt(0, w0.y, 0);
+    // one continuous arm, thick at the wall, thinning to the wrist, bending at the elbow (a smooth clay roll, not two poles)
+    const cv = new THREE.CatmullRomCurve3([w0, w0.clone().lerp(elbow, .55), elbow, elbow.clone().lerp(wrist, .5), wrist]);
+    const tg = new THREE.TubeGeometry(cv, 32, 1, 10, false), tp2 = tg.attributes.position, cen = new THREE.Vector3();
+    for (let k = 0; k < tp2.count; k++) { const seg = Math.floor(k / 11), u = seg / 32; cv.getPoint(u, cen);
+      const r = .038 - .016 * u + .006 * Math.exp(-(((u - .5) / .06) ** 2));                 // tapers; a slight bulge at the elbow
+      const v = new THREE.Vector3(tp2.getX(k), tp2.getY(k), tp2.getZ(k)).sub(cen); const L = v.length() || 1; v.multiplyScalar(r / L * L).add(cen); tp2.setXYZ(k, v.x, v.y, v.z); }
+    tg.computeVertexNormals(); mesh(tg, armM, g);
+    const hand = G(g); hand.position.copy(wrist); hand.lookAt(tp);
+    mesh(new THREE.SphereGeometry(.035, 12, 8).scale(1, .55, 1.2), armM, hand, [0, 0, .03]);
+    for (let k = 0; k < 3; k++) { const f = G(hand, [(k - 1) * .022, .0, .06]); f.rotation.x = 1.2;
+      mesh(new THREE.CapsuleGeometry(.009, .04, 4, 8), armM, f, [0, .025, 0]); }
   });
   return {P, group: g};
 }
@@ -177,7 +191,7 @@ export function wallFigures(world, n = 9, {skip = []} = {}) {
 // three hundred years in the wall: an old dress, brass all over; as she climbs into the light she warms into clay and her face
 // becomes Haru's. warm(k): 0 brass .. 1 Haru
 export function lampGirl() {
-  const P = makeChar('haru', {top: 'cardigan', hood: 0x6a5a4a, button: 0xb8a070, bottom: 'skirt', skirt: 0x4a3e36, pants: 0x8a7a6a, shoe: 0x3a2e26, detail: 1}, true);
+  const P = makeChar('haru', {top: 'sweater', hood: 0x4a3a46, bottom: 'gown', skirt: 0x3e3038, lace: 0xd8ccb0, pants: 0x8a7a6a, shoe: 0x2e2622, detail: 1}, true);
   brassify(P, 1, {tarnish: .55});
   return {P, warm(k) { brassify(P, 1 - k, {tarnish: .55}); }};
 }
@@ -202,6 +216,29 @@ export function marketStall() {
   for (let i = 0; i < 5; i++) mesh(new THREE.CylinderGeometry(.04, .045, .1 + rnd() * .08, 12), clayM([0x5a7a6a, 0x9a6a3a, 0x6a5a8a][i % 3], .2), g, [-.55 + i * .12, .84, -.2]);
   const lamp = magicLamp(); lamp.position.set(.15, .79, .12); lamp.rotation.y = -.6; g.add(lamp);
   return {group: g, lamp};
+}
+// the rest of the market: stalls either side and behind, bunting, crates, a cobbled ground, and shoppers
+export function marketStreet({people = true} = {}) {
+  const g = G(), cols = [[0xd9c48a, 0x4a7a5a], [0xd9c48a, 0x3a5a8a], [0xe0d0a0, 0x8a3a5a], [0xd9c48a, 0xb87a2e]];
+  const stall = (x, z, ry, k) => { const s = G(g, [x, 0, z]); s.rotation.y = ry;
+    mesh(new RoundedBoxGeometry(1.3, .7, .6, 2, .03), clayM(0x6e5038, 1.3), s, [0, .35, 0]);
+    for (let i = 0; i < 7; i++) mesh(new THREE.SphereGeometry(.06 + rnd() * .03, 10, 8), clayM([0xc9502e, 0xe0b040, 0x6a9a3a, 0x9a3a5a][i % 4], .2), s, [-.5 + i * .16, .76, (rnd() - .5) * .3]);
+    for (const sx of [-1, 1]) mesh(new THREE.CylinderGeometry(.02, .02, 1.6, 8), clayM(0x6e5038, 1.6), s, [sx * .62, .8, -.28]);
+    for (let i = 0; i < 6; i++) mesh(new THREE.PlaneGeometry(.22, .8), Object.assign(clayM(cols[k % 4][i % 2], 1), {side: THREE.DoubleSide}), s, [-.55 + i * .22, 1.75, .05], [-1.2, 0, 0]);
+    return s; };
+  [[-2.0, -.4, .3, 0], [2.0, -.4, -.3, 1], [-1.1, -2.6, 0, 2], [1.2, -2.8, 0, 3], [-3.0, -1.8, .7, 1], [3.1, -2.0, -.6, 2]].forEach(([x, z, r, k]) => stall(x, z, r, k));
+  for (let i = 0; i < 6; i++) mesh(new RoundedBoxGeometry(.4, .3, .3, 1, .02), clayM(0x8a6a44, .4), g, [-2.6 + rnd() * 5.2, .15, .9 + rnd() * .6], [0, rnd() * 3, 0]);
+  // bunting: little triangle flags on a line across the street
+  const line = new THREE.CatmullRomCurve3([V(-3.2, 2.6, -1.2), V(0, 2.25, -1.0), V(3.2, 2.6, -1.2)]);
+  mesh(new THREE.TubeGeometry(line, 30, .006, 4), clayM(0x3a3a3a, .5), g);
+  for (let i = 1; i < 24; i++) { const p = line.getPoint(i / 24), f = mesh(new THREE.ConeGeometry(.07, .16, 3), clayM([0xc9502e, 0xe0b040, 0x3a7a9a, 0xe8e0cc][i % 4], .2), g, [p.x, p.y - .08, p.z]); f.rotation.z = Math.PI; }
+  // cobbles
+  const cob = clayM(0x8a7e6a, .3);
+  for (let i = 0; i < 380; i++) { const c = mesh(new THREE.SphereGeometry(.09 + rnd() * .04, 8, 5).scale(1, .25, .8), cob, g, [-4 + rnd() * 8, .0, -3.5 + rnd() * 6]); c.castShadow = false; }
+  const out = {group: g, people: []};
+  if (people) [['mum', -1.3, -1.6, .6], ['grandma', 2.3, -1.4, -.8], ['leo', -2.4, .6, 1.2], ['mina', 1.6, -3.2, .2]].forEach(([n, x, z, r]) => {
+    const P = makeChar(n, {detail: .7}, true); P.root.position.set(x, 0, z); P.root.rotation.y = r; P.expr('neutral'); g.add(P.root); out.people.push(P); });
+  return out;
 }
 
 // metal needs something to reflect, or it looks like cardboard: a dim, warm environment for the inside of the lamp
