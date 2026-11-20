@@ -1,4 +1,4 @@
-THE SPELL BOOK (draft v2, disturbing pass)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
+THE SPELL BOOK (draft v3, the funeral feast)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
 
 h01  HARU  I brought my gran back from the dead. Now, on my street, green means stop.
 h02  HARU  Mum found her spell book in the attic, the week after the funeral. Every page in Gran's handwriting.
@@ -6,17 +6,17 @@ h03  HARU  The first page was a rule. "The other side runs backwards. To come ho
 h04  HARU  I never said goodbye to her. I was too scared to go into the hospital room.
 h05  HARU  So I read the spell for finding what you've lost.
 h06  HARU  The attic went dark. When the light came back, the window looked out on our street. Almost.
-h07  HARU  Cars stopped at green and screamed through red. Mr Hale sat on his step, pulling his breakfast out of his mouth. Whole.
+h07  HARU  Cars stopped at green and screamed through red.
 h08  HARU  A car reversed off a girl in the road. She stood up. I heard every bone click back into place.
-h09  HARU  Across the road, a funeral was laughing. They weren't burying the coffin. They were digging it up.
-h10  HARU  Then the whole street turned to look at me. Their faces were on the backs of their heads.
-h11  HARU  Gran was in her armchair. There was soil under her nails.
+h09  HARU  Across the road, there was a funeral. No coffin. No hole. Just a long table in the street, and everyone in black, eating. They don't bury their dead over there.
+h10  HARU  Then the whole table turned to look at me. Their faces were on the backs of their heads.
+h11  HARU  Gran was at the end of the table. Alive. She had a napkin tucked into her collar. Everyone else had a knife and fork. She didn't.
 g01  GRAN  Goodbye, sweetheart.
 h12  HARU  That's how they say hello there.
 h13  HARU  She took my hand. It was cold. Then, under my fingers, it started getting warm.
 g02  GRAN  Read it backwards now. And don't you let go of me.
 h14  HARU  Over there, everything means the opposite. Even that.
-h15  HARU  I read it backwards. And I held on.
+h15  HARU  I read it backwards. The whole table stood up. I held on.
 h16  HARU  I woke up in the attic. My hand was empty. I thought it hadn't worked.
 h17  HARU  Then the kitchen clock started ticking backwards.
 m01  MUM   (walks in backwards, smiling) Goodbye, love.
