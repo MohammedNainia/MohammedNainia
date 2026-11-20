@@ -18,7 +18,7 @@ g02  GRAN  Read it backwards now. And don't you let go of me.
 h14  HARU  Over there, everything means the opposite. Even that.
 h15  HARU  I read it backwards. The whole table stood up. I held on.
 h16  HARU  I woke up in the attic. My hand was empty.
-h17  HARU  Out of the window, a car stopped at a red light. Green meant go. The rain fell down.
+h17  HARU  Out of the window, a car stopped at a red light. The lights turned green, and it drove off.
 h18  HARU  I was home.
 h19  HARU  I ran downstairs to tell Mum everything.
 m01  MUM   (at the stove, turns round smiling) Good morning, Haru.   [audio played REVERSED in post]
