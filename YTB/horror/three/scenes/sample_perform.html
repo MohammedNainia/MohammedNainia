@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}canvas{display:block}</style></head><body>
+<!-- Performance test, 9:16. Any character: ?who=haru|mum|grandma|grandpa|mina|leo. From t = 0: curled up terrified -> rises,
+     still frightened -> walks slowly -> breaks into a run -> stops, turns to camera -> the camera pushes in on the face while the
+     expressions change. window.TOTAL = length in seconds. -->
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import {THREE, setup} from './lib.js';
+import {makeChar} from './characters.js';
+import {perform, face, walkDuration, step12, ease, jolt} from './motion.js';
+import {POSES} from './haru3_poses.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), WHO = q.get('who') || 'haru';
+const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+grain.uniforms.vig.value = .25; scene.background = new THREE.Color(0xd6d4d0); renderer.shadowMap.type = THREE.VSMShadowMap;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({color: 0xd8d6d2, roughness: 1})); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+for (let i = -12; i <= 12; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(.02, .002, 3), new THREE.MeshStandardMaterial({color: 0xbcb8b2})); m.position.set(i * .5, .001, 0); scene.add(m); }   // floor marks: shows feet planted
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b4ae, 1.2));
+const key = new THREE.DirectionalLight(0xfff4e8, 2.0); key.position.set(-3, 6, 7); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6;
+Object.assign(key.shadow.camera, {left: -6, right: 6, top: 3, bottom: -2, near: .5, far: 25}); scene.add(key);
+const P = makeChar(WHO); scene.add(P.root);
+const pose = n => POSES.find(p => p.name === n).fn;
+// "slightly frightened": standing, shoulders up, hands held in front, looking about
+const wary = Q => { Q.rest(); Q.chest.rotation.x = .16; Q.neck.rotation.x = -.1; Q.head.rotation.y = .25;
+  Q.arms.forEach(a => { a.up.rotation.set(-.12, 0, a.sd * .12); a.fo.rotation.set(-2.05, 0, -a.sd * .3); a.hand.rotation.set(-.2, -a.sd * Math.PI / 2, 0); }); };   // hands pulled in to the chest
+// ---- the track (times in seconds)
+const A = [-3.2, 0], B = [-1.4, 0], C = [2.6, 0];
+const slow = {to: B, cadence: .55, mood: .6, stride: .85}, fast = {to: C, run: 1, cadence: 1.45, stride: 1.1};
+const tWalk = 2.6, tRun = tWalk + walkDuration(P, A, B, slow), tStop = tRun + walkDuration(P, B, C, fast);
+const tTurn = tStop + .3, tZoom = tTurn + .7;
+const track = [
+  {start: 0, at: A, dir: Math.PI / 2, pose: [[0, pose('crouch')], [1.2, pose('crouch')], [2.2, wary]]},
+  {start: tWalk, walk: slow},
+  {start: tRun, walk: fast},
+  {start: tStop, pose: [[tStop, pose('jump back'), 0], [tStop + .25, Q => Q.rest()]], at: C, dir: Math.PI / 2},
+  {start: tTurn, pose: [[tTurn, Q => Q.rest()], [tTurn + .6, Q => { Q.rest(); Q.chest.rotation.x = .05; }]], at: C, dir: 0},
+];
+const EX = ['nervous', 'scared', 'scream', 'cry', 'suspicious', 'tired', 'curious', 'smile'];
+const expr = [[0, 'scared'], [1.6, 'nervous'], [tRun, 'scared'], [tStop, 'scream'], [tTurn + .4, 'neutral'], ...EX.map((e, i) => [tZoom + .6 + i * .75, e])];
+window.TOTAL = tZoom + .6 + EX.length * .75 + .5;
+window.renderAt = t => {
+  perform(P, t, track); face(P, t, {expr}); jolt(P, t, tStop, .8);
+  P.root.updateMatrixWorld(true);
+  const x = P.root.position.x, h = P.head.getWorldPosition(new THREE.Vector3());
+  // camera: a side view that follows her, then swings round to the front and pushes in on the face
+  const z = ease((step12(t) - tTurn) / 1.6), side = new THREE.Vector3(Math.min(x, 1.6) + .3, 1.0, 5.2), front = new THREE.Vector3(h.x, h.y + .03, h.z + 1.25);
+  cam.position.lerpVectors(side, front, z); const look = new THREE.Vector3(Math.min(x, 1.6) + .3, .75, 0).lerp(h.clone().add(new THREE.Vector3(0, -.02, 0)), z);
+  cam.fov = 42 - 14 * z; cam.aspect = 9 / 16; cam.lookAt(look); cam.updateProjectionMatrix(); render(t);
+};
+window.renderAt(0); window.ready = true;
+</script></body></html>

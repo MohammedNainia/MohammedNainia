@@ -225,6 +225,9 @@ export function makeHaru3(o = {}) {
   // ---- trousers: pelvis + two straight legs + hems: ONE piece
   const pantsSDF = (x, y, z) => {
     let d = sdEll(x, y, z, V(0, .6 + DY, 0), V(.16, .075, .114));
+    // the pelvis under the top: hips and seat, so the legs grow out of a rounded pelvis (not straight out of the hem)
+    d = smin(d, sdEll(x, y, z, V(0, .49 + DY, -.012), V(.158, .085, .112)), .04);
+    d = smin(d, sdEll(x, y, z, V(0, .47 + DY, -.05), V(.13, .08, .085)), .04);              // the seat (bum) at the back
     for (const l of legs) {
       const ankle = l.F.clone().add(V(0, .05, 0));
       d = smin(d, sdCapsule(x, y, z, l.T.clone().add(V(0, .02, 0)), l.S, .073), .03);
@@ -272,7 +275,7 @@ export function makeHaru3(o = {}) {
   // the thigh takes over only below the hem (soft band of .12)
   const HEM = .5 + DY;
   skinIt(meshSDF(pantsSDF, V(0, .4 + DY / 2, 0), .38, 112), M.pants, [hips], p => {
-    const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM - .035, HEM - .15, p.y);
+    const l = legs[p.x < 0 ? 0 : 1], t = sstep(HEM - .06, HEM - .2, p.y);        // the pelvis stays with the hips; the thighs take over lower down
     return [[[hips], 1 - t], [[l.th, l.sh, l.ft], t]];
   });
   if (SHORT_SLEEVES || SHORTS) skinIt(meshSDF(limbsSDF, V(0, .5 + DY / 2, 0), .55, 140), M.skin, [hips, ...arms.flatMap(a => [a.up, a.fo, a.hand]), ...legs.flatMap(l => [l.th, l.sh, l.ft])]);
