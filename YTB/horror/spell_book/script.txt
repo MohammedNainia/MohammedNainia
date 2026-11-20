@@ -1,6 +1,6 @@
-THE SPELL BOOK (draft v3, the funeral feast)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
+THE SPELL BOOK (draft v4, the wrong home)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
 
-h01  HARU  I brought my gran back from the dead. Now, on my street, green means stop.
+h01  HARU  I read one spell from my dead gran's book. I've been trying to get home ever since.
 h02  HARU  Mum found her spell book in the attic, the week after the funeral. Every page in Gran's handwriting.
 h03  HARU  The first page was a rule. "The other side runs backwards. To come home, read the spell backwards. And bring nothing back."
 h04  HARU  I never said goodbye to her. I was too scared to go into the hospital room.
@@ -17,9 +17,9 @@ h13  HARU  She took my hand. It was cold. Then, under my fingers, it started get
 g02  GRAN  Read it backwards now. And don't you let go of me.
 h14  HARU  Over there, everything means the opposite. Even that.
 h15  HARU  I read it backwards. The whole table stood up. I held on.
-h16  HARU  I woke up in the attic. My hand was empty. I thought it hadn't worked.
-h17  HARU  Then the kitchen clock started ticking backwards.
-m01  MUM   (walks in backwards, smiling) Goodbye, love.
-h18  HARU  Every morning, something else on our street turns around. Yesterday, it was the traffic lights. This morning, I went to say hello to Mum. It came out as goodbye.
-h19  HARU  And up in the attic, someone is reading Gran's book. From the last page.
-(loop: the street, cars stopping at green = hook)
+h16  HARU  I woke up in the attic. My hand was empty.
+h17  HARU  Out of the window, a car stopped at a red light. Green meant go. The rain fell down.
+h18  HARU  I was home.
+h19  HARU  I ran downstairs to tell Mum everything.
+m01  MUM   (at the stove, turns round smiling) Good morning, Haru.   [audio played REVERSED in post]
+(no line: slow push in on Haru's face, eyes wide, both hands over her mouth. Cut to black. Loop to h01.)
