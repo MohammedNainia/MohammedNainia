@@ -14,7 +14,7 @@ const mesh = (geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) => { const m =
 const rnd = (() => { let s = 77; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 
 // ---- brass: a dull, tarnished, hand-made metal (clay finger marks, green in the hollows)
-export const BRASS = 0xc09a48, TARNISH = 0x4e6a46;
+export const BRASS = 0xa88a48, TARNISH = 0x3e5a44;   // dark theme: older, greener brass
 export const brassM = (c = BRASS, o = {}) => clay3(c, Object.assign({metalness: .65, roughness: .42, bumpScale: 1.3, sheen: 0}, o));
 
 // turn a character into a brass figure (k = 1) or back to clay (k = 0): every clay material is blended towards brass;
@@ -48,11 +48,11 @@ export function lampInterior({R = 2.3, H = 6} = {}) {
   for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z);
     const k = 1 + .025 * Math.sin(a * 5 + y * 3) + .018 * Math.sin(a * 13 - y * 7) + .012 * Math.sin(a * 29 + y * 11); p.setXYZ(i, x * k, y, z * k); }
   wg.computeVertexNormals();
-  const wallM = brassM(0x5e4620, {side: THREE.BackSide, roughness: .5}); const wall = mesh(wg, wallM, g); wall.userData.noBoil = true;
+  const wallM = brassM(0x3a2c16, {side: THREE.BackSide, roughness: .55});   // the walls stay dark; only light picks them out const wall = mesh(wg, wallM, g); wall.userData.noBoil = true;
   // the floor: a shallow bowl, soft-looking (darker, less shiny)
   const fg = new THREE.CircleGeometry(R * 1.02, 64); fg.rotateX(-Math.PI / 2); const fp = fg.attributes.position;
   for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), z = fp.getZ(i), r = Math.hypot(x, z); fp.setY(i, Math.pow(r / R, 3) * .25 + .015 * Math.sin(x * 9) * Math.sin(z * 7)); }
-  fg.computeVertexNormals(); mesh(fg, brassM(0x6e5426, {roughness: .6, metalness: .45}), g).userData.noBoil = true;
+  fg.computeVertexNormals(); mesh(fg, brassM(0x3a2a14, {roughness: .7, metalness: .4}), g).userData.noBoil = true;
   // oil sweating down the walls: small glossy drops, some with runs below them
   const oil = new THREE.MeshPhysicalMaterial({color: 0x2a1c08, roughness: .05, clearcoat: 1, metalness: .2});
   for (let i = 0; i < 70; i++) { const y = .4 + rnd() * H * .7, a = rnd() * Math.PI * 2, r = radius(y) * .985;
@@ -64,7 +64,7 @@ export function lampInterior({R = 2.3, H = 6} = {}) {
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(radius(H) * .9, R * .55, H, 32, 1, true), new THREE.MeshBasicMaterial({color: 0xffd9a0, transparent: true, opacity: .05, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending}));
   shaft.position.y = H / 2; g.add(shaft);
   // the light falling from the hole onto whoever stands in the middle
-  const spot = new THREE.SpotLight(0xffd9a0, 18, H * 1.4, .32, .7, 1.5); spot.position.set(0, H - .1, 0); spot.target.position.set(0, 0, 0); spot.castShadow = true; g.add(spot, spot.target);
+  const spot = new THREE.SpotLight(0xffd9a0, 10, H * 1.4, .2, .85, 1.5);   // a tight pool round Haru, darkness beyond spot.position.set(0, H - .1, 0); spot.target.position.set(0, 0, 0); spot.castShadow = true; g.add(spot, spot.target);
   return {group: g, R, H, radius, hole, beam, shaft, spot, wallPoint: (a, y, inset = 0) => { const r = radius(y) - inset; return V(Math.sin(a) * r, y, Math.cos(a) * r); }};
 }
 
@@ -253,4 +253,11 @@ export function faceCam(P, dist = 1.2, up = .05, side = .2) {
   P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3()), ry = P.root.rotation.y;
   const fwd = new THREE.Vector3(Math.sin(ry), 0, Math.cos(ry)), right = new THREE.Vector3(Math.cos(ry), 0, -Math.sin(ry));
   return {pos: h.clone().add(fwd.multiplyScalar(dist)).add(new THREE.Vector3(0, up, 0)).add(right.multiplyScalar(side)), at: h};
+}
+
+// a soft light that only follows one character (attached in front, slightly above): they stay readable in the dark while the
+// walls behind them do not light up. Warm like the light from the hole. Returns the light (set .intensity to taste).
+export function keyOn(P, {color = 0xffd8a8, power = 1.6, dist = .5, height = .5, side = .75} = {}) {   // from the side: faces half in shadow
+  const l = new THREE.PointLight(color, power, 2.2, 2); l.position.set(side, (P.hips.position.y + .7) + height, dist); P.root.add(l);
+  return l;
 }
