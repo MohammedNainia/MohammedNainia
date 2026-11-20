@@ -25,12 +25,14 @@ function footRoll(p, run = 0) {
   const u = ((p - Math.PI / 2) % TAU + TAU) % TAU / TAU;           // 0 = heel strike, .5 = toe-off, 1 = next strike
   const strike = -.32 * (1 - run * .8), off = .6 + .15 * run, hang = .1;
   if (u < .5) {                                                    // on the ground
-    const flat = smooth(0, .12, u);                                // toes come down to flat
-    const peel = smooth(.28, .5, u);                               // heel peels up towards toe-off
+    // spread over several frames (a step is only ~6 stop-motion frames): the toes come down slowly after the heel lands,
+    // and the heel starts peeling up early, so the foot never snaps flat in one frame
+    const flat = smooth(0, .3, u);
+    const peel = smooth(.22, .5, u);
     return strike * (1 - flat) + off * peel;
   }
   const v = (u - .5) / .5;                                         // in the air
-  return off + (hang - off) * smooth(0, .1, v) + (strike - hang) * smooth(.6, 1, v);   // toes come up fast after push-off: no scuff
+  return off + (hang - off) * smooth(0, .35, v) + (strike - hang) * smooth(.45, 1, v);   // toes relax over the swing, lift again to land
 }
 export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // mood: 0 normal, 1 scared (hunched, small steps, arms in); run: 0 walk .. 1 run
   const A = (.42 + .3 * run) * stride * (1 - .35 * mood);
