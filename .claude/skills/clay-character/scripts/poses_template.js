@@ -113,3 +113,16 @@ export const POSES = [
     P.chest.rotation.x = -.08;
   }, lift: .28},
 ];
+
+// ---- getting up from a crouch (any character): lean the weight over the feet, push up with the legs while the back is still
+// bent (the arms just hang), straighten the back last. Use in poseBlend / perform keys:  ...getUp(1.2, wary, {dur: 1.1})
+const hang = (P, lean) => P.arms.forEach(a => { a.up.rotation.set(-lean * .95, 0, a.sd * .12); a.fo.rotation.set(-.15, 0, 0); a.hand.rotation.set(-.12, -a.sd * Math.PI / 2, 0); });
+export const RISE = {
+  lean: P => { for (const l of P.legs) leg(l, -2.1, 1.95, null, .12); P.chest.rotation.x = .78; P.neck.rotation.x = -.25; P.head.rotation.x = -.3; hang(P, .78 + .3); },
+  push: P => { for (const l of P.legs) leg(l, -1.05, 1.3, null, .06); P.chest.rotation.x = .55; P.neck.rotation.x = -.2; P.head.rotation.x = -.2; hang(P, .55); },
+  almost: P => { for (const l of P.legs) leg(l, -.3, .35, null, 0); P.chest.rotation.x = .22; P.neck.rotation.x = -.05; hang(P, .22); },
+};
+export function getUp(t0, endPose, {dur = 1.2, from = null} = {}) {
+  const crouch = from || POSES.find(p => p.name === 'crouch').fn;
+  return [[t0, crouch], [t0 + .22 * dur, RISE.lean], [t0 + .55 * dur, RISE.push], [t0 + .8 * dur, RISE.almost], [t0 + dur, endPose]];
+}

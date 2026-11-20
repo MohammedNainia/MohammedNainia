@@ -15,6 +15,23 @@ export const BONES = P => [P.hips, P.chest, P.neck, P.head, ...P.arms.flatMap(a 
 // phase 0..1 = one full cycle (two steps). Each leg: thigh swings, knee bends while the leg swings forward, the foot stays
 // flat on the ground in stance. Arms swing against the legs, the body bobs and twists a little. Values are in radians.
 export const stanceLeg = ph => Math.cos(ph * TAU) < 0 ? 0 : 1;
+// the foot's angle to the floor through one step (+ = toe down, radians). p: the leg's phase (90 deg = foot at the front).
+// Walking: heel strike with the toes up -> flat -> heel peels up -> toe-off -> toes hang in the swing -> toes lift for the next
+// strike. Running: lands flatter (on the ball of the foot) and pushes off harder.
+export const SOLE = [new THREE.Vector3(0, -.058, -.08), new THREE.Vector3(0, -.058, .04), new THREE.Vector3(0, -.058, .16)];   // heel, middle, toe (foot space)
+export const contact = pts => { let b = 0; for (let k = 1; k < pts.length; k++) if (pts[k].y < pts[b].y - 1e-4) b = k; return b; };
+const smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+function footRoll(p, run = 0) {
+  const u = ((p - Math.PI / 2) % TAU + TAU) % TAU / TAU;           // 0 = heel strike, .5 = toe-off, 1 = next strike
+  const strike = -.32 * (1 - run * .8), off = .65 + .35 * run, hang = .3;
+  if (u < .5) {                                                    // on the ground
+    const flat = smooth(0, .12, u);                                // toes come down to flat
+    const peel = smooth(.28, .5, u);                               // heel peels up towards toe-off
+    return strike * (1 - flat) + off * peel;
+  }
+  const v = (u - .5) / .5;                                         // in the air
+  return off + (hang - off) * smooth(0, .25, v) + (strike - hang) * smooth(.6, 1, v);
+}
 export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // mood: 0 normal, 1 scared (hunched, small steps, arms in); run: 0 walk .. 1 run
   const A = (.42 + .3 * run) * stride * (1 - .35 * mood);
   P.legs.forEach((l, i) => {
@@ -24,7 +41,7 @@ export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // moo
     const sw = ((p + Math.PI / 2) % TAU + TAU) % TAU, u = sw / Math.PI;
     const knee = (u < 1 ? Math.sin(Math.PI * Math.pow(u, .85 - .25 * run)) : 0) * (.55 + .3 * stride + 1.15 * run) + .05 + (u >= 1 ? .25 * run : 0);
     l.th.rotation.set(-A * s - .15 * run, 0, 0); l.sh.rotation.set(knee, 0, 0);
-    l.ft.rotation.set(-(-A * s - .15 * run + knee) + Math.max(0, -s) * Math.max(0, -Math.cos(p)) * (.5 + .4 * run) * stride, 0, 0);   // flat sole; heel lifts before toe-off
+    l.ft.rotation.set(-(-A * s - .15 * run + knee) + footRoll(p, run) * stride, 0, 0);   // the foot's angle to the floor rolls through the step
   });
   P.arms.forEach((a, i) => {
     const s = Math.sin(ph * TAU + (i ? 0 : Math.PI));
@@ -35,6 +52,8 @@ export function walkPose(P, ph, {stride = 1, mood = 0, run = 0} = {}) {   // moo
   // the pelvis: twists with the leg that swings forward and drops a little on the swinging side; the chest twists back
   const tw = Math.sin(ph * TAU) * (.11 + .05 * run) * stride, drop = Math.cos(ph * TAU) * .045 * stride;
   P.hips.rotation.set(.1 * run, tw, drop);
+  // the legs turn back at the hip joint by the same amount, so the hips twist over the feet without dragging them round
+  P.legs.forEach(l => { l.th.rotation.order = 'YZX'; l.th.rotation.y = -tw; l.th.rotation.z = -drop; });
   P.chest.rotation.set(.04 + .25 * mood + .22 * run + (P.stoop || 0), -tw * 1.5, -drop * .8);
   P.neck.rotation.set(-.15 * mood - .18 * run - (P.stoop || 0) * .6, tw * .4, 0); P.head.rotation.set(0, 0, 0);
 }
@@ -47,18 +66,22 @@ function cycleTable(P, opt) {
   const key = JSON.stringify(opt); let T = tables.get(P); if (!T) tables.set(P, T = {}); if (T[key]) return T[key];
   const N = 96, saved = saveRot(P), root = P.root, rp = root.position.clone(), rq = root.quaternion.clone(), rs = root.scale.clone(), hy = P.hips.position.y;
   root.position.set(0, 0, 0); root.quaternion.identity(); root.scale.set(1, 1, 1); P.hips.position.y = P._hipY0;
-  const feet = [];
+  const feet = [], low = [];
   for (let i = 0; i <= N; i++) {
     walkPose(P, i / N, opt); root.updateMatrixWorld(true);
-    feet.push(P.legs.map(l => l.ft.localToWorld(new THREE.Vector3(0, -.05, .03))));   // the sole under the ball of the foot
+    feet.push(P.legs.map(l => SOLE.map(v => l.ft.localToWorld(v.clone()))));         // heel, middle and toe of each sole
+    low.push(Math.min(...P.legs.flatMap(l => [l.ft.localToWorld(new THREE.Vector3(0, -.058, .16)).y, l.ft.localToWorld(new THREE.Vector3(0, -.058, -.08)).y])));   // toe and heel
   }
   P.legs.forEach(l => { l.th.rotation.set(0, 0, 0); l.sh.rotation.set(0, 0, 0); l.ft.rotation.set(0, 0, 0); }); P.hips.rotation.set(0, 0, 0);
-  root.updateMatrixWorld(true); const restY = P.legs[0].ft.localToWorld(new THREE.Vector3(0, -.05, .03)).y;
+  root.updateMatrixWorld(true); const restY = P.legs[0].ft.localToWorld(new THREE.Vector3(0, -.05, .03)).y, restLow = P.legs[0].ft.localToWorld(new THREE.Vector3(0, -.058, .16)).y;
   const dist = [0], lift = [];
   for (let i = 0; i <= N; i++) {
     const st = Math.cos((i / N) * TAU) < 0 ? 0 : 1;                                     // standing foot: the one moving back under the body
-    lift.push(restY - Math.min(feet[i][0].y, feet[i][1].y));                             // the lowest foot touches the floor, none goes through it
-    if (i) dist.push(dist[i - 1] + (feet[i - 1][st].z - feet[i][st].z));               // body moves forward as the standing foot moves back
+    lift.push(restLow - low[i]);                                                         // the lowest heel or toe touches the floor, none goes through it
+    // the body moves forward exactly as far as the point of the standing foot that touches the floor (heel, sole or toe:
+    // the lowest one) moves back, so that point stays put while the foot rolls over it
+    const c = contact(feet[i][st]);
+    if (i) dist.push(dist[i - 1] + (feet[i - 1][st][c].z - feet[i][st][c].z));
   }
   loadRot(P, saved); root.position.copy(rp); root.quaternion.copy(rq); root.scale.copy(rs); P.hips.position.y = hy; root.updateMatrixWorld(true);
   return T[key] = {N, dist, lift, D: dist[N]};
@@ -100,7 +123,7 @@ export const snapshot = saveRot;
 // put the lowest sole on the floor (y = floor, world), by moving the hips; air: lift above the floor (jumps)
 export function ground(P, floor = 0, air = 0) {
   P.root.updateMatrixWorld(true);
-  const lo = Math.min(...P.legs.map(l => Math.min(l.ft.localToWorld(new THREE.Vector3(0, -.05, .1)).y, l.ft.localToWorld(new THREE.Vector3(0, -.05, -.04)).y)));
+  const lo = Math.min(...P.legs.map(l => Math.min(l.ft.localToWorld(new THREE.Vector3(0, -.058, .16)).y, l.ft.localToWorld(new THREE.Vector3(0, -.058, -.08)).y)));
   P.hips.position.y += (floor + air - lo) / P.root.scale.y; P.root.updateMatrixWorld(true);
 }
 // keys: [[time, poseFn, air?], ...]   air = height of the feet above the floor for that pose (a jump), eased like the rest

@@ -5,7 +5,7 @@
 <script type="module">
 import {THREE, setup} from './lib.js';
 import {makeChar} from './characters.js';
-import {walkTo, walk, poseBlend, face, jolt, walkDuration, stanceLeg} from './motion.js';
+import {walkTo, walk, poseBlend, face, jolt, walkDuration, stanceLeg, SOLE, contact} from './motion.js';
 import {POSES, groundIt} from './haru3_poses.js';
 const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: 1600, h: 900});
 grain.uniforms.vig.value = .1; scene.background = new THREE.Color(0xdcdcdc); renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -42,9 +42,9 @@ window.slip = () => {
   const out = []; for (const [P, o] of [[H, Object.assign({start: 0}, A)], [L, Object.assign({start: 0, mood: 1, cadence: 1.1, stride: .8}, B)]]) {
     let prev = null, worst = 0, sum = 0, n = 0;
     for (let f = 0; f < 48; f++) { walk(P, f / 12, {from: o.from, dir: Math.PI / 2, start: 0, mood: o.mood || 0, cadence: o.cadence || .9, stride: o.stride || 1}); P.root.updateMatrixWorld(true);
-      const ft = P.legs.map(l => l.ft.localToWorld(new THREE.Vector3(0, -.05, .03))), st = stanceLeg(((f / 12) * (o.cadence || .9)) % 1);
-      if (prev && prev.st === st) { const d = Math.hypot(ft[st].x - prev.p.x, ft[st].z - prev.p.z); worst = Math.max(worst, d); sum += d; n++; }
-      prev = {st, p: ft[st].clone(), y: ft[st].y}; }
+      const st = stanceLeg(((f / 12) * (o.cadence || .9)) % 1), pts = SOLE.map(v => P.legs[st].ft.localToWorld(v.clone())), c = contact(pts);
+      if (prev && prev.st === st) { const q = P.legs[st].ft.localToWorld(SOLE[c].clone()), d = Math.hypot(q.x - prev.p[c].x, q.z - prev.p[c].z); worst = Math.max(worst, d); sum += d; n++; }
+      prev = {st, p: pts}; }
     out.push(`${P === H ? 'Haru' : 'Leo (scared)'}: walk ${walkDuration(P, o.from, o.to, o).toFixed(1)} s for ${(o.to[0] - o.from[0]).toFixed(1)} m; standing foot slides on average ${(sum / n * 1000).toFixed(1)} mm per frame, worst ${(worst * 1000).toFixed(1)} mm`); }
   return out.join('\n');
 };

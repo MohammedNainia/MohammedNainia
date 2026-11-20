@@ -7,7 +7,7 @@
 import {THREE, setup} from './lib.js';
 import {makeChar} from './characters.js';
 import {perform, face, walkDuration, step12, ease, jolt} from './motion.js';
-import {POSES} from './haru3_poses.js';
+import {POSES, getUp} from './haru3_poses.js';
 const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), WHO = q.get('who') || 'haru';
 const {scene, cam, renderer, render, grain} = setup({bloom: .05, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
 grain.uniforms.vig.value = .25; scene.background = new THREE.Color(0xd6d4d0); renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -24,10 +24,10 @@ const wary = Q => { Q.rest(); Q.chest.rotation.x = .16; Q.neck.rotation.x = -.1;
 // ---- the track (times in seconds)
 const A = [-3.2, 0], B = [-1.4, 0], C = [2.6, 0];
 const slow = {to: B, cadence: .55, mood: .6, stride: .85}, fast = {to: C, run: 1, cadence: 1.45, stride: 1.1};
-const tWalk = 2.6, tRun = tWalk + walkDuration(P, A, B, slow), tStop = tRun + walkDuration(P, B, C, fast);
+const tWalk = 2.8, tRun = tWalk + walkDuration(P, A, B, slow), tStop = tRun + walkDuration(P, B, C, fast);
 const tTurn = tStop + .3, tZoom = tTurn + .7;
 const track = [
-  {start: 0, at: A, dir: Math.PI / 2, pose: [[0, pose('crouch')], [1.2, pose('crouch')], [2.2, wary]]},
+  {start: 0, at: A, dir: Math.PI / 2, pose: [[0, pose('crouch')], ...getUp(1.0, wary, {dur: 1.4})]},
   {start: tWalk, walk: slow},
   {start: tRun, walk: fast},
   {start: tStop, pose: [[tStop, pose('jump back'), 0], [tStop + .25, Q => Q.rest()]], at: C, dir: Math.PI / 2},

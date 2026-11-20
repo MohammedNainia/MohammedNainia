@@ -540,11 +540,11 @@ export function makeHaru3(o = {}) {
   };
   // ---- blinking: two stop-motion frames with the eyes shut every 2 to 5 s (each character on its own rhythm)
   const seed = (o.seed !== undefined ? o.seed : JSON.stringify(o).length) * 7.31;
+  // ---- blinking: every 4 seconds, two stop-motion frames with the eyes shut (each character a little out of step with the others)
   Pp.blink = t => {
-    const q = Math.floor(t * 12);                                                        // stop-motion frame
-    let k = 0, at = (Math.sin(seed) * .5 + .5) * 2;                                     // first blink time
-    while (at * 12 < q - 2) { k++; at += 2 + 3 * (Math.sin(seed + k * 12.9898) * .5 + .5); }
-    const shut = q >= Math.floor(at * 12) && q < Math.floor(at * 12) + 2 && (Pp._eyes === 'open' || Pp._eyes === 'wide' || Pp._eyes === 'half');
+    const q = Math.floor(t * 12 + 1e-6), off = Math.floor((Math.sin(seed) * .5 + .5) * 30) + 6;   // first blink after .5 to 3 s
+    const k = ((q - off) % 48 + 48) % 48;                                                // 48 frames = 4 s at 12 a second
+    const shut = q >= off && k < 2 && (Pp._eyes === 'open' || Pp._eyes === 'wide' || Pp._eyes === 'half');
     const s = Pp._eyes;
     if (shut) { eyes.forEach(e => e.visible = false); whites.forEach(w => w.visible = false); halfLids.forEach(l => l.visible = false); lids.forEach(l => l.visible = true); }
     else Pp.eyes(s);
