@@ -1,7 +1,7 @@
-THE SPELL BOOK (draft v4, the wrong home)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
+THE SPELL BOOK (draft v5, audited)  9:16, voices sped up 1.5x in post (pitch kept), target 90-100 s
 
 h01  HARU  I read one spell from my dead gran's book. I've been trying to get home ever since.
-h02  HARU  Mum found her spell book in the attic, the week after the funeral. Every page in Gran's handwriting.
+h02  HARU  Mum found Gran's spell book in the attic, the week after the funeral. Every page in Gran's handwriting.
 h03  HARU  The first page was a rule. "The other side runs backwards. To come home, read the spell backwards. And bring nothing back."
 h04  HARU  I never said goodbye to her. I was too scared to go into the hospital room.
 h05  HARU  So I read the spell for finding what you've lost.
@@ -16,10 +16,11 @@ h12  HARU  That's how they say hello there.
 h13  HARU  She took my hand. It was cold. Then, under my fingers, it started getting warm.
 g02  GRAN  Read it backwards now. And don't you let go of me.
 h14  HARU  Over there, everything means the opposite. Even that.
+h14b HARU  So I finally said goodbye to her, the only way it works over there. "Hello, Gran."
 h15  HARU  I read it backwards. The whole table stood up. I held on.
-h16  HARU  I woke up in the attic. My hand was empty.
+h16  HARU  I woke up in the attic. My hand was empty. But it was still warm.
 h17  HARU  Out of the window, a car stopped at a red light. The lights turned green, and it drove off.
 h18  HARU  I was home.
 h19  HARU  I ran downstairs to tell Mum everything.
-m01  MUM   (at the stove, turns round smiling) Good morning, Haru.   [audio played REVERSED in post]
+m01  MUM   (at the stove, turns round smiling) Good morning, Haru.   [audio played REVERSED in post; caption shown mirrored: "uraH ,gninrom dooG"]
 (no line: slow push in on Haru's face, eyes wide, both hands over her mouth. Cut to black. Loop to h01.)
