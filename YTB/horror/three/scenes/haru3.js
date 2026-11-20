@@ -145,7 +145,7 @@ export function makeHaru3(o = {}) {
   const HEAD = o.head || 1.37, BELLY = o.belly || 0, AGE = o.age || 0, HEIGHT = o.height || 1;
   const M = {
     skin: clay3(o.skin || 0xe39a72, {bumpScale: .9, roughness: .66}), hood: clay3(o.hood || 0xcf9132), pants: clay3(o.pants || 0x5c5b60, {bumpScale: 1.8}),
-    shoe: clay3(o.shoe || 0xf0eee8, {bumpScale: 1.0}), skirt: clay3(o.skirt || 0x4d4a5c, {bumpScale: 1.6}), button: gloss(o.button || 0xe8e0cc),
+    shoe: clay3(o.shoe || 0xf0eee8, {bumpScale: 1.0}), sole: clay3(o.sole || new THREE.Color(o.shoe || 0xf0eee8).multiplyScalar(.8).getHex(), {bumpScale: .6}), skirt: clay3(o.skirt || 0x4d4a5c, {bumpScale: 1.6}), button: gloss(o.button || 0xe8e0cc),
     crease: clay3(new THREE.Color(o.skin || 0xe39a72).multiplyScalar(.62).getHex(), {bumpScale: .3}), rim: gloss(o.rim || 0x2a2522), lens: new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: .05, transmission: .9, transparent: true, opacity: .25}),
     hair: clay3(o.hair || 0x2a2a2f, {bumpScale: 1.4, roughness: .78, sheen: .35}),
     eye: gloss(0x0a0a0c), white: gloss(0xf6f4ee), dark: clay3(o.brow || 0x2a1a16, {bumpScale: .3}), nose: clay3(0xd98a62, {bumpScale: .6}),
@@ -405,12 +405,23 @@ export function makeHaru3(o = {}) {
     d = smin(d, smin(sdCapsule(x, y, z, t0, t1, .0075), sdCapsule(x, y, z, t1, t2, .0066), .003), .007);
     return d + lumps(x, y, z, .25);
   }, V(0, -.045, .005), .068, 104, M.skin, a.hand).scale.setScalar(1.45));
-  legs.forEach(l => rigid((x, y, z) => {
-    let d = sdEll(x, y, z, V(0, -.01, .03), V(.064, .04, .11));
-    d = smin(d, sdRoundBox(x, y, z, V(0, -.043, .03), V(.058, .008, .1), .008), .01);
-    for (let i = 0; i < 3; i++) d = smax(d, -sdCapsule(x, y, z, V(-.02, .026 - i * .003, .05 + i * .02), V(.02, .026 - i * .003, .05 + i * .02), .003), .003);
-    return d + lumps(x, y, z, .3);
-  }, V(0, -.01, .03), .13, 56, M.shoe, l.ft).scale.set(1.3, 1.2, 1.25));
+  // shoes: a rounded clay sneaker. Upper = toe cap + heel blended, a tongue and a padded collar round the ankle; the sole follows
+  // the shoe's own outline (a slice of the upper, a little wider), no flat plate under it. Sole bottom stays at y -.051 (as before).
+  const shoeUpper = (x, y, z) => {
+    let d = smin(sdEll(x, y, z, V(0, -.014, .072), V(.055, .034, .07)), sdEll(x, y, z, V(0, -.01, -.03), V(.05, .038, .052)), .035);
+    d = smin(d, sdEll(x, y, z, V(0, .012, .03), V(.034, .022, .045)), .015);                   // tongue
+    d = smin(d, sdTorusY(x, y, z, V(0, .026, -.012), .036, .011, 1, 1.15), .012);           // padded collar round the ankle
+    return smax(d, -(y + .036), .006);                                                     // the upper stops where the sole begins
+  };
+  const shoeSole = (x, y, z) => smax(shoeUpper(x, -.03, z) - .0035, Math.abs(y + .0405) - .0105, .006);   // overlaps the upper: no gap at the toe
+  legs.forEach(l => {
+    rigid((x, y, z) => {
+      let d = shoeUpper(x, y, z);
+      for (let i = 0; i < 3; i++) d = smax(d, -sdCapsule(x, y, z, V(-.018, .03 - i * .006, .03 + i * .018), V(.018, .03 - i * .006, .03 + i * .018), .0028), .003);   // laces
+      return d + lumps(x, y, z, .3);
+    }, V(0, -.01, .02), .13, 64, M.shoe, l.ft).scale.set(1.3, 1.2, 1.25);
+    rigid((x, y, z) => shoeSole(x, y, z) + lumps(x, y, z, .15), V(0, -.04, .02), .13, 64, M.sole, l.ft).scale.set(1.3, 1.2, 1.25);
+  });
 
   // ---- face pieces (same as v2)
   const add = (geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) => { const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot); m.castShadow = true; parent.add(m); return m; };
