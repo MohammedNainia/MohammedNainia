@@ -85,8 +85,10 @@ function meshSDF(sdf, center, half, res) {
     pos[i * 3] = px; pos[i * 3 + 1] = py; pos[i * 3 + 2] = pz;
     let nx = mc.normalArray[i * 3], ny = mc.normalArray[i * 3 + 1], nz = mc.normalArray[i * 3 + 2]; const l = Math.hypot(nx, ny, nz) || 1;
     nx /= l; ny /= l; nz /= l; nor[i * 3] = nx; nor[i * 3 + 1] = ny; nor[i * 3 + 2] = nz;
-    const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz), s = 5;              // box projection for the clay detail texture
-    if (ax >= ay && ax >= az) { uv[i * 2] = pz * s; uv[i * 2 + 1] = py * s; } else if (ay >= az) { uv[i * 2] = px * s; uv[i * 2 + 1] = pz * s; } else { uv[i * 2] = px * s; uv[i * 2 + 1] = py * s; }
+    // texture wrapped round the shape like a label on a can (around the vertical axis): continuous all round, so no seams on the
+    // forehead or down striped sleeves; the only join is at the back (angle +-180 degrees), hidden by hair or the body
+    const s = 5, dx = px - center.x, dz = pz - center.z, r = Math.max(.02, Math.hypot(dx, dz));
+    uv[i * 2] = Math.atan2(dx, dz) * r * s; uv[i * 2 + 1] = py * s;
   }
   mc.geometry.dispose();
   const g = new THREE.BufferGeometry();
@@ -98,20 +100,25 @@ function meshSDF(sdf, center, half, res) {
 // ---------------------------------------------------------------- clay surface: fingerprints, tool marks, pits, mottling
 function canvas(n, draw) { const c = document.createElement('canvas'); c.width = c.height = n; draw(c.getContext('2d'), n); return c; }
 let rs = 11; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+// both clay textures tile seamlessly: every mark is drawn 9 times (shifted by the texture size), so marks crossing an edge come back
+// on the other side; otherwise each repeat of the texture shows as a faint straight line on the clay (it did, across Haru's face)
+const W9 = (g, n, draw) => { for (const ox of [-n, 0, n]) for (const oy of [-n, 0, n]) { g.save(); g.translate(ox, oy); draw(); g.restore(); } };
 const detailC = canvas(1024, (g, n) => {
   g.fillStyle = '#808080'; g.fillRect(0, 0, n, n);
   for (let k = 0; k < 70; k++) { const cx = rnd() * n, cy = rnd() * n, m = 8 + rnd() * 10, ro = rnd() * 3, sx = .7 + rnd() * .5;   // fingerprints
-    for (let i = 0; i < m; i++) { const v = i % 2 ? 70 : 190; g.strokeStyle = `rgba(${v},${v},${v},.22)`; g.lineWidth = 1.3;
-      g.beginPath(); g.ellipse(cx, cy, 3 + i * 2.6, (3 + i * 2.6) * sx, ro, 0, 6.3); g.stroke(); } }
-  for (let k = 0; k < 160; k++) { const x = rnd() * n, y = rnd() * n, a = rnd() * 6.3, L = 20 + rnd() * 70;                    // tool smears
-    const gr = g.createLinearGradient(x, y, x + Math.cos(a) * L, y + Math.sin(a) * L); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.5, `rgba(${rnd() < .5 ? 60 : 200},128,128,.18)`); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.strokeStyle = gr; g.lineWidth = 2 + rnd() * 5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }
-  for (let k = 0; k < 1600; k++) { const v = rnd() < .6 ? 50 : 210; g.fillStyle = `rgba(${v},${v},${v},.2)`; g.beginPath(); g.arc(rnd() * n, rnd() * n, .6 + rnd() * 1.8, 0, 6.3); g.fill(); }  // pits and specks
+    W9(g, n, () => { for (let i = 0; i < m; i++) { const v = i % 2 ? 70 : 190; g.strokeStyle = `rgba(${v},${v},${v},.22)`; g.lineWidth = 1.3;
+      g.beginPath(); g.ellipse(cx, cy, 3 + i * 2.6, (3 + i * 2.6) * sx, ro, 0, 6.3); g.stroke(); } }); }
+  for (let k = 0; k < 160; k++) { const x = rnd() * n, y = rnd() * n, a = rnd() * 6.3, L = 20 + rnd() * 70, c = rnd() < .5 ? 60 : 200, lw = 2 + rnd() * 5;   // tool smears
+    W9(g, n, () => { const gr = g.createLinearGradient(x, y, x + Math.cos(a) * L, y + Math.sin(a) * L); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.5, `rgba(${c},128,128,.18)`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.strokeStyle = gr; g.lineWidth = lw; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke(); }); }
+  for (let k = 0; k < 1600; k++) { const v = rnd() < .6 ? 50 : 210, x = rnd() * n, y = rnd() * n, r = .6 + rnd() * 1.8;   // pits and specks
+    W9(g, n, () => { g.fillStyle = `rgba(${v},${v},${v},.2)`; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); }); }
 });
 const mottleC = canvas(512, (g, n) => {
   g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, n, n);
-  for (let k = 0; k < 400; k++) { const r = 10 + rnd() * 50, v = 205 + rnd() * 50; const gr = g.createRadialGradient(0, 0, 0, 0, 0, r);
-    gr.addColorStop(0, `rgba(${v},${v},${v},.35)`); gr.addColorStop(1, `rgba(${v},${v},${v},0)`); g.save(); g.translate(rnd() * n, rnd() * n); g.fillStyle = gr; g.fillRect(-r, -r, 2 * r, 2 * r); g.restore(); }
+  for (let k = 0; k < 400; k++) { const r = 10 + rnd() * 50, v = 205 + rnd() * 50, x = rnd() * n, y = rnd() * n;
+    W9(g, n, () => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, r);
+      gr.addColorStop(0, `rgba(${v},${v},${v},.35)`); gr.addColorStop(1, `rgba(${v},${v},${v},0)`); g.save(); g.translate(x, y); g.fillStyle = gr; g.fillRect(-r, -r, 2 * r, 2 * r); g.restore(); }); }
 });
 const tex = c => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
 const detail = tex(detailC), mottle = tex(mottleC); mottle.colorSpace = THREE.SRGBColorSpace;
@@ -503,6 +510,15 @@ export function makeHaru3(o = {}) {
     let c = L[Math.min(L.length - 1, Math.floor(p * L.length))];
     if (p > .85 && 'mbp'.includes(L[L.length - 1])) c = L[L.length - 1];             // a word ending in m/b/p closes the lips
     showMouth(VIS(c)); return true;
+  };
+  // ---- lip sync from Rhubarb Lip Sync (github.com/DanielSWolf/rhubarb-lip-sync), better than letters: it listens to the audio.
+  // cues = its JSON "mouthCues": [{start, end, value}] with the standard shapes A..H, X. Run on the PC:
+  //   rhubarb -f json -r phonetic --dialogFile line.txt line.wav > line_mouth.json   (then add the line's start time to every cue)
+  const RHUBARB = {A: 'vM', B: 'vE', C: 'vE', D: 'vA', E: 'vO', F: 'vU', G: 'vF', H: 'vA', X: null};
+  Pp.talkCues = (cues, t) => {
+    const q = Math.floor(t * 12) / 12, c = cues.find(c => q >= c.start && q < c.end), m = c && RHUBARB[c.value];
+    if (!m) { showMouth(Pp._mouth); return false; }
+    showMouth(m); return true;
   };
   // ---- blinking: two stop-motion frames with the eyes shut every 2 to 5 s (each character on its own rhythm)
   const seed = (o.seed !== undefined ? o.seed : JSON.stringify(o).length) * 7.31;
