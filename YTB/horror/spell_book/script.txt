@@ -20,6 +20,6 @@ h15  HARU  I read it backwards. And I held on.
 h16  HARU  I woke up in the attic. My hand was empty. I thought it hadn't worked.
 h17  HARU  Then the kitchen clock started ticking backwards.
 m01  MUM   (walks in backwards, smiling) Goodbye, love.
-h18  HARU  Every morning, something else on our street turns around. Yesterday, it was the traffic lights. This morning, I said goodbye to Mum. It came out as hello.
+h18  HARU  Every morning, something else on our street turns around. Yesterday, it was the traffic lights. This morning, I went to say hello to Mum. It came out as goodbye.
 h19  HARU  And up in the attic, someone is reading Gran's book. From the last page.
 (loop: the street, cars stopping at green = hook)
