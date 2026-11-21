@@ -267,6 +267,34 @@ export function pose(P, name, k = 1) {
   if (p.drop) P.hips.position.y -= p.drop * k;
 }
 
+// ---------------------------------------------------------------- the neck: head looks and gestures (call after reset / pose, before the face)
+// look(P, {turn, tilt, nod, jut}): turn > 0 to her left, tilt > 0 ear towards her right shoulder, nod > 0 chin down, jut > 0 chin forward (metres).
+// The bend is shared: the neck takes 40 %, the head 60 %, so it reads as a neck bending, not a ball turning on a stick.
+export function look(P, {turn = 0, tilt = 0, nod = 0, jut = 0} = {}) {
+  P.neck.rotation.y += turn * .4; P.head.rotation.y += turn * .6;
+  P.neck.rotation.z -= tilt * .45; P.head.rotation.z -= tilt * .55;
+  P.neck.rotation.x += nod * .4; P.head.rotation.x += nod * .6;
+  P.head.position.set(0, .14 - Math.abs(jut) * .3, jut);
+  if (P.sec && P.sec.hair) { P.sec.hair.rotation.y = -turn * .3; P.sec.hair.rotation.z = tilt * .35; }   // the hair hangs and stays over the shoulders (followFrame refines it)
+}
+export const LOOKS = {                                 // ready-made head looks; 'expr' is the face that usually goes with it
+  straight: {}, wtf: {turn: .15, tilt: .38, nod: -.14, jut: -.016, expr: 'suspicious'}, curious: {tilt: .28, nod: -.06, jut: .01, expr: 'surprised'},
+  tiltL: {tilt: -.32}, tiltR: {tilt: .32}, turnL: {turn: .95}, turnR: {turn: -.95}, glanceL: {turn: .45, expr: 'suspicious'}, glanceR: {turn: -.45, expr: 'suspicious'},
+  lookUp: {nod: -.55, expr: 'scared'}, lookDown: {nod: .5, expr: 'sad'}, peer: {jut: .028, nod: .12, expr: 'suspicious'}, recoil: {jut: -.022, nod: -.22, tilt: -.1, expr: 'shock'},
+  overShoulderL: {turn: 1.35, nod: -.05, expr: 'scared'}, overShoulderR: {turn: -1.35, nod: -.05, expr: 'scared'},
+};
+export function headLook(P, name, k = 1) { const l = LOOKS[name] || {}; look(P, {turn: (l.turn || 0) * k, tilt: (l.tilt || 0) * k, nod: (l.nod || 0) * k, jut: (l.jut || 0) * k}); if (l.expr && k > .5 && P.expr) P.expr(l.expr); }
+// gesture(P, name, u): an animated head move, u = 0..1 through it. 'doubleTake' | 'nod' | 'shake' | 'wtf' (snaps into it, holds) | 'flinch'
+export function gesture(P, name, u) {
+  const e = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+  if (name === 'doubleTake') { const t1 = e(u / .14) - e((u - .16) / .14), t2 = e((u - .5) / .08);   // a glance, back, a beat, then snap round and hold
+    look(P, {turn: .55 * t1 + 1.0 * t2, nod: -.08 * t2, jut: -.012 * t2}); if (P.expr) P.expr(t2 > .5 ? 'shock' : 'neutral'); }
+  else if (name === 'nod') look(P, {nod: Math.sin(u * Math.PI * 4) * .22 * (1 - u * .5)});
+  else if (name === 'shake') look(P, {turn: Math.sin(u * Math.PI * 6) * .42 * (1 - u * .6)});
+  else if (name === 'wtf') headLook(P, 'wtf', e(u / .25));
+  else if (name === 'flinch') { const k = e(u / .1) * (1 - e((u - .35) / .5)); look(P, {jut: -.025 * k, nod: -.15 * k, turn: -.3 * k, tilt: -.15 * k}); if (P.expr) P.expr(k > .3 ? 'shock' : 'scared'); }
+}
+
 // ---------------------------------------------------------------- movement (shared by every scene and every character)
 // walk(P, t, {speed, amp, run, sneak}): legs, arms opposite the legs, a hip/chest counter-twist, the head kept level.
 export function walk(P, t, {speed = 1, amp = 1, run = false, sneak = false} = {}) {
@@ -332,7 +360,7 @@ export function followFrame(frame, people, {samples = 5, dt = 1 / 12} = {}) {
       if (h.length >= 2) { const k = h.length - 1;                                     // air drag: moving fast, loose parts stream back
         hl.addScaledVector(h[k].head.clone().sub(h[k - 1].head), -.05 / dt); cl.addScaledVector(h[k].chest.clone().sub(h[k - 1].chest), -.05 / dt); }
       swing(P.sec.hair, hl.multiplyScalar(1.4), now.hq, .3, .75, [-.3, .75, .35]);
-      if (P.sec.hair) { _q2.copy(now.cq).invert().multiply(now.hq); _e.setFromQuaternion(_q2); P.sec.hair.rotation.y = -_e.y * .55; }   // the hair stays over the shoulders when she turns her head
+      if (P.sec.hair) { _q2.copy(now.cq).invert().multiply(now.hq); _e.setFromQuaternion(_q2); P.sec.hair.rotation.y = -_e.y * .3; }   // the hair stays over the shoulders when she turns her head
       for (const s of P.sec.strings) swing(s, cl.clone().multiplyScalar(2.2), now.cq, .1, 1, [-1, 1, .9]);
       swing(P.sec.hood, cl.clone().multiplyScalar(.35), now.cq, .14, .3, [-.2, .2, .15]);
     });
