@@ -147,7 +147,7 @@ export function makePerson(o = {}) {
   add(S(.0125, .95, .9, .85, .001, 18), M.skin, face, [0, -.03, .008]);                  // nose
   if ((o.age || 0) > .6) for (const y of [.058, .07]) add(Cp(.0015, .045, .0003, 30), M.crease, face, [0, y, -.008], [0, 0, Math.PI / 2]);   // forehead lines
   const mouth = G(face, [0, -.058, -.003]);
-  const mLine = add(new THREE.TorusGeometry(.013, .0034, 6, 18, Math.PI * .6), M.mouth, mouth, [0, 0, .004]); mLine.castShadow = false;   // the mouth: a curved line
+  const mLine = add(new THREE.TorusGeometry(.013, .0034, 6, 18, Math.PI * .6).rotateZ(Math.PI * .2), M.mouth, mouth, [0, 0, .004]);   // the curve centred on its top, so it flattens evenly mLine.castShadow = false;   // the mouth: a curved line
   const lowLip = add(S(.0085, 1.45, .45, .35, .0008, 20), M.lip, mouth, [0, -.0075, 0]); lowLip.castShadow = false;                 // and a soft lower lip
   const mOpen = G(mouth);
   add(S(.016, 1.25, 1, .35, .001, 20), M.mouth, mOpen);
@@ -188,7 +188,7 @@ export function makePerson(o = {}) {
   P.mouth = (s, amt = 1) => {     // 'closed' | 'pressed' | 'smile' | 'frown' | 'open' | 'gums' | 'o' | 'grimace' | 'scream'   (amt: how much)
     const shut = s === 'closed' || s === 'pressed' || s === 'smile' || s === 'frown'; mLine.visible = lowLip.visible = shut;
     const up = s === 'smile', cy = s === 'pressed' ? .22 : up ? .45 + .35 * amt : s === 'frown' ? .9 : .45;   // a smile curves up; the rest gently down
-    mLine.rotation.z = up ? -Math.PI / 2 - Math.PI * .3 : Math.PI / 2 - Math.PI * .3;
+    mLine.rotation.z = up ? Math.PI : 0;
     mLine.scale.set(s === 'pressed' ? .85 : up ? 1 + .15 * amt : 1, cy, 1);
     mLine.position.y = up ? .013 * cy - .004 : -.013 * cy; lowLip.scale.setScalar(s === 'pressed' ? .8 : 1);
     const sc = {open: [1, .35 + .65 * amt], gums: [1, .35 + .65 * amt], o: [.55, .7 + .3 * amt], grimace: [1.5, .4 + .15 * amt], scream: [1.05, 1.1 + .6 * amt]}[s];
