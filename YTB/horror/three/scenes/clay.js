@@ -63,8 +63,9 @@ export function makePerson(o = {}) {
   add(Cp(.13, .05, .006, 7).scale(1.18, 1, .82), M.top, chest, [0, -.01, 0]);
   add(lump(new THREE.TorusGeometry(.13, .024, 8, 28), .003, 14).scale(1.22, .86, 1), M.top, chest, [0, -.07, 0], [Math.PI / 2, 0, 0]);   // the hem band, down at the hips
   if (o.pocket !== false) add(lump(new THREE.BoxGeometry(.2, .1, .03, 8, 4, 2), .004, 10), M.top, chest, [0, .055, .108], [-.08, 0, 0]);                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
-  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.072, .048, 12, 24), .005, 9), M.top, chest, [0, .49, -.01], [Math.PI / 2 + .25, 0, 0]);   // the hood, bunched round the neck
-    add(S(.09, 1.1, .7, .6, .006, 8), M.top, chest, [0, .5, -.075]);
+  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.078, .05, 12, 24).scale(1.18, 1, .95), .007, 6), M.top, chest, [0, .47, -.015], [Math.PI / 2 + .42, 0, 0]);   // the hood: soft, bunched, low at the front
+    add(S(.11, 1.15, .72, .5, .008, 5), M.top, chest, [0, .44, -.11], [.55, 0, 0]);                                       // the hood hanging down the back
+    for (const x of [-1, 1]) add(S(.04, 1.2, .8, .9, .005, 7), M.top, chest, [x * .062, .455, .045], [0, 0, x * .4]);       // loose folds either side of the opening
     for (const x of [-.028, .028]) { add(Cp(.005, .09, .0008, 24), M.lace, chest, [x, .38, .122], [.2, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .322, .132]); } }
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.042, .045, .002, 16), M.skin, neck, [0, .02, 0]);
@@ -83,6 +84,7 @@ export function makePerson(o = {}) {
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
   // face
+  const faceLight = new THREE.PointLight(o.faceColor || 0xffe6d0, o.faceLight ?? .35, .9, 1.6); faceLight.position.set(0, .03, .55); head.add(faceLight);
   const face = G(head, [0, -.012, .096]);
   const eyes = [], whites = [], lids = [], brows = [];
   for (const x of [-.034, .034]) {
@@ -121,7 +123,7 @@ export function makePerson(o = {}) {
     for (let k = 0; k < 3; k++) add(Cp(.0035, .05, .0005, 30), M.lace, ft, [0, .025, .06 + k * .022], [0, 0, Math.PI / 2]);
     return {th, sh, ft};
   });
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, M};
+  const P = {root, hips, chest, neck, head, back, face, arms, legs, M, faceLight};
   P.eyes = s => {                 // 'open' | 'closed' | 'wide' | 'squeeze'
     const open = s === 'open' || s === 'wide';
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? 1.15 : 1); });

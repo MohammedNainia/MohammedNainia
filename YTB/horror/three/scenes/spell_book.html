@@ -75,7 +75,7 @@ function talk(P, name, t) {
   if (!c || c.value === 'X' || c.value === 'A') return false;
   P.mouth('open', {B: .35, F: .3, G: .3, C: .6, D: 1, E: .7, H: .55}[c.value] || .5); return true;
 }
-const handsOverMouth = (P, k = 1) => { const [ux, uz, fx, fy, sg] = window.HOMP || [-1.3, 0, -2.0, .8, -1]; P.arms.forEach(({up, fo, hand}, i) => { const m = i ? sg : 1; up.rotation.set(ux * k, m * fy * k, m * uz * k); fo.rotation.set(fx * k, 0, 0); }); };
+const handsOverMouth = (P, k = 1) => { const [ux, uz, fx, fy, sg] = window.HOMP || [-1.4, 0, -2.15, .8, -1]; P.arms.forEach(({up, fo, hand}, i) => { const m = i ? sg : 1; up.rotation.set(ux * k, m * fy * k, m * uz * k); fo.rotation.set(fx * k, 0, 0); }); };
 const HEAD = P => P.head.getWorldPosition(V(0, 0, 0));
 
 // ================================================================ THE ATTIC
