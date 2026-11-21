@@ -59,7 +59,8 @@ export function makePerson(o = {}) {
     shoe: clay(o.shoe || 0xf2eee6), hair: clay(o.hair || 0x24222a, {bumpScale: .8}), eye: gloss(0x0c0c0e), white: gloss(0xf4f0e8),
     mouth: clay(0x2a0c10, {bumpScale: 0}), gum: clay(0xd86a78, {bumpScale: .2}), tooth: gloss(0xfaf6ee),
     blush: clay(0xd89080, {bumpScale: 0, transparent: true, opacity: .22}), sole: clay(0x3a3532, {bumpScale: .6}), lace: clay(0xd8d2c8, {bumpScale: 0}),
-    shine: new THREE.MeshBasicMaterial({color: 0xffffff})};
+    shine: new THREE.MeshBasicMaterial({color: 0xffffff}), lip: clay(new THREE.Color(o.skin || 0xefc09c).lerp(new THREE.Color(0xb86a5e), .45).getHex(), {bumpScale: .1})};
+  M.crease = clay(new THREE.Color(o.skin || 0xefc09c).multiplyScalar(.66).getHex(), {bumpScale: .2});   // age lines: the skin pressed in
   const root = new THREE.Group(); root.scale.setScalar(o.scale || 1);
   const hips = G(root, [0, .82, 0]);
   add(S(.125, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
@@ -88,18 +89,25 @@ export function makePerson(o = {}) {
   // face
   const faceLight = new THREE.PointLight(o.faceColor || 0xffe6d0, o.faceLight ?? .35, .9, 1.6); faceLight.position.set(0, .03, .55); head.add(faceLight);
   const face = G(head, [0, -.012, .096]);
-  const eyes = [], whites = [], lids = [], brows = [];
+  const eyes = [], whites = [], lids = [], brows = [], caps = [];
   for (const x of [-.034, .034]) {
     whites.push(add(S(.017, 1.15, 1, .35, .001, 20), M.white, face, [x, 0, -.002]));
     const e = add(new THREE.SphereGeometry(.011, 14, 10), M.eye, face, [x, 0, .004]); eyes.push(e);
     add(new THREE.SphereGeometry(.0028, 8, 6), M.shine, e, [.0035, .0042, .0085]).castShadow = false;                  // the catchlight: the eyes look wet and alive
     add(S(.012, 1.3, .75, .25, .0005, 20), M.blush, face, [x * 1.55, -.035, -.007]).castShadow = false;
     lids.push(add(Cp(.0035, .022, .0005, 30), M.hair, face, [x, -.002, .006], [0, 0, Math.PI / 2]));
-    brows.push(add(Cp(.0055, .022, .0005, 30), M.hair, face, [x, .034, .002], [0, 0, Math.PI / 2]));
+    const cap = add(new THREE.SphereGeometry(.0128, 20, 10, 0, Math.PI * 2, 0, Math.PI * .5), M.skin, face, [x, .0005, .004]); cap.castShadow = false; caps.push(cap);   // the upper eyelid
+    add(new THREE.TorusGeometry(.0125, .0016, 5, 14, Math.PI * .5), M.crease, face, [x, -.001, .0015], [0, 0, -Math.PI * .75]).castShadow = false;   // a soft line under the eye
+    const br = new THREE.Group(); br.position.set(x, .031, .001); face.add(br);                                        // an arched brow, thick in the middle
+    add(new THREE.TorusGeometry(.017, .0058, 6, 16, Math.PI * .5).scale(1, .75, 1), M.hair, br, [0, -.012, 0], [0, 0, Math.PI * .25]); brows.push(br);
+    if ((o.age || 0) > .4) { add(new THREE.TorusGeometry(.015, .0018, 5, 14, Math.PI * .5), M.crease, face, [x, -.006, 0], [0, 0, -Math.PI * .75]);   // bags under the eyes
+      add(Cp(.0016, .028, .0003, 30), M.crease, face, [x * 1.05, -.05, -.004], [0, 0, (x > 0 ? 1 : -1) * .55]); }            // the lines from nose to mouth
   }
-  add(S(.01, .9, 1, .8, .001, 18), M.skin, face, [0, -.03, .01]);                  // nose
-  const mouth = G(face, [0, -.058, .002]);
-  const mLine = add(Cp(.0035, .016, .0005, 30), M.mouth, mouth, [0, 0, .003], [0, 0, Math.PI / 2]);
+  add(S(.0125, .95, .9, .85, .001, 18), M.skin, face, [0, -.03, .008]);                  // nose
+  if ((o.age || 0) > .6) for (const y of [.058, .07]) add(Cp(.0015, .045, .0003, 30), M.crease, face, [0, y, -.008], [0, 0, Math.PI / 2]);   // forehead lines
+  const mouth = G(face, [0, -.058, -.003]);
+  const mLine = add(new THREE.TorusGeometry(.013, .0034, 6, 18, Math.PI * .6), M.mouth, mouth, [0, 0, .004]); mLine.castShadow = false;   // the mouth: a curved line
+  const lowLip = add(S(.0085, 1.45, .45, .35, .0008, 20), M.lip, mouth, [0, -.0075, 0]); lowLip.castShadow = false;                 // and a soft lower lip
   const mOpen = G(mouth);
   add(S(.016, 1.25, 1, .35, .001, 20), M.mouth, mOpen);
   const gums = [add(Cp(.004, .02, .0005, 30), M.gum, mOpen, [0, .012, .004], [0, 0, Math.PI / 2]), add(Cp(.004, .02, .0005, 30), M.gum, mOpen, [0, -.012, .004], [0, 0, Math.PI / 2])];
@@ -131,12 +139,15 @@ export function makePerson(o = {}) {
     eyes.forEach(e => { e.visible = open; e.scale.setScalar(s === 'wide' ? 1.15 : 1); });
     whites.forEach(w => { w.visible = s === 'wide'; });
     lids.forEach((l, i) => { l.visible = !open; l.scale.set(1, s === 'squeeze' ? 1.25 : 1, 1); l.rotation.z = Math.PI / 2 + (s === 'squeeze' ? (i ? -.25 : .25) : 0); });
+    caps.forEach(c => { c.visible = open; c.rotation.x = s === 'wide' ? -1.15 : -.62; });   // the lid only over the top of the eye
   };
-  P.brows = k => brows.forEach((b, i) => { b.rotation.z = Math.PI / 2 + (i ? -1 : 1) * k * .5; b.position.y = .034 + Math.abs(k) * .006; });  // k>0 worried
+  P.brows = k => brows.forEach((b, i) => { b.rotation.z = (i ? -1 : 1) * k * .45; b.position.y = .031 + Math.abs(k) * .005; });  // k>0 worried, k<0 cross
   P.mouth = (s, amt = 1) => {     // 'closed' | 'pressed' | 'open' | 'gums' | 'smile'
-    mLine.visible = s === 'closed' || s === 'pressed' || s === 'smile';
-    mLine.scale.set(1, s === 'pressed' ? 1.4 : s === 'smile' ? 1.3 : 1, s === 'pressed' ? .7 : 1);
-    mLine.rotation.x = 0; mLine.position.y = s === 'smile' ? -.002 : 0;
+    const shut = s === 'closed' || s === 'pressed' || s === 'smile'; mLine.visible = lowLip.visible = shut;
+    const up = s === 'smile';                                   // a smile curves up; closed and pressed curve gently down (a worried mouth, as on the sheet)
+    mLine.rotation.z = up ? -Math.PI / 2 - Math.PI * .3 : Math.PI / 2 - Math.PI * .3;
+    mLine.scale.set(s === 'pressed' ? .85 : up ? 1.1 : 1, s === 'pressed' ? .22 : up ? .7 : .45, 1);
+    mLine.position.y = up ? .013 * .7 - .004 : -.013 * (s === 'pressed' ? .22 : .45); lowLip.scale.setScalar(s === 'pressed' ? .8 : 1);
     mOpen.visible = s === 'open' || s === 'gums'; mOpen.scale.set(1, .35 + .65 * amt, 1);
     teeth.forEach(t => t.visible = s === 'open'); gums.forEach(g => g.visible = s === 'gums');
   };
