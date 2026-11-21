@@ -45,7 +45,7 @@ export const tube = (r0, r1, l, a = .006, f = 7) => lump(new THREE.CylinderGeome
 let fs = 11; const frnd = () => (fs = (fs * 16807) % 2147483647) / 2147483647;
 export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t * (.8 + .5 * frnd()), 8, 20, Math.PI * (1.15 + .6 * frnd())).rotateZ(frnd() * 6.28).scale(1, 1, .8 + .4 * frnd()), a, 16);   // bunched cloth: a broken, uneven ring
 // a turned shape: a side profile [[radius, y], ...] spun round the y axis, smoothed through a curve: one continuous sculpted surface
-export const turn = (pts, a = .006, f = 6, phiStart = 0, phiLen = Math.PI * 2, seg = 36) => {
+export const turn = (pts, a = .006, f = 6, phiStart = Math.PI, phiLen = Math.PI * 2, seg = 36) => {   // a full turn closes at the back, never on the face
   if (pts[0][1] > pts[pts.length - 1][1]) pts = pts.slice().reverse();                 // bottom to top, so the surface faces out
   const c = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r, y))).getPoints(pts.length * 6);
   const g = new THREE.LatheGeometry(c, seg, phiStart, phiLen), uv = g.attributes.uv;
@@ -74,8 +74,7 @@ export function makePerson(o = {}) {
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.042, .045, .002, 16), M.skin, neck, [0, .02, 0]);
   const head = G(neck, [0, .14, 0]); head.scale.setScalar(o.headScale || 1);
-  add(S(.1, .94, 1.12, 1.02, .003, 14), M.skin, head);
-  add(S(.03, 1, .8, .6, .002, 16), M.skin, head, [0, -.075, .055]);
+  add(turn([[0, -.113], [.05, -.106], [.075, -.09], [.09, -.065], [.098, -.035], [.1, 0], [.098, .035], [.086, .07], [.052, .1], [0, .113]], .003, 12).scale(.95, 1, 1.05), M.skin, head);   // the head: one sculpted egg, full in the cheeks and jaw
   for (const x of [-.093, .093]) add(S(.019, .55, 1, .75, .001, 20), M.skin, head, [x, -.012, -.004]);            // ears (long hair hides them)
   add(S(.109, 1.02, 1.1, 1.0, .004), M.hair, head, [0, .02, -.02]);
   const fringe = new THREE.Mesh(lump(new THREE.SphereGeometry(.112, 32, 14, 0, Math.PI * 2, 0, .9).scale(1.0, 1.08, 1.0), .002, 14), M.hair.clone());
