@@ -48,7 +48,9 @@ export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t * (.8 
 export const turn = (pts, a = .006, f = 6, phiStart = 0, phiLen = Math.PI * 2, seg = 36) => {
   if (pts[0][1] > pts[pts.length - 1][1]) pts = pts.slice().reverse();                 // bottom to top, so the surface faces out
   const c = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r, y))).getPoints(pts.length * 6);
-  return lump(new THREE.LatheGeometry(c, seg, phiStart, phiLen), a, f); };
+  const g = new THREE.LatheGeometry(c, seg, phiStart, phiLen), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 4, uv.getY(i) * 3);   // smaller fingerprint marks
+  return lump(g, a, f); };
 export const G = (parent, pos = [0, 0, 0]) => { const g = new THREE.Group(); g.position.set(...pos); parent.add(g); return g; };
 
 // ---------------------------------------------------------------- a person (Haru or Mum): ~7 heads tall, joints, face controls
@@ -62,11 +64,10 @@ export function makePerson(o = {}) {
   const hips = G(root, [0, .82, 0]);
   add(S(.125, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
   const chest = G(hips, [0, .06, 0]);
-  add(turn([[0, -.105], [.11, -.1], [.146, -.088], [.152, -.066], [.147, -.048], [.157, -.02], [.16, .05], [.157, .15], [.156, .25], [.162, .34], [.158, .4],
-    [.125, .45], [.08, .49], [.05, .515]], .007, 5).scale(1.14, 1, .78), M.top, chest);                                        // the hoodie: one sculpted body
-  for (const x of [-1, 1]) add(S(.064, 1.15, .62, .9, .006, 6), M.top, chest, [x * .138, .41, 0], [0, 0, -x * .5]);   // sloped shoulders
+  add(turn([[0, -.105], [.11, -.1], [.146, -.088], [.152, -.066], [.147, -.048], [.157, -.02], [.16, .05], [.157, .15], [.156, .25], [.166, .34], [.168, .395],
+    [.14, .44], [.09, .485], [.05, .515]], .007, 5).scale(1.14, 1, .78), M.top, chest);                                        // the hoodie: one sculpted body
   if (o.pocket !== false) add(S(.06, 1.75, .95, .3, .004, 8), M.top, chest, [0, .06, .118], [-.12, 0, 0]); add(Cp(.007, .17, .001, 20), M.top, chest, [0, .112, .128], [0, 0, Math.PI / 2]);   // the kangaroo pouch and its opening                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
-  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.078, .05, 12, 24).scale(1.18, 1, .95), .007, 6), M.top, chest, [0, .47, -.015], [Math.PI / 2 + .42, 0, 0]);   // the hood: soft, bunched, low at the front
+  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.072, .058, 12, 24).scale(1.18, 1, .95), .007, 6), M.top, chest, [0, .5, -.012], [Math.PI / 2 + .38, 0, 0]);   // the hood: soft, bunched, low at the front
     add(S(.11, 1.15, .72, .5, .008, 5), M.top, chest, [0, .44, -.11], [.55, 0, 0]);                                       // the hood hanging down the back
     for (const x of [-1, 1]) add(S(.04, 1.2, .8, .9, .005, 7), M.top, chest, [x * .062, .455, .045], [0, 0, x * .4]);       // loose folds either side of the opening
     for (const x of [-.028, .028]) { add(Cp(.005, .09, .0008, 24), M.lace, chest, [x, .38, .13], [.2, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .322, .135]); } }
