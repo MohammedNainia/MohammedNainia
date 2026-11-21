@@ -11,13 +11,48 @@ const bc = document.createElement('canvas'); bc.width = bc.height = 512; { const
       g.beginPath(); g.ellipse(cx, cy, 4 + i * 3, 3 + i * 2.2, r() * 3, 0, 6.3); g.stroke(); } }
   for (let k = 0; k < 900; k++) { const v = r() < .5 ? 40 : 220; g.fillStyle = `rgba(${v},${v},${v},.12)`; g.beginPath(); g.arc(r() * 512, r() * 512, 1 + r() * 3, 0, 6.3); g.fill(); } }
 export const bump = new THREE.CanvasTexture(bc); bump.wrapS = bump.wrapT = THREE.RepeatWrapping; bump.repeat.set(2, 2);
-export const clay = (c, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({color: c, roughness: .9, metalness: 0, sheen: .35, sheenRoughness: .9,
-  sheenColor: new THREE.Color(c).lerp(new THREE.Color(0xffffff), .35), bumpMap: bump, bumpScale: 1.0}, o));
+// The clay shader. Two things the plain material can't do:
+// 1. fingerprints and smudges placed by position on the piece (triplanar), not by its UVs: the same size everywhere, never stretched,
+//    and they stay put on the puppet as it moves.  2. colour from the piece itself (attribute clayShade, made once in lump()):
+//    a slight mottling, and darker clay pressed into the creases. Pieces without the attribute read 0 = unchanged.
+// ?flat=1 on the page turns both off (to compare, or for a quick test render).
+export const CLAY_FX = !/[?&]flat=1/.test(typeof location !== 'undefined' ? location.search : '');
+const PRINT = 7.5;                                                                   // fingerprint marks per metre of clay
+function clayShader(m) {
+  if (!CLAY_FX) return m;
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float clayShade; varying float vClayShade; varying vec3 vClayPos; varying vec3 vClayNrm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvClayPos = transformed; vClayNrm = objectNormal; vClayShade = clayShade;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vClayShade; varying vec3 vClayPos; varying vec3 vClayNrm;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 + vClayShade;')
+      .replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment.replace(/vec2 dHdxy_fwd\(\) \{[\s\S]*?return vec2\( dBx, dBy \);\s*\}/, `
+        float clayH(vec3 p) { vec3 w = pow(abs(normalize(vClayNrm)), vec3(4.0)); w /= (w.x + w.y + w.z + 1e-5); p *= ${PRINT.toFixed(2)};
+          return w.x * texture2D(bumpMap, p.yz).x + w.y * texture2D(bumpMap, p.zx + .37).x + w.z * texture2D(bumpMap, p.xy + .71).x; }
+        vec2 dHdxy_fwd() { float H = 1.8 * bumpScale * clayH(vClayPos);
+          return vec2(1.8 * bumpScale * clayH(vClayPos + dFdx(vClayPos)) - H, 1.8 * bumpScale * clayH(vClayPos + dFdy(vClayPos)) - H); }`));
+  };
+  m.customProgramCacheKey = () => 'clay-fx-1';
+  return m;
+}
+export const clay = (c, o = {}) => clayShader(new THREE.MeshPhysicalMaterial(Object.assign({color: c, roughness: .9, metalness: 0, sheen: .35, sheenRoughness: .9,
+  sheenColor: new THREE.Color(c).lerp(new THREE.Color(0xffffff), .35), bumpMap: bump, bumpScale: 1.0}, o)));
 export const gloss = (c, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({color: c, roughness: .25, clearcoat: .8, bumpMap: bump, bumpScale: .2}, o));
 
 // ---------------------------------------------------------------- lumpy geometry + boil
 const lumpy = [];
-export function lump(geo, amt = .004, freq = 10) { const e = {geo, base: null, nrm: null, amt, freq}; lumpy.push(e); return geo; }
+let pieceSeed = 1;
+function shadePiece(geo) {                         // mottling + darker creases, once per piece (no cost per frame)
+  const p = geo.attributes.position, n = geo.attributes.normal, N = p.count, cav = new Float32Array(N), cnt = new Float32Array(N), shade = new Float32Array(N);
+  const idx = geo.index, sd = (pieceSeed = (pieceSeed * 16807) % 2147483647) % 1000;
+  if (idx && n) { const a = idx.array;
+    for (let t = 0; t < a.length; t += 3) for (let k = 0; k < 3; k++) { const i = a[t + k];
+      for (const j of [a[t + (k + 1) % 3], a[t + (k + 2) % 3]]) { const dx = p.getX(j) - p.getX(i), dy = p.getY(j) - p.getY(i), dz = p.getZ(j) - p.getZ(i), L = Math.hypot(dx, dy, dz) || 1;
+        cav[i] += (dx * n.getX(i) + dy * n.getY(i) + dz * n.getZ(i)) / L; cnt[i]++; } } }
+  for (let i = 0; i < N; i++) { const c = cnt[i] ? cav[i] / cnt[i] : 0, x = p.getX(i) * 9, y = p.getY(i) * 9, z = p.getZ(i) * 9;
+    shade[i] = -Math.min(.38, Math.max(0, c * 7)) + .09 * noise(x * .6, y * .6, z * .6, sd) + .035 * noise(x * 3, y * 3, z * 3, sd + 3); }
+  geo.setAttribute('clayShade', new THREE.BufferAttribute(shade, 1));
+}
+export function lump(geo, amt = .004, freq = 10) { const e = {geo, base: null, nrm: null, amt, freq}; lumpy.push(e); if (CLAY_FX) shadePiece(geo); return geo; }
 const noise = (x, y, z, sd) => Math.sin(x * 1.7 + sd) * Math.sin(y * 2.3 + sd * 1.3) * Math.sin(z * 1.9 + sd * .7)
   + .5 * Math.sin(x * 3.1 - sd * .9 + y * 1.2) * Math.sin(z * 2.7 + sd * 1.1);
 let lastSeed = null;
