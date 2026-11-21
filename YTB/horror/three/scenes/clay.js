@@ -44,6 +44,11 @@ export const Cp = (r, l, a = .003, f = 12) => lump(new THREE.CapsuleGeometry(r, 
 export const tube = (r0, r1, l, a = .006, f = 7) => lump(new THREE.CylinderGeometry(r0, r1, l, 20, 8, false), a, f);   // a cloth tube: r0 top, r1 bottom
 let fs = 11; const frnd = () => (fs = (fs * 16807) % 2147483647) / 2147483647;
 export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t * (.8 + .5 * frnd()), 8, 20, Math.PI * (1.15 + .6 * frnd())).rotateZ(frnd() * 6.28).scale(1, 1, .8 + .4 * frnd()), a, 16);   // bunched cloth: a broken, uneven ring
+// a turned shape: a side profile [[radius, y], ...] spun round the y axis, smoothed through a curve: one continuous sculpted surface
+export const turn = (pts, a = .006, f = 6, phiStart = 0, phiLen = Math.PI * 2, seg = 36) => {
+  if (pts[0][1] > pts[pts.length - 1][1]) pts = pts.slice().reverse();                 // bottom to top, so the surface faces out
+  const c = new THREE.SplineCurve(pts.map(([r, y]) => new THREE.Vector2(r, y))).getPoints(pts.length * 6);
+  return lump(new THREE.LatheGeometry(c, seg, phiStart, phiLen), a, f); };
 export const G = (parent, pos = [0, 0, 0]) => { const g = new THREE.Group(); g.position.set(...pos); parent.add(g); return g; };
 
 // ---------------------------------------------------------------- a person (Haru or Mum): ~7 heads tall, joints, face controls
@@ -57,16 +62,14 @@ export function makePerson(o = {}) {
   const hips = G(root, [0, .82, 0]);
   add(S(.125, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
   const chest = G(hips, [0, .06, 0]);
-  add(Cp(.14, .26, .008, 6).scale(1.16, 1, .82), M.top, chest, [0, .23, 0]);
-  add(S(.148, 1.2, .55, .74, .008, 6), M.top, chest, [0, .03, 0]);                                                       // the hoodie blousing over its hem
-  for (const x of [-1, 1]) add(S(.068, 1.2, .6, .9, .006, 7), M.top, chest, [x * .13, .425, 0], [0, 0, -x * .5]);   // sloped shoulders
-  add(Cp(.13, .05, .006, 7).scale(1.18, 1, .82), M.top, chest, [0, -.01, 0]);
-  add(lump(new THREE.TorusGeometry(.13, .024, 8, 28), .003, 14).scale(1.22, .86, 1), M.top, chest, [0, -.07, 0], [Math.PI / 2, 0, 0]);   // the hem band, down at the hips
-  if (o.pocket !== false) add(lump(new THREE.BoxGeometry(.2, .1, .03, 8, 4, 2), .004, 10), M.top, chest, [0, .055, .108], [-.08, 0, 0]);                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
+  add(turn([[0, -.105], [.11, -.1], [.146, -.088], [.152, -.066], [.147, -.048], [.157, -.02], [.16, .05], [.157, .15], [.156, .25], [.162, .34], [.158, .4],
+    [.125, .45], [.08, .49], [.05, .515]], .007, 5).scale(1.14, 1, .78), M.top, chest);                                        // the hoodie: one sculpted body
+  for (const x of [-1, 1]) add(S(.064, 1.15, .62, .9, .006, 6), M.top, chest, [x * .138, .41, 0], [0, 0, -x * .5]);   // sloped shoulders
+  if (o.pocket !== false) add(S(.06, 1.75, .95, .3, .004, 8), M.top, chest, [0, .06, .118], [-.12, 0, 0]); add(Cp(.007, .17, .001, 20), M.top, chest, [0, .112, .128], [0, 0, Math.PI / 2]);   // the kangaroo pouch and its opening                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
   if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.078, .05, 12, 24).scale(1.18, 1, .95), .007, 6), M.top, chest, [0, .47, -.015], [Math.PI / 2 + .42, 0, 0]);   // the hood: soft, bunched, low at the front
     add(S(.11, 1.15, .72, .5, .008, 5), M.top, chest, [0, .44, -.11], [.55, 0, 0]);                                       // the hood hanging down the back
     for (const x of [-1, 1]) add(S(.04, 1.2, .8, .9, .005, 7), M.top, chest, [x * .062, .455, .045], [0, 0, x * .4]);       // loose folds either side of the opening
-    for (const x of [-.028, .028]) { add(Cp(.005, .09, .0008, 24), M.lace, chest, [x, .38, .122], [.2, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .322, .132]); } }
+    for (const x of [-.028, .028]) { add(Cp(.005, .09, .0008, 24), M.lace, chest, [x, .38, .13], [.2, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .322, .135]); } }
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.042, .045, .002, 16), M.skin, neck, [0, .02, 0]);
   const head = G(neck, [0, .14, 0]); head.scale.setScalar(o.headScale || 1);
@@ -78,9 +81,8 @@ export function makePerson(o = {}) {
   fringe.material.side = THREE.DoubleSide; fringe.position.set(0, .022, .004); fringe.rotation.set(.35, 0, -.14); fringe.castShadow = false;   // no hard shadow across the face (a soft studio light in the sheet) head.add(fringe);
   const back = G(head, [0, -.02, -.07]);
   if (o.longHair !== false) {
-    add(Cp(.09, .3, .005, 8).scale(1.4, 1, .55), M.hair, back, [0, -.19, 0]);
-    for (const x of [-.094, .094]) add(Cp(.03, .22, .003, 10).scale(1, 1, 1.3), M.hair, head, [x, -.13, -.005]);
-    for (let i = 0; i < 5; i++) add(Cp(.016, .26, .002, 14), M.hair, back, [(i - 2) * .036, -.2 - (i % 2) * .02, -.028], [0, 0, (i - 2) * .05]);   // strands
+    const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.122, -.08], [.125, -.16], [.127, -.235], [.12, -.268], [.1, -.272], [.094, -.2], [.098, -.08], [.096, .02], [.085, .07]],
+      .004, 7, .78, Math.PI * 2 - 1.56, 40), M.hair, head, [0, 0, -.012]); curtain.scale.set(1, 1, .92);
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
   // face
@@ -104,9 +106,9 @@ export function makePerson(o = {}) {
   const teeth = [add(new THREE.BoxGeometry(.026, .006, .004), M.tooth, mOpen, [0, .0075, .005]), add(new THREE.BoxGeometry(.022, .005, .004), M.tooth, mOpen, [0, -.008, .005])];
   // arms and legs
   const arms = [-1, 1].map(sd => {
-    const up = G(chest, [sd * .175, .44, 0]); add(S(.052, 1, 1.1, 1, .005, 8), M.top, up, [0, -.025, 0]); add(tube(.053, .05, .26), M.top, up, [0, -.14, 0]);
-    const fo = G(up, [0, -.27, 0]); add(S(.05, 1, 1, 1, .004, 8), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
-    add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]); add(tube(.048, .056, .2), M.top, fo, [0, -.115, 0]);
+    const up = G(chest, [sd * .175, .44, 0]); add(turn([[0, .035], [.04, .028], [.06, 0], [.064, -.06], [.06, -.16], [.054, -.25], [.05, -.29]], .006, 6), M.top, up);
+    const fo = G(up, [0, -.27, 0]); add(turn([[.05, .035], [.052, -.02], [.054, -.1], [.059, -.17], [.06, -.2], [.05, -.22], [.03, -.226], [0, -.227]], .006, 6), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
+    add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]);
     add(fold(.052, .013), M.top, fo, [0, -.215, 0], [Math.PI / 2, 0, 0]);              // sleeve cuff
     const hand = G(fo, [0, -.25, 0]); add(S(.027, .85, 1.0, .5, .002, 18), M.skin, hand, [0, -.022, 0]);
     for (const fx of [-.012, 0, .012]) add(Cp(.0078, .024 - Math.abs(fx) * .25, .0008, 22), M.skin, hand, [fx, -.056, .003], [.25, 0, 0]);
@@ -114,9 +116,9 @@ export function makePerson(o = {}) {
     return {up, fo, hand};
   });
   const legs = [-1, 1].map(sd => {
-    const th = G(hips, [sd * .075, -.02, 0]); add(tube(.072, .062, .36), M.pants, th, [0, -.18, 0]); add(S(.07, 1, .7, 1, .004, 8), M.pants, th, [0, -.01, 0]);
-    const sh = G(th, [0, -.37, 0]); add(S(.06, 1, 1, 1, .004, 8), M.pants, sh); add(fold(.058, .012), M.pants, sh, [0, -.02, .005], [Math.PI / 2 - .3, 0, 0]);
-    add(tube(.057, .061, .3), M.pants, sh, [0, -.165, 0]); add(fold(.06, .011), M.pants, sh, [0, -.27, 0], [Math.PI / 2 + .15, 0, 0]);
+    const th = G(hips, [sd * .075, -.02, 0]); add(turn([[0, .04], [.05, .035], [.074, .005], [.076, -.08], [.069, -.25], [.062, -.36], [.06, -.4]], .006, 6), M.pants, th);
+    const sh = G(th, [0, -.37, 0]); add(turn([[.06, .035], [.062, -.04], [.059, -.15], [.061, -.26], [.065, -.31], [.058, -.335]], .006, 6), M.pants, sh); add(fold(.058, .012), M.pants, sh, [0, -.02, .005], [Math.PI / 2 - .3, 0, 0]);
+    add(fold(.06, .011), M.pants, sh, [0, -.27, 0], [Math.PI / 2 + .15, 0, 0]);
     add(fold(.06, .013), M.pants, sh, [0, -.315, 0], [Math.PI / 2, 0, 0]);           // trouser hem
     const ft = G(sh, [0, -.37, 0]); add(S(.058, 1, .66, 2.2, .003), M.shoe, ft, [0, -.01, .05]);
     add(S(.061, 1.02, .22, 2.25, .002), M.sole, ft, [0, -.042, .05]);
