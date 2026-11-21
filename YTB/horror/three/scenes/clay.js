@@ -25,7 +25,11 @@ export function boil(sd) {                       // shift every lump; only when 
   if (sd === lastSeed) return; lastSeed = sd;
   for (const e of lumpy) {
     const {geo, amt, freq} = e;
-    if (!e.base) { geo.computeVertexNormals(); e.base = geo.attributes.position.array.slice(); e.nrm = geo.attributes.normal.array.slice(); }
+    if (!e.base) { geo.computeVertexNormals(); e.base = geo.attributes.position.array.slice(); e.nrm = geo.attributes.normal.array.slice();
+      const b = e.base, n = e.nrm, acc = new Map();
+      for (let i = 0; i < b.length; i += 3) { const k = Math.round(b[i] * 1e4) + ',' + Math.round(b[i + 1] * 1e4) + ',' + Math.round(b[i + 2] * 1e4);
+        const a = acc.get(k) || [0, 0, 0, []]; a[0] += n[i]; a[1] += n[i + 1]; a[2] += n[i + 2]; a[3].push(i); acc.set(k, a); }
+      for (const [x, y, z, ids] of acc.values()) { if (ids.length < 2) continue; const l = Math.hypot(x, y, z) || 1; for (const i of ids) { n[i] = x / l; n[i + 1] = y / l; n[i + 2] = z / l; } } }
     const p = geo.attributes.position.array, b = e.base, n = e.nrm;
     for (let i = 0; i < p.length; i += 3) { const d = noise(b[i] * freq, b[i + 1] * freq, b[i + 2] * freq, sd) * amt;
       p[i] = b[i] + n[i] * d; p[i + 1] = b[i + 1] + n[i + 1] * d; p[i + 2] = b[i + 2] + n[i + 2] * d; }
@@ -37,27 +41,34 @@ export function add(geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) {
 }
 export const S = (r, sx = 1, sy = 1, sz = 1, a = .003, f = 12) => lump(new THREE.SphereGeometry(r, 36, 26).scale(sx, sy, sz), a, f);
 export const Cp = (r, l, a = .003, f = 12) => lump(new THREE.CapsuleGeometry(r, l, 8, 20), a, f);
+export const tube = (r0, r1, l, a = .006, f = 7) => lump(new THREE.CylinderGeometry(r0, r1, l, 20, 8, false), a, f);   // a cloth tube: r0 top, r1 bottom
+export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t, 8, 20), a, 16);                                 // bunched cloth ring
 export const G = (parent, pos = [0, 0, 0]) => { const g = new THREE.Group(); g.position.set(...pos); parent.add(g); return g; };
 
 // ---------------------------------------------------------------- a person (Haru or Mum): ~7 heads tall, joints, face controls
 export function makePerson(o = {}) {
   const M = {skin: clay(o.skin || 0xf0c9a8, {bumpScale: .35}), top: clay(o.top || 0xe0a33a, {bumpScale: 1.2}), pants: clay(o.pants || 0x5a5862, {bumpScale: 1.2}),
     shoe: clay(o.shoe || 0xf2eee6), hair: clay(o.hair || 0x24222a, {bumpScale: .8}), eye: gloss(0x0c0c0e), white: gloss(0xf4f0e8),
-    mouth: clay(0x2a0c10, {bumpScale: 0}), gum: clay(0xd86a78, {bumpScale: .2}), tooth: gloss(0xfaf6ee)};
+    mouth: clay(0x2a0c10, {bumpScale: 0}), gum: clay(0xd86a78, {bumpScale: .2}), tooth: gloss(0xfaf6ee),
+    blush: clay(0xd89080, {bumpScale: 0, transparent: true, opacity: .22}), sole: clay(0x3a3532, {bumpScale: .6}), lace: clay(0xd8d2c8, {bumpScale: 0}),
+    shine: new THREE.MeshBasicMaterial({color: 0xffffff})};
   const root = new THREE.Group(); root.scale.setScalar(o.scale || 1);
   const hips = G(root, [0, .82, 0]);
   add(S(.125, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
   const chest = G(hips, [0, .06, 0]);
-  add(Cp(.13, .26, .005, 10).scale(1.08, 1, .76), M.top, chest, [0, .23, 0]);
-  for (const x of [-.15, .15]) add(S(.06, 1, .9, 1, .003), M.top, chest, [x, .42, 0]);
-  add(Cp(.13, .05, .004, 10).scale(1.15, 1, .8), M.top, chest, [0, -.01, 0]);
+  add(Cp(.135, .26, .008, 6).scale(1.1, 1, .78), M.top, chest, [0, .23, 0]);
+  for (const x of [-1, 1]) add(S(.075, 1.25, .62, .9, .006, 7), M.top, chest, [x * .135, .425, 0], [0, 0, -x * .45]);   // sloped shoulders
+  add(Cp(.13, .05, .006, 7).scale(1.18, 1, .82), M.top, chest, [0, -.01, 0]);
+  add(fold(.13, .022, .003).scale(1.18, .82, 1), M.top, chest, [0, -.045, 0], [Math.PI / 2, 0, 0]);                     // the hem band
   if (o.pocket !== false) add(S(.07, 1.5, .42, .28, .003, 14), M.top, chest, [0, .08, .095]);
-  if (o.hood !== false) add(lump(new THREE.TorusGeometry(.075, .035, 12, 24), .003, 14), M.top, chest, [0, .47, -.03], [Math.PI / 2 + .35, 0, 0]);
+  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.075, .035, 12, 24), .003, 14), M.top, chest, [0, .47, -.03], [Math.PI / 2 + .35, 0, 0]);
+    for (const x of [-.028, .028]) { add(Cp(.005, .085, .0008, 24), M.lace, chest, [x, .37, .1], [.12, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .315, .107]); } }
   const neck = G(chest, [0, .49, 0]);
-  add(Cp(.036, .05, .002, 16), M.skin, neck, [0, .02, 0]);
+  add(Cp(.042, .045, .002, 16), M.skin, neck, [0, .02, 0]);
   const head = G(neck, [0, .14, 0]);
   add(S(.1, .94, 1.12, 1.02, .003, 14), M.skin, head);
   add(S(.03, 1, .8, .6, .002, 16), M.skin, head, [0, -.075, .055]);
+  for (const x of [-.093, .093]) add(S(.019, .55, 1, .75, .001, 20), M.skin, head, [x, -.012, -.004]);            // ears (long hair hides them)
   add(S(.109, 1.02, 1.1, 1.0, .004), M.hair, head, [0, .02, -.02]);
   const fringe = new THREE.Mesh(lump(new THREE.SphereGeometry(.112, 32, 14, 0, Math.PI * 2, 0, .9).scale(1.0, 1.08, 1.0), .002, 14), M.hair.clone());
   fringe.material.side = THREE.DoubleSide; fringe.position.set(0, .022, .004); fringe.rotation.x = .35; fringe.castShadow = true; head.add(fringe);
@@ -65,6 +76,7 @@ export function makePerson(o = {}) {
   if (o.longHair !== false) {
     add(Cp(.085, .3, .004, 10).scale(1.25, 1, .42), M.hair, back, [0, -.2, 0]);
     for (const x of [-.092, .092]) add(Cp(.024, .22, .002, 14), M.hair, head, [x, -.14, .005]);
+    for (let i = 0; i < 5; i++) add(Cp(.016, .26, .002, 14), M.hair, back, [(i - 2) * .036, -.2 - (i % 2) * .02, -.028], [0, 0, (i - 2) * .05]);   // strands
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
   // face
@@ -72,7 +84,9 @@ export function makePerson(o = {}) {
   const eyes = [], whites = [], lids = [], brows = [];
   for (const x of [-.034, .034]) {
     whites.push(add(S(.017, 1.15, 1, .35, .001, 20), M.white, face, [x, 0, -.002]));
-    eyes.push(add(new THREE.SphereGeometry(.011, 14, 10), M.eye, face, [x, 0, .004]));
+    const e = add(new THREE.SphereGeometry(.011, 14, 10), M.eye, face, [x, 0, .004]); eyes.push(e);
+    add(new THREE.SphereGeometry(.0028, 8, 6), M.shine, e, [.0035, .0042, .0085]).castShadow = false;                  // the catchlight: the eyes look wet and alive
+    add(S(.012, 1.3, .75, .25, .0005, 20), M.blush, face, [x * 1.55, -.035, -.007]).castShadow = false;
     lids.push(add(Cp(.0035, .022, .0005, 30), M.hair, face, [x, -.002, .006], [0, 0, Math.PI / 2]));
     brows.push(add(Cp(.004, .022, .0005, 30), M.hair, face, [x, .034, .002], [0, 0, Math.PI / 2]));
   }
@@ -85,16 +99,23 @@ export function makePerson(o = {}) {
   const teeth = [add(new THREE.BoxGeometry(.026, .006, .004), M.tooth, mOpen, [0, .0075, .005]), add(new THREE.BoxGeometry(.022, .005, .004), M.tooth, mOpen, [0, -.008, .005])];
   // arms and legs
   const arms = [-1, 1].map(sd => {
-    const up = G(chest, [sd * .175, .44, 0]); add(Cp(.05, .2, .004), M.top, up, [0, -.13, 0]);
-    const fo = G(up, [0, -.27, 0]); add(S(.046, 1, 1, 1, .003), M.top, fo); add(Cp(.045, .18, .004), M.top, fo, [0, -.11, 0]);
-    const hand = G(fo, [0, -.25, 0]); add(S(.032, .75, 1.25, .45, .002, 18), M.skin, hand, [0, -.03, 0]);
+    const up = G(chest, [sd * .175, .44, 0]); add(S(.052, 1, 1.1, 1, .005, 8), M.top, up, [0, -.025, 0]); add(tube(.053, .05, .26), M.top, up, [0, -.14, 0]);
+    const fo = G(up, [0, -.27, 0]); add(S(.05, 1, 1, 1, .004, 8), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
+    add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]); add(tube(.048, .056, .2), M.top, fo, [0, -.115, 0]);
+    add(fold(.052, .013), M.top, fo, [0, -.215, 0], [Math.PI / 2, 0, 0]);              // sleeve cuff
+    const hand = G(fo, [0, -.25, 0]); add(S(.027, .85, 1.0, .5, .002, 18), M.skin, hand, [0, -.022, 0]);
+    for (const fx of [-.012, 0, .012]) add(Cp(.0078, .024 - Math.abs(fx) * .25, .0008, 22), M.skin, hand, [fx, -.056, .003], [.25, 0, 0]);
     add(Cp(.011, .03, .001, 20), M.skin, hand, [-sd * .022, -.015, .014], [0, 0, sd * .5]);
     return {up, fo, hand};
   });
   const legs = [-1, 1].map(sd => {
-    const th = G(hips, [sd * .075, -.02, 0]); add(Cp(.064, .27, .004), M.pants, th, [0, -.18, 0]);
-    const sh = G(th, [0, -.37, 0]); add(S(.054, 1, 1, 1, .003), M.pants, sh); add(Cp(.052, .28, .004), M.pants, sh, [0, -.17, 0]);
+    const th = G(hips, [sd * .075, -.02, 0]); add(tube(.072, .062, .36), M.pants, th, [0, -.18, 0]); add(S(.07, 1, .7, 1, .004, 8), M.pants, th, [0, -.01, 0]);
+    const sh = G(th, [0, -.37, 0]); add(S(.06, 1, 1, 1, .004, 8), M.pants, sh); add(fold(.058, .012), M.pants, sh, [0, -.02, .005], [Math.PI / 2 - .3, 0, 0]);
+    add(tube(.057, .061, .3), M.pants, sh, [0, -.165, 0]); add(fold(.06, .011), M.pants, sh, [0, -.27, 0], [Math.PI / 2 + .15, 0, 0]);
+    add(fold(.06, .013), M.pants, sh, [0, -.315, 0], [Math.PI / 2, 0, 0]);           // trouser hem
     const ft = G(sh, [0, -.37, 0]); add(S(.058, 1, .66, 2.2, .003), M.shoe, ft, [0, -.01, .05]);
+    add(S(.061, 1.02, .22, 2.25, .002), M.sole, ft, [0, -.042, .05]);
+    for (let k = 0; k < 3; k++) add(Cp(.0035, .05, .0005, 30), M.lace, ft, [0, .025, .06 + k * .022], [0, 0, Math.PI / 2]);
     return {th, sh, ft};
   });
   const P = {root, hips, chest, neck, head, back, face, arms, legs, M};
