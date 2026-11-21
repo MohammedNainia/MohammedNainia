@@ -121,9 +121,9 @@ export function makePerson(o = {}) {
   if (o.longHair !== false) {
     sec.hair = G(head, [0, .06, -.012]);
     const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.124, -.08], [.133, -.16], [.152, -.225], [.16, -.26], [.148, -.29], [.124, -.288], [.11, -.2], [.1, -.08], [.096, .02], [.085, .07]],
-      .004, 7, 1.0, Math.PI * 2 - 2.0, 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(1, 1, .95);           // rests on the shoulders, wider at the ends
-    for (const a of [1.0, -1.0]) {                                                                                     // the two locks framing the face (they close the curtain's edges)
-      const lock = G(sec.hair, [Math.sin(a) * .108, -.06, Math.cos(a) * .108 * .95]);
+      .004, 7, 1.1, Math.PI * 2 - 2.2, 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(1, 1, .95);           // rests on the shoulders, wider at the ends
+    for (const a of [1.1, -1.1]) {                                                                                     // the two locks framing the face (they close the curtain's edges)
+      const lock = G(sec.hair, [Math.sin(a) * .112, -.06, Math.cos(a) * .112 * .95]);
       add(turn([[0, .06], [.017, .04], [.022, -.02], [.024, -.11], [.024, -.17], [.016, -.205], [0, -.21]], .002, 10), M.hair, lock, [0, 0, 0], [0, a, -Math.sign(a) * .05]); }
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
@@ -359,7 +359,7 @@ export function followFrame(frame, people, {samples = 5, dt = 1 / 12} = {}) {
       const hl = full ? lag(h, 'head', dt) : Z, cl = full ? lag(h, 'chest', dt) : Z;
       if (h.length >= 2) { const k = h.length - 1;                                     // air drag: moving fast, loose parts stream back
         hl.addScaledVector(h[k].head.clone().sub(h[k - 1].head), -.05 / dt); cl.addScaledVector(h[k].chest.clone().sub(h[k - 1].chest), -.05 / dt); }
-      swing(P.sec.hair, hl.multiplyScalar(1.4), now.hq, .3, .75, [-.3, .75, .35]);
+      swing(P.sec.hair, hl.multiplyScalar(1.1), now.hq, .3, .75, [-.06, .7, .16]);   // free to swing back; the face, chest and shoulders stop it going forward or sideways
       if (P.sec.hair) { _q2.copy(now.cq).invert().multiply(now.hq); _e.setFromQuaternion(_q2); P.sec.hair.rotation.y = -_e.y * .3; }   // the hair stays over the shoulders when she turns her head
       for (const s of P.sec.strings) swing(s, cl.clone().multiplyScalar(2.2), now.cq, .1, 1, [-1, 1, .9]);
       swing(P.sec.hood, cl.clone().multiplyScalar(.35), now.cq, .14, .3, [-.2, .2, .15]);

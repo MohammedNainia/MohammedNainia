@@ -147,7 +147,8 @@ for (let i = 0; i < 8; i++) {
   mourners.push({P, x, side});
 }
 const gran = makePerson({age: 1, top: 0x5a4a62, pants: 0x3a3440, shoe: 0x2a2224, hair: 0xd8d4d0, longHair: false, bun: true, hood: false, pocket: false, scale: .93, skin: 0xe8c4a8}); gran.s0 = .93; TB.add(gran.root);
-add(new THREE.PlaneGeometry(.2, .26), M.cloth, gran.chest, [0, .14, .17]);                                    // the napkin in her collar
+add(new THREE.PlaneGeometry(.2, .26), M.cloth, gran.chest, [0, .14, .17]);
+gran.faceLight.intensity = .15;                                                                        // white hair: a softer face light, or it glows                                    // the napkin in her collar
 add(new THREE.CylinderGeometry(.14, .12, .02, 20), M.plate, TB, [2.15, .8, 0]);                                 // an empty plate in front of her
 const stLamps = [-6, -1.5, 3, 7.5].map(x => { const g = G(SR, [x, 0, 1.75]); add(Cp(.035, 3), M.pole, g, [0, 1.5, 0]); add(S(.1, 1, .6, 1), new THREE.MeshBasicMaterial({color: 0xd8f0c8}), g, [0, 3.05, -.1]);
   const l = new THREE.PointLight(0xc8e8b8, 3, 6, 1.4); l.position.set(x, 3.0, 1.6); SR.add(l); return l; });
