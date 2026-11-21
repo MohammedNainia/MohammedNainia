@@ -134,46 +134,52 @@ export function makePerson(o = {}) {
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.038, .07, .002, 16), M.skin, neck, [0, .035, 0]);
   const head = G(neck, [0, o.neckLen ?? .155, 0]); head.scale.setScalar(o.headScale || 1);
-  const skull = sculptHead(turn([[0, -.113], [.05, -.106], [.075, -.09], [.09, -.065], [.098, -.035], [.1, 0], [.098, .035], [.086, .07], [.052, .1], [0, .113]], .003, 12, Math.PI, Math.PI * 2, 48).scale(.92, 1.06, 1.05), o.sculpt ?? 1); add(skull, M.skin, head);   // the head: one sculpted egg, full in the cheeks and jaw
+  const skull = sculptHead(turn([[0, -.113], [.05, -.106], [.075, -.09], [.09, -.065], [.098, -.035], [.1, 0], [.098, .035], [.086, .07], [.052, .1], [0, .113]], .003, 12, Math.PI, Math.PI * 2, 48).scale(...(o.faceShape || [.92, 1.06, 1.05])), o.sculpt ?? 1); add(skull, M.skin, head);   // the head: one sculpted egg, full in the cheeks and jaw
   for (const x of [-.091, .091]) { add(S(.021, .5, 1, .78, .001, 20), M.skin, head, [x, -.022, -.012], [0, Math.sign(x) * .35, 0]);   // ears, eye-to-nose height
     add(lump(new THREE.TorusGeometry(.011, .003, 6, 14, Math.PI * 1.3), .0005, 30), M.crease, head, [x * 1.07, -.02, -.008], [0, Math.sign(x) * (Math.PI / 2 - .35), Math.PI * .3]); }
   // the hair cap: a slightly larger copy of the sculpted skull, cut along a hairline (swept to one side, like the sheet's fringe),
   // so it always sits snug on whatever head shape the sculpt makes
   { const cap = skull.clone(), p = cap.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), front = Math.min(1, Math.max(0, z / .075));
-      const h = z < -.01 ? 1 : y - (.056 - .05 * (1 - front) + .016 * x / .09 - .01 * Math.max(0, -x / .09) * front);   // > 0 above the hairline
+      const h = z < -.01 ? 1 : y - ((o.hairline ?? .056) - .05 * (1 - front) + .016 * x / .09 - .01 * Math.max(0, -x / .09) * front);   // > 0 above the hairline
       const t = Math.min(1, Math.max(0, (h + .004) / .012)), k = .86 + .21 * t * t * (3 - 2 * t);                   // below it the hair thins into the skin: a smooth edge
       p.setXYZ(i, x * k, y * (k - .025 * t) + .002 * t, z * k - .002 * t); }
     cap.computeVertexNormals();
-    const hm = M.hair.clone(); hm.side = THREE.DoubleSide; add(lump(cap, .004, 8), hm, head); }
+    const hm = M.hair.clone(); hm.side = THREE.DoubleSide; add(lump(cap, .004, 8), hm, head);
+    if (o.hairTop) add(S(.107, 1.03, .52, 1.0, .004, 8), M.hair, head, [.012, .074, -.006], [.22, 0, -.22]); }   // the fringe swept across the forehead, lower on one side   // a fuller, rounded top (the sheet's hair volume)
   const back = G(head, [0, -.02, -.07]);
   if (o.longHair !== false) {
     sec.hair = G(head, [0, .06, -.012]);
     const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.124, -.08], [.133, -.16], [.152, -.225], [.16, -.26], [.148, -.29], [.124, -.288], [.11, -.2], [.1, -.08], [.096, .02], [.085, .07]],
-      .004, 7, 1.3, Math.PI * 2 - 2.6, 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(1, 1, .95);           // rests on the shoulders, wider at the ends
-    for (const a of [1.3, -1.3]) {                                                                                     // the two locks framing the face (they close the curtain's edges)
-      const lock = G(sec.hair, [Math.sin(a) * .112, -.06, Math.cos(a) * .112 * .95]);
+      .004, 7, o.hairGap ?? 1.3, Math.PI * 2 - 2 * (o.hairGap ?? 1.3), 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(o.hairThick || 1, 1, o.hairThick ? 1.04 : .95);           // rests on the shoulders, wider at the ends
+    for (const a of [o.hairGap ?? 1.3, -(o.hairGap ?? 1.3)]) {                                                                                     // the two locks framing the face (they close the curtain's edges)
+      const lock = G(sec.hair, [Math.sin(a) * .112 * (o.hairThick || 1), -.06, Math.cos(a) * .112 * .95]);
       add(turn([[0, .06], [.017, .04], [.022, -.02], [.024, -.11], [.024, -.17], [.016, -.205], [0, -.21]], .002, 10), M.hair, lock, [0, 0, 0], [0, a, -Math.sign(a) * .05]); }
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
   // face
   const faceLight = new THREE.PointLight(o.faceColor || 0xffe6d0, o.faceLight ?? .35, .9, 1.6); faceLight.position.set(0, .03, .55); head.add(faceLight);
-  const face = G(head, [0, -.012, .079]);                                     // the features sit on the sculpted (flatter) face
+  const sk = o.sculpt ?? 1, fz = (o.faceShape || [.92, 1.06, 1.05])[2];
+  const face = G(head, [0, -.012, .035 + (.1 * fz - .035) * (1 - .3 * sk) - .005 * sk]);   // the features sit on the sculpted face, however strong the sculpt
   const eyes = [], whites = [], lids = [], brows = [], caps = [];
   for (const x of [-.034, .034]) {
-    whites.push(add(S(.017, 1.15, 1, .35, .001, 20), M.white, face, [x, 0, -.002]));
-    const e = add(new THREE.SphereGeometry(.0098, 14, 10), M.eye, face, [x, 0, .004]); eyes.push(e);
-    add(new THREE.SphereGeometry(.0028, 8, 6), M.shine, e, [.0035, .0042, .0085]).castShadow = false;                  // the catchlight: the eyes look wet and alive
-    add(S(.012, 1.3, .75, .25, .0005, 20), M.blush, face, [x * 1.55, -.033, .003]).castShadow = false;
+    const es = (o.eyeSize || .0098) / .0098;                                         // eye size relative to the default
+    whites.push(add(S(.017 * es, 1.15, 1, .35, .001, 20), M.white, face, [x, 0, -.002]));
+    const e = add(new THREE.SphereGeometry(.0098 * es, 14, 10), M.eye, face, [x, 0, .004 * es]); eyes.push(e);
+    add(new THREE.SphereGeometry(.0028 * es, 8, 6), M.shine, e, [.0035 * es, .0042 * es, .0085 * es]).castShadow = false;                  // the catchlight: the eyes look wet and alive
+    if (o.blush !== false) add(S(.012, 1.3, .75, .25, .0005, 20), M.blush, face, [x * 1.55, -.033, .003]).castShadow = false;
     lids.push(add(Cp(.0035, .022, .0005, 30), M.hair, face, [x, -.002, .006], [0, 0, Math.PI / 2]));
-    const cap = add(new THREE.SphereGeometry(.0128, 20, 10, 0, Math.PI * 2, 0, Math.PI * .5), M.skin, face, [x, .0005, .004]); cap.castShadow = false; caps.push(cap);   // the upper eyelid
-    add(new THREE.TorusGeometry(.0125, .0016, 5, 14, Math.PI * .5), M.crease, face, [x, -.001, .0015], [0, 0, -Math.PI * .75]).castShadow = false;   // a soft line under the eye
+    const cap = add(new THREE.SphereGeometry(.0128 * es, 20, 10, 0, Math.PI * 2, 0, Math.PI * .5), M.skin, face, [x, .0005, .004 * es]); cap.castShadow = false; caps.push(cap);   // the upper eyelid
+    if (o.eyeLines !== false) add(new THREE.TorusGeometry(.0125, .0016, 5, 14, Math.PI * .5), M.crease, face, [x, -.001, .0015], [0, 0, -Math.PI * .75]).castShadow = false;   // a soft line under the eye
     const br = new THREE.Group(); br.position.set(x, .031, .001); face.add(br);                                        // an arched brow, thick in the middle
-    add(new THREE.TorusGeometry(.017, .0058, 6, 16, Math.PI * .5).scale(1, .75, 1), M.hair, br, [0, -.012, 0], [0, 0, Math.PI * .25]); brows.push(br);
+    if (o.brow === 'dash') add(Cp(.0062, .016, .0006, 24), M.hair, br, [0, -.004, 0], [0, 0, Math.PI / 2 + (x > 0 ? -.28 : .28)]);   // a thick short dash, tilted worried
+    else add(new THREE.TorusGeometry(.017, .0058, 6, 16, Math.PI * .5).scale(1, .75, 1), M.hair, br, [0, -.012, 0], [0, 0, Math.PI * .25]);
+    brows.push(br);
     if ((o.age || 0) > .4) { add(new THREE.TorusGeometry(.015, .0018, 5, 14, Math.PI * .5), M.crease, face, [x, -.006, 0], [0, 0, -Math.PI * .75]);   // bags under the eyes
       add(Cp(.0016, .028, .0003, 30), M.crease, face, [x * 1.05, -.05, -.004], [0, 0, (x > 0 ? 1 : -1) * .55]); }            // the lines from nose to mouth
   }
-  add(S(.0115, .95, .85, 1.15, .001, 18), M.skin, face, [0, -.033, .01]); add(Cp(.0058, .012, .0008, 24), M.skin, face, [0, -.02, .003], [-.35, 0, 0]);   // nose: a rounded tip and a soft bridge
+  if (o.nose === 'button') add(S(.0092, 1.0, .95, .95, .001, 18), M.skin, face, [0, -.03, .006]);              // a small round button nose
+  else { add(S(.0115, .95, .85, 1.15, .001, 18), M.skin, face, [0, -.033, .01]); add(Cp(.0058, .012, .0008, 24), M.skin, face, [0, -.02, .003], [-.35, 0, 0]); }   // nose: a rounded tip and a soft bridge
   if ((o.age || 0) > .6) for (const y of [.058, .07]) add(Cp(.0015, .045, .0003, 30), M.crease, face, [0, y, -.008], [0, 0, Math.PI / 2]);   // forehead lines
   const mouth = G(face, [0, -.06, -.003]);
   const mLine = add(new THREE.TorusGeometry(.013, .0034, 6, 18, Math.PI * .6).rotateZ(Math.PI * .2), M.mouth, mouth, [0, 0, .004]);   // the curve centred on its top, so it flattens evenly mLine.castShadow = false;   // the mouth: a curved line
@@ -184,8 +190,8 @@ export function makePerson(o = {}) {
   const teeth = [add(new THREE.BoxGeometry(.026, .006, .004), M.tooth, mOpen, [0, .0075, .005]), add(new THREE.BoxGeometry(.022, .005, .004), M.tooth, mOpen, [0, -.008, .005])];
   // arms and legs
   const arms = [-1, 1].map(sd => {
-    const up = G(chest, [sd * .175, .44, 0]); add(turn([[0, .035], [.04, .028], [.06, 0], [.064, -.06], [.06, -.16], [.054, -.25], [.05, -.29]], .006, 6), M.top, up);
-    const fo = G(up, [0, -.27, 0]); add(turn([[.05, .035], [.052, -.02], [.054, -.1], [.059, -.17], [.06, -.2], [.05, -.22], [.03, -.226], [0, -.227]], .006, 6), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
+    const up = G(chest, [sd * .175, .44, 0]); const pf = o.puffy || 1; add(turn([[0, .035], [.04, .028], [.06 * pf, 0], [.066 * pf, -.06], [.064 * pf, -.16], [.056 * pf, -.25], [.05, -.29]], .006, 6), M.top, up);
+    const fo = G(up, [0, -.27, 0]); add(turn([[.05, .035], [.054 * pf, -.02], [.06 * pf, -.1], [.066 * pf, -.16], [.064 * pf, -.2], [.048, -.222], [.03, -.226], [0, -.227]], .006, 6), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
     add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]);
     add(fold(.052, .013), M.top, fo, [0, -.215, 0], [Math.PI / 2, 0, 0]);              // sleeve cuff
     const hand = G(fo, [0, -.25, 0]); add(S(.027, .85, 1.0, .5, .002, 18), M.skin, hand, [0, -.022, 0]);
@@ -212,7 +218,7 @@ export function makePerson(o = {}) {
     eyes.forEach((e, i) => { e.visible = open; e.scale.setScalar(s === 'wide' ? 1.15 : 1); e.position.copy(eyeBase[i]); }); tears.forEach(t => t.visible = false);
     whites.forEach(w => { w.visible = s === 'wide'; });
     lids.forEach((l, i) => { l.visible = !open; l.scale.set(1, s === 'squeeze' ? 1.25 : 1, 1); l.rotation.z = Math.PI / 2 + (s === 'squeeze' ? (i ? -.25 : .25) : 0); });
-    caps.forEach(c => { c.visible = open; c.rotation.x = s === 'wide' ? -1.15 : -.62; });   // the lid only over the top of the eye
+    caps.forEach(c => { c.visible = open && o.lids !== false; c.rotation.x = s === 'wide' ? -1.15 : -.62; });   // the lid only over the top of the eye
   };
   P.brows = k => brows.forEach((b, i) => { b.rotation.z = (i ? -1 : 1) * k * .45; b.position.y = .031 + Math.abs(k) * .005; });  // k>0 worried, k<0 cross
   P.mouth = (s, amt = 1) => {     // 'closed' | 'pressed' | 'smile' | 'frown' | 'open' | 'gums' | 'o' | 'grimace' | 'scream'   (amt: how much)
@@ -228,7 +234,7 @@ export function makePerson(o = {}) {
   // ---- expressions: continuous controls, then named looks built from them (P.expr('scared'))
   P.lid = v => {                  // upper lid: 0 wide open .. 1 shut
     if (v >= .9) { P.eyes('closed'); return; }
-    eyes.forEach(e => e.visible = true); lids.forEach(l => l.visible = false); caps.forEach(c => { c.visible = true; c.rotation.x = -1.2 + v * 1.85; });
+    eyes.forEach(e => e.visible = true); lids.forEach(l => l.visible = false); caps.forEach(c => { c.visible = o.lids !== false || v > .3; c.rotation.x = -1.2 + v * 1.85; });
   };
   P.pupils = k => eyes.forEach(e => e.scale.setScalar(k));                   // small pupils = fear
   P.look = (x = 0, y = 0) => eyes.forEach((e, i) => e.position.set(eyeBase[i].x + x * .005, eyeBase[i].y + y * .004, eyeBase[i].z));   // -1..1
@@ -396,7 +402,9 @@ export function followFrame(frame, people, {samples = 5, dt = 1 / 12} = {}) {
     });
   };
 }
-export const haruOpts = {headScale: 1.14, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};
+export const haruOpts = {headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
+  puffy: 1.22, hairThick: 1.22, hairGap: 1.12, hairTop: true, hairline: .066, neckLen: .195,
+  skin: 0xe8a27c, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};       // matched to the Artlist sheets
 export const mumOpts = {headScale: 1.05, top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
 
 // ---------------------------------------------------------------- the Tooth Fairy
