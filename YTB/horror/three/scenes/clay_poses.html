@@ -1,0 +1,40 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Check page for the clay kit's expressions, poses and movement.  ?mode=expr|pose|move  renderAt(i) shows item i (expr, pose);
+// mode=move: t in seconds: Haru runs, stops dead, then whips her head round (the hair, hood and drawstrings should trail and settle).
+import {THREE, setup} from './lib.js';
+import {clay, add, makePerson, haruOpts, boil, EXPR, POSES, pose, walk, tremble, followFrame} from './clay.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), MODE = q.get('mode') || 'expr';
+const {scene, cam, render} = setup({bloom: .3, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+scene.background = new THREE.Color(0xd8d6d2);
+add(new THREE.PlaneGeometry(30, 30).rotateX(-Math.PI / 2), clay(0x3a3634), scene);
+const key = new THREE.DirectionalLight(0xfff0dc, 2.2); key.position.set(2, 4, 4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); scene.add(key);
+scene.add(new THREE.HemisphereLight(0xc8d0e0, 0x302820, .7));
+const H = makePerson(haruOpts); scene.add(H.root);
+const reset = P => { P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0);
+  for (const o of [P.hips, P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.eyes('open'); P.brows(0); P.mouth('closed'); };
+const EX = Object.keys(EXPR), PO = Object.keys(POSES);
+function frame(t) {
+  boil(Math.floor(t * 6)); reset(H);
+  if (MODE === 'expr') { H.rest(); H.expr(EX[Math.floor(t) % EX.length]); const h = H.head.getWorldPosition(new THREE.Vector3()); cam.position.set(h.x + .05, h.y - .02, h.z + .75); cam.lookAt(h.x, h.y - .05, h.z); cam.fov = 30; }
+  else if (MODE === 'pose') { const n = PO[Math.floor(t) % PO.length]; H.rest(); pose(H, n); H.expr(n === 'cry' ? 'crying' : n === 'scared' || n === 'cower' ? 'scared' : 'neutral');
+    H.root.rotation.y = -.5; cam.position.set(0, 1.0, 3.6); cam.lookAt(0, .78, 0); cam.fov = 38; }
+  else {                                   // run 0..1.6 s along x, stop dead, at 2.4 s whip the head round
+    const q12 = Math.floor(t * 12) / 12, run = q12 < 1.6;
+    H.root.rotation.y = Math.PI / 2; H.root.position.x = run ? -2.2 + q12 * 2.2 : 1.32;
+    if (run) walk(H, q12, {run: true}); else { H.rest(); H.expr('scared'); }
+    if (q12 >= 2.4) H.head.rotation.y = Math.min(1, (q12 - 2.4) / .25) * 1.3;
+    cam.position.set(1.2, 1.1, 2.4); cam.lookAt(1.2, 1.0, 0); cam.fov = 34;
+  }
+  cam.updateProjectionMatrix();
+}
+const frameFX = followFrame(frame, () => [H]);
+window.renderAt = t => { frameFX(t); render(t); };
+window.EXN = EX.length; window.H = H; window.PON = PO.length;
+window.renderAt(0); window.ready = true;
+</script></body></html>

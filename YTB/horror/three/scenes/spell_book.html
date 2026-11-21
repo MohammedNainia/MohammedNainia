@@ -7,7 +7,7 @@
 // Timed to YTB/horror/spell_book/voice/layout.json (copied to three/data). Poses held on twos; the clay boils every other pose.
 // Places: the attic, the street (the backwards world at night, or the ordinary street in the morning), the kitchen.
 import {THREE, setup, ease, clamp01, lerp} from './lib.js';
-import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts} from './clay.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame} from './clay.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
 const {scene, cam, renderer, render} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -323,6 +323,7 @@ function frame(t) {
   }
 }
 
-window.renderAt = t => { frame(t); if (black) renderer.render(emptyScene, cam); else render(t); };
+const frameFX = followFrame(frame, () => [haru, mum, gran, girlR, ...mourners.map(m => m.P)]);   // hair, hoods and drawstrings swing and settle
+window.renderAt = t => { frameFX(t); if (black) renderer.render(emptyScene, cam); else render(t); };
 window.renderAt(0); window.ready = true;
 </script></body></html>
