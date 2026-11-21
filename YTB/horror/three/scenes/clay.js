@@ -239,8 +239,8 @@ export const POSES = {
   stand: {},
   scared: {chest: [.25, 0, 0], neck: [.1, 0, 0], head: [-.18, 0, 0], arms: A([-.55, .55, -.1], [-1.5, 0, 0]), legs: {th: [-.15, 0, 0], sh: [.3, 0, 0]}, drop: .03},
   cower: {chest: [.65, 0, 0], head: [.25, 0, 0], arms: A([-2.5, .4, -.35], [-1.3, 0, 0]), legs: {th: [-1.95, 0, .12], sh: [2.25, 0, 0]}, drop: .44},
-  handsMouth: {arms: A([-1.4, .8, 0], [-2.15, 0, 0]), chest: [.08, 0, 0]},
-  cry: {chest: [.35, 0, 0], head: [.4, 0, 0], arms: A([-1.45, .65, 0], [-2.3, 0, 0])},
+  handsMouth: {arms: A([-1.2, .8, 0], [-2.3, 0, 0]), chest: [.08, 0, 0], head: [.1, 0, 0]},   // both hands over the mouth, eyes free
+  cry: {chest: [.4, 0, 0], neck: [.2, 0, 0], head: [.35, 0, 0], arms: A([-1.3, .7, 0], [-2.35, 0, 0])},   // face buried in her hands
   point: {armR: A([-1.45, 0, -.05], [-.1, 0, 0]), head: [0, -.2, 0]},
   reach: {arms: A([-1.3, .15, 0], [-.25, 0, 0]), chest: [.15, 0, 0]},
   armsCrossed: {arms: A([-.5, 1.1, .1], [-1.75, 0, 0]), chest: [-.05, 0, 0]},
