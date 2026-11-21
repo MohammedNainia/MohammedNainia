@@ -54,7 +54,7 @@ function reset(P) {
   P.chest.rotation.set(0, 0, 0); P.neck.rotation.set(0, 0, 0); P.head.rotation.set(0, 0, 0); P.back.rotation.set(0, 0, 0);
   P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
-  P.eyes('open'); P.brows(0); P.mouth('closed');
+  P.eyes('open'); P.brows(0); P.mouth('closed'); if (P.rest) P.rest();     // a relaxed stance, then each shot poses on top of it
 }
 function walk(P, t, speed = 1, amp = 1) {
   const ph = t * PI * 2 * speed, sw = Math.sin(ph);

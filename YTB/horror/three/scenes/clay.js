@@ -42,12 +42,13 @@ export function add(geo, mat, parent, pos = [0, 0, 0], rot = [0, 0, 0]) {
 export const S = (r, sx = 1, sy = 1, sz = 1, a = .003, f = 12) => lump(new THREE.SphereGeometry(r, 36, 26).scale(sx, sy, sz), a, f);
 export const Cp = (r, l, a = .003, f = 12) => lump(new THREE.CapsuleGeometry(r, l, 8, 20), a, f);
 export const tube = (r0, r1, l, a = .006, f = 7) => lump(new THREE.CylinderGeometry(r0, r1, l, 20, 8, false), a, f);   // a cloth tube: r0 top, r1 bottom
-export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t, 8, 20), a, 16);                                 // bunched cloth ring
+let fs = 11; const frnd = () => (fs = (fs * 16807) % 2147483647) / 2147483647;
+export const fold = (r, t, a = .002) => lump(new THREE.TorusGeometry(r, t * (.8 + .5 * frnd()), 8, 20, Math.PI * (1.15 + .6 * frnd())).rotateZ(frnd() * 6.28).scale(1, 1, .8 + .4 * frnd()), a, 16);   // bunched cloth: a broken, uneven ring
 export const G = (parent, pos = [0, 0, 0]) => { const g = new THREE.Group(); g.position.set(...pos); parent.add(g); return g; };
 
 // ---------------------------------------------------------------- a person (Haru or Mum): ~7 heads tall, joints, face controls
 export function makePerson(o = {}) {
-  const M = {skin: clay(o.skin || 0xf0c9a8, {bumpScale: .35}), top: clay(o.top || 0xe0a33a, {bumpScale: 1.2}), pants: clay(o.pants || 0x5a5862, {bumpScale: 1.2}),
+  const M = {skin: clay(o.skin || 0xefc09c, {bumpScale: .35}), top: clay(o.top || 0xe0a33a, {bumpScale: 1.2}), pants: clay(o.pants || 0x5a5862, {bumpScale: 1.2}),
     shoe: clay(o.shoe || 0xf2eee6), hair: clay(o.hair || 0x24222a, {bumpScale: .8}), eye: gloss(0x0c0c0e), white: gloss(0xf4f0e8),
     mouth: clay(0x2a0c10, {bumpScale: 0}), gum: clay(0xd86a78, {bumpScale: .2}), tooth: gloss(0xfaf6ee),
     blush: clay(0xd89080, {bumpScale: 0, transparent: true, opacity: .22}), sole: clay(0x3a3532, {bumpScale: .6}), lace: clay(0xd8d2c8, {bumpScale: 0}),
@@ -56,26 +57,28 @@ export function makePerson(o = {}) {
   const hips = G(root, [0, .82, 0]);
   add(S(.125, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
   const chest = G(hips, [0, .06, 0]);
-  add(Cp(.135, .26, .008, 6).scale(1.1, 1, .78), M.top, chest, [0, .23, 0]);
-  for (const x of [-1, 1]) add(S(.075, 1.25, .62, .9, .006, 7), M.top, chest, [x * .135, .425, 0], [0, 0, -x * .45]);   // sloped shoulders
+  add(Cp(.14, .26, .008, 6).scale(1.16, 1, .82), M.top, chest, [0, .23, 0]);
+  add(S(.148, 1.2, .55, .74, .008, 6), M.top, chest, [0, .03, 0]);                                                       // the hoodie blousing over its hem
+  for (const x of [-1, 1]) add(S(.068, 1.2, .6, .9, .006, 7), M.top, chest, [x * .13, .425, 0], [0, 0, -x * .5]);   // sloped shoulders
   add(Cp(.13, .05, .006, 7).scale(1.18, 1, .82), M.top, chest, [0, -.01, 0]);
-  add(fold(.13, .022, .003).scale(1.18, .82, 1), M.top, chest, [0, -.045, 0], [Math.PI / 2, 0, 0]);                     // the hem band
-  if (o.pocket !== false) add(S(.07, 1.5, .42, .28, .003, 14), M.top, chest, [0, .08, .095]);
-  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.075, .035, 12, 24), .003, 14), M.top, chest, [0, .47, -.03], [Math.PI / 2 + .35, 0, 0]);
-    for (const x of [-.028, .028]) { add(Cp(.005, .085, .0008, 24), M.lace, chest, [x, .37, .1], [.12, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .315, .107]); } }
+  add(lump(new THREE.TorusGeometry(.13, .024, 8, 28), .003, 14).scale(1.22, .86, 1), M.top, chest, [0, -.07, 0], [Math.PI / 2, 0, 0]);   // the hem band, down at the hips
+  if (o.pocket !== false) add(lump(new THREE.BoxGeometry(.2, .1, .03, 8, 4, 2), .004, 10), M.top, chest, [0, .055, .108], [-.08, 0, 0]);                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
+  if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.072, .048, 12, 24), .005, 9), M.top, chest, [0, .49, -.01], [Math.PI / 2 + .25, 0, 0]);   // the hood, bunched round the neck
+    add(S(.09, 1.1, .7, .6, .006, 8), M.top, chest, [0, .5, -.075]);
+    for (const x of [-.028, .028]) { add(Cp(.005, .09, .0008, 24), M.lace, chest, [x, .38, .122], [.2, 0, x * 2]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, chest, [x * 1.15, .322, .132]); } }
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.042, .045, .002, 16), M.skin, neck, [0, .02, 0]);
-  const head = G(neck, [0, .14, 0]);
+  const head = G(neck, [0, .14, 0]); head.scale.setScalar(o.headScale || 1);
   add(S(.1, .94, 1.12, 1.02, .003, 14), M.skin, head);
   add(S(.03, 1, .8, .6, .002, 16), M.skin, head, [0, -.075, .055]);
   for (const x of [-.093, .093]) add(S(.019, .55, 1, .75, .001, 20), M.skin, head, [x, -.012, -.004]);            // ears (long hair hides them)
   add(S(.109, 1.02, 1.1, 1.0, .004), M.hair, head, [0, .02, -.02]);
   const fringe = new THREE.Mesh(lump(new THREE.SphereGeometry(.112, 32, 14, 0, Math.PI * 2, 0, .9).scale(1.0, 1.08, 1.0), .002, 14), M.hair.clone());
-  fringe.material.side = THREE.DoubleSide; fringe.position.set(0, .022, .004); fringe.rotation.x = .35; fringe.castShadow = true; head.add(fringe);
+  fringe.material.side = THREE.DoubleSide; fringe.position.set(0, .022, .004); fringe.rotation.set(.35, 0, -.14); fringe.castShadow = false;   // no hard shadow across the face (a soft studio light in the sheet) head.add(fringe);
   const back = G(head, [0, -.02, -.07]);
   if (o.longHair !== false) {
-    add(Cp(.085, .3, .004, 10).scale(1.25, 1, .42), M.hair, back, [0, -.2, 0]);
-    for (const x of [-.092, .092]) add(Cp(.024, .22, .002, 14), M.hair, head, [x, -.14, .005]);
+    add(Cp(.09, .3, .005, 8).scale(1.4, 1, .55), M.hair, back, [0, -.19, 0]);
+    for (const x of [-.094, .094]) add(Cp(.03, .22, .003, 10).scale(1, 1, 1.3), M.hair, head, [x, -.13, -.005]);
     for (let i = 0; i < 5; i++) add(Cp(.016, .26, .002, 14), M.hair, back, [(i - 2) * .036, -.2 - (i % 2) * .02, -.028], [0, 0, (i - 2) * .05]);   // strands
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
@@ -88,7 +91,7 @@ export function makePerson(o = {}) {
     add(new THREE.SphereGeometry(.0028, 8, 6), M.shine, e, [.0035, .0042, .0085]).castShadow = false;                  // the catchlight: the eyes look wet and alive
     add(S(.012, 1.3, .75, .25, .0005, 20), M.blush, face, [x * 1.55, -.035, -.007]).castShadow = false;
     lids.push(add(Cp(.0035, .022, .0005, 30), M.hair, face, [x, -.002, .006], [0, 0, Math.PI / 2]));
-    brows.push(add(Cp(.004, .022, .0005, 30), M.hair, face, [x, .034, .002], [0, 0, Math.PI / 2]));
+    brows.push(add(Cp(.0055, .022, .0005, 30), M.hair, face, [x, .034, .002], [0, 0, Math.PI / 2]));
   }
   add(S(.01, .9, 1, .8, .001, 18), M.skin, face, [0, -.03, .01]);                  // nose
   const mouth = G(face, [0, -.058, .002]);
@@ -133,11 +136,17 @@ export function makePerson(o = {}) {
     mOpen.visible = s === 'open' || s === 'gums'; mOpen.scale.set(1, .35 + .65 * amt, 1);
     teeth.forEach(t => t.visible = s === 'open'); gums.forEach(g => g.visible = s === 'gums');
   };
+  P.rest = (k = 1) => {
+    hips.rotation.z += .035 * k; hips.position.x += .008 * k; chest.rotation.z -= .05 * k; chest.rotation.x += .03 * k; neck.rotation.z += .03 * k; head.rotation.z += .04 * k;
+    arms[0].up.rotation.z -= .06 * k; arms[0].up.rotation.x += .06 * k; arms[0].fo.rotation.x -= .14 * k;
+    arms[1].up.rotation.z += .1 * k; arms[1].up.rotation.x -= .05 * k; arms[1].fo.rotation.x -= .3 * k; arms[1].hand.rotation.y = .4 * k;
+    legs[0].th.rotation.z -= .03 * k; legs[1].th.rotation.z += .05 * k; legs[1].th.rotation.x -= .08 * k; legs[1].sh.rotation.x += .14 * k; legs[1].ft.rotation.x -= .05 * k;
+  };
   P.eyes('open'); P.brows(0); P.mouth('closed');
   return P;
 }
-export const haruOpts = {};
-export const mumOpts = {top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
+export const haruOpts = {headScale: 1.22, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};
+export const mumOpts = {headScale: 1.05, top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
 
 // ---------------------------------------------------------------- the Tooth Fairy
 export function makeFairy(opt = {}) {
