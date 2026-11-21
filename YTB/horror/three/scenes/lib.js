@@ -6,10 +6,11 @@ import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+import {BokehPass} from 'three/addons/postprocessing/BokehPass.js';
 export {THREE};
 export let W = 1080, H = 1920;
 
-export function setup({bloom = .45, ao = true, w = 1080, h = 1920} = {}) {
+export function setup({bloom = .45, ao = true, w = 1080, h = 1920, dof = false} = {}) {
   W = w; H = h;
   const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
   renderer.setPixelRatio(1); renderer.setSize(W, H);
@@ -21,6 +22,11 @@ export function setup({bloom = .45, ao = true, w = 1080, h = 1920} = {}) {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, cam));
   if (ao) { const p = new GTAOPass(scene, cam, W, H); p.updateGtaoMaterial({radius: .3, distanceExponent: 1.5, thickness: 1, scale: 1.2}); composer.addPass(p); }
+  // depth of field (a real lens on a miniature set): dofPass.set(focusDistance, strength) each shot; strength 0 = off. Page option ?dof=0 turns it off.
+  const useDof = dof && !/[?&]dof=0/.test(location.search);
+  const bokeh = useDof ? new BokehPass(scene, cam, {focus: 2, aperture: .0007, maxblur: .012}) : null;
+  if (bokeh) composer.addPass(bokeh);
+  const dofPass = {set(dist, k = 1) { if (!bokeh) return; bokeh.enabled = k > 0; bokeh.uniforms.focus.value = dist; bokeh.uniforms.aperture.value = .0007 * k; }};
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), bloom, .6, .85));
   composer.addPass(new OutputPass());
   const grain = new ShaderPass({uniforms: {tDiffuse: {value: null}, seed: {value: 0}, vig: {value: .55}},
@@ -31,7 +37,7 @@ export function setup({bloom = .45, ao = true, w = 1080, h = 1920} = {}) {
         c.rgb+=(h(vUv*1000.)-.5)*.05; gl_FragColor=c; }`});
   composer.addPass(grain);
   const render = t => { grain.uniforms.seed.value = t; composer.render(); };
-  return {renderer, scene, cam, composer, grain, render};
+  return {renderer, scene, cam, composer, grain, render, dofPass};
 }
 
 export const ease = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };

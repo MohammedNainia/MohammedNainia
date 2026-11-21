@@ -8,8 +8,9 @@
 // Places: the attic, the street (the backwards world at night, or the ordinary street in the morning), the kitchen.
 import {THREE, setup, ease, clamp01, lerp} from './lib.js';
 import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame} from './clay.js';
+import * as K from './clay_sets.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
-const {scene, cam, renderer, render} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+const {scene, cam, renderer, render, dofPass} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true});
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
 cam.near = .01; cam.far = 60; cam.updateProjectionMatrix();
@@ -90,6 +91,16 @@ add(box(.66, .03, .03, .002, 6), M.wood, AT, [0, 1.45, -1.83]); add(box(.03, .66
 [[-.9, .2, -1.2, .5, .4, .4], [-1.0, .55, -1.25, .38, .3, .34], [.95, .22, -1.0, .6, .44, .45], [.7, .16, .6, .44, .32, .36]].forEach(([x, y, z, w, h, d]) => add(box(w, h, d, .006, 4), M.card, AT, [x, y, z], [0, rnd() * .4 - .2, 0]));
 const trunk = G(AT, [-.2, 0, -1.05]); add(box(.8, .42, .46, .006, 4), clay(0x4a2e22), trunk, [0, .21, 0]); add(box(.82, .04, .48, .003, 6), M.metal, trunk, [0, .4, 0]);
 const bookA = makeBook(); AT.add(bookA);
+// attic clutter (the kit): boxes against the eaves, a chair under a dust sheet, an old lamp, frames leaning, books, cobwebs in the beams
+[[-1.05, -.4, .2, .5, .36, .4], [-1.1, .2, -.3, .44, .3, .38], [-1.0, .75, .1, .38, .3, .34], [1.05, .9, -.2, .52, .38, .42], [1.1, 1.4, .3, .4, .3, .36]].forEach(([x, z, r, w, h, d]) => {
+  const b = K.cardBox(w, h, d); b.position.set(x, 0, z); b.rotation.y = r; AT.add(b); });
+{ const c = K.sheetChair(); c.position.set(.95, 0, -.55); c.rotation.y = -.7; c.scale.setScalar(.85); AT.add(c);
+  const l = K.oldLamp(); l.position.set(-.75, 0, .95); AT.add(l);
+  for (const [x, z, r, w, h] of [[1.05, .2, -1.3, .42, .52], [1.12, .05, -1.45, .3, .4]]) { const fr = K.frame(w, h, null, 0x6a4a2a); fr.position.set(x, h / 2 + .02, z); fr.rotation.set(-.25, r, 0); AT.add(fr); }
+  const bk = K.books(7, .2); bk.position.set(-.55, 0, -1.2); bk.rotation.set(0, .3, Math.PI / 2); AT.add(bk);
+  const bk2 = K.books(5, .18); bk2.position.set(.35, .02, -1.3); bk2.rotation.y = -.4; AT.add(bk2);
+  for (const [x, y, z, r] of [[-.55, 1.62, -1.85, 0], [.6, 1.55, -1.85, Math.PI], [-.9, 1.15, .4, -.4]]) { const w = K.cobweb(.42); w.position.set(x, y, z); w.rotation.set(0, r, 0); AT.add(w); }
+  const rg = K.rug(1.3, .9, 0x5a3a2e, 0xa88a5a); rg.position.set(.1, 0, .1); AT.add(rg); }
 const bulb = new THREE.PointLight(0xffc880, 1.8, 4.5, 1.4); bulb.position.set(0, 1.85, -.2); bulb.castShadow = true; bulb.shadow.mapSize.set(1024, 1024); AT.add(bulb);
 add(S(.04), new THREE.MeshBasicMaterial({color: 0xffe0a0}), AT, [0, 1.9, -.2]); add(Cp(.004, .3), M.pole, AT, [0, 2.1, -.2]);
 const atAmb = new THREE.HemisphereLight(0x50483e, 0x0a0806, .35); AT.add(atAmb);
@@ -165,13 +176,29 @@ function world(backwards) {                                          // the back
   SR.traverse(o => { if (o.userData.on !== undefined) o.material = backwards && o.userData.on ? M.winOn : M.winOff; });
 }
 
-// ================================================================ THE KITCHEN (morning)
+// ================================================================ THE KITCHEN (morning), dressed with the set kit
 const KI = G(scene);
-add(box(5, .1, 5, .01, 1.2), M.floor, KI, [0, -.05, 0]); add(box(5, 3, .1, .015, 1), clay(0x8a8a6e), KI, [0, 1.5, -2.2]).castShadow = false; add(box(.1, 3, 5, .015, 1), clay(0x8a8a6e), KI, [-2.3, 1.5, 0]).castShadow = false;
-add(box(2.6, .9, .6, .008, 3), clay(0x5a6a56), KI, [-.4, .45, -1.85]); add(box(2.64, .05, .64, .004, 6), M.tile, KI, [-.4, .92, -1.85]);
-add(box(.7, .04, .5, .003, 6), clay(0x1a1a1a), KI, [.2, .95, -1.85]); const pan = G(KI, [.2, 1.0, -1.75]); add(new THREE.CylinderGeometry(.13, .11, .06, 20), M.metal, pan); add(Cp(.015, .25), M.metal, pan, [.26, 0, 0], [0, 0, PI / 2]);
-add(box(.75, 1.8, .7, .01, 3), clay(0xd8d2c4), KI, [1.5, .9, -1.8]);
-add(new THREE.PlaneGeometry(1.0, .8), new THREE.MeshBasicMaterial({color: 0xcfe0f0}), KI, [-2.24, 1.6, -.6], [0, PI / 2, 0]);
+const planks = K.canvasTex(256, 256, (g, w, h) => { for (let i = 0; i < 8; i++) { g.fillStyle = ['#6a4a34', '#5e4230', '#73513a'][i % 3]; g.fillRect(0, i * 32, w, 32);
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, i * 32, w, 2); g.fillRect((i * 97) % w, i * 32, 2, 32); } }, [4, 4]);
+add(box(5, .1, 5, .01, 1.2), clay(0xffffff, {map: planks}), KI, [0, -.05, 0]);
+const kPaper = clay(0xffffff, {map: K.wallpaper(0x9a9a7a, 0x84846a, 'stripe', [6, 2])});
+{ const w1 = K.wall(5, 3, kPaper, {rail: 0xe8e2d6}); w1.position.set(0, 0, -2.25); KI.add(w1);
+  const w2 = K.wall(5, 3, kPaper, {rail: 0xe8e2d6}); w2.position.set(-2.35, 0, 0); w2.rotation.y = PI / 2; KI.add(w2);
+  const wn = K.windowFrame(1.0, 1.0, {view: 0xcfe0f0, curtains: 0xb05a40}); wn.position.set(-2.28, 1.05, -.6); wn.rotation.y = PI / 2; KI.add(wn);
+  const ct = K.counter({len: 2.6, body: 0x5a6a56}); ct.position.set(-.4, 0, -1.92); KI.add(ct); const top = ct.userData.top;
+  const st = K.stove(); st.position.set(.25, top, -1.92); KI.add(st);
+  const sk = K.sink(); sk.position.set(-1.15, top, -1.92); KI.add(sk);
+  const wc = K.wallCabinets({len: 1.7}); wc.position.set(-.85, 1.85, -2.03); KI.add(wc);
+  const fr = K.fridge(); fr.position.set(1.5, 0, -1.84); KI.add(fr);
+  const ck = K.clock(); ck.position.set(.62, 2.15, -2.18); KI.add(ck);
+  for (const [x, c] of [[-.6, 0xd8d0c0], [-.48, 0x4a6a8a]]) { const m = K.mug(c); m.position.set(x, top, -1.98); KI.add(m); }
+  for (const [x, c] of [[-1.55, 0xc87830], [-1.43, 0x8a4a2a]]) { const j = K.jar(c); j.position.set(x, top, -2.05); KI.add(j); }
+  const pl = K.plant(); pl.position.set(-2.18, 1.05, -.15); KI.add(pl);
+  const tb = K.table({w: 1.0, d: .7}); tb.position.set(-1.35, 0, .45); KI.add(tb);
+  for (const [x, z, r] of [[-1.35, -.12, 0], [-1.35, 1.02, PI]]) { const c = K.chair(); c.position.set(x, 0, z); c.rotation.y = r; KI.add(c); }
+  const pf = K.frame(.34, .42); pf.position.set(-2.28, 1.6, .7); pf.rotation.y = PI / 2; KI.add(pf);
+  const rg = K.rug(1.4, .9); rg.position.set(.7, 0, .1); KI.add(rg); }
+const pan = K.pan(); pan.position.set(.39, 0, -1.81); KI.add(pan); pan.position.y = .945;
 const kSun = new THREE.DirectionalLight(0xffe6c0, 2.2); kSun.position.set(-4, 2.8, -.4); kSun.target.position.set(0, .6, -.6); kSun.castShadow = true; KI.add(kSun, kSun.target);
 KI.add(new THREE.HemisphereLight(0xc8d0e0, 0x302820, .7)); const kFill = new THREE.PointLight(0xffe8d0, 2.2, 5, 1.2); kFill.position.set(.5, 1.7, 1.2); KI.add(kFill);
 
@@ -181,7 +208,8 @@ const mum = makePerson(mumOpts); mum.s0 = 1.07; scene.add(mum.root);
 const bookH = makeBook(); scene.add(bookH);                                    // the book Haru carries into the other side
 
 // ================================================================ the timeline
-const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } };
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
+  dofPass.set(p.distanceTo(l), Math.min(2.2, Math.max(.4, 40 / fov - .3))); };   // focus on what the shot looks at; longer lenses blur more
 const show = place => { for (const g of [AT, SR, KI]) g.visible = g === place; };
 const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
 let black = false;
