@@ -100,5 +100,6 @@
   "skinTarget": "#e2a07e"
  },
  "clean": true,
- "skinDone": true
+ "skinDone": true,
+ "hair": false
 }
