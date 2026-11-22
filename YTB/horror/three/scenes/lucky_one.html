@@ -1,0 +1,379 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE LUCKY ONE (9:16, ~74 s): the clay kit (clay.js people, clay_sets.js sets, lib.js finish). Timed to lucky_one/voice/layout.json.
+// Action cut: something moves in every shot. Places (each its own group, only one shown):
+//   HS the house (hall, stairs, kitchen)   ST the street and bus stop (teen Haru, rain)   RD the long road and the broken bridge   FD the field and the graves
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, makeFairy, curl, haruOpts, followFrame, CLAY_RIM, pose, walk as kitWalk, look} from './clay.js';
+import * as K from './clay_sets.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+scene.background = new THREE.Color(0x0a0c10); cam.near = .02; cam.far = 120; cam.updateProjectionMatrix();
+let rs = 7; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const LAY = Object.fromEntries((await (await fetch('/data/lucky_one_layout.json')).json()).map(l => [l.name, l]));
+const MOUTH = await (await fetch('/data/lucky_one_mouths.json')).json();
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+const fog = K.haze(scene, 0x0a0c10, .04);
+const rbox = K.rbox;
+
+// ================================================================ materials
+const M = {floor: clay(0x5a4a3e, {bumpScale: .8}), wall: clay(0x8a7a66, {bumpScale: 1.2}), wallpaper: clay(0x6a5a60, {bumpScale: 1}), wood: clay(0x6a4a30), dark: clay(0x141214),
+  road: clay(0x2a2a2e, {bumpScale: 1.6}), line: clay(0xd8d2b8), kerb: clay(0x6a6a66), grass: clay(0x3a5a34, {bumpScale: 2}), stone: clay(0x7a7a76, {bumpScale: 1.4}),
+  white: clay(0xe8e2d6), metal: gloss(0x8a8e90, {roughness: .4}), cake: clay(0xf0e0d0), icing: clay(0xe86a8a), bulb: new THREE.MeshBasicMaterial({color: 0xfff0c8}),
+  flame: new THREE.MeshBasicMaterial({color: 0xffc860}), red: new THREE.MeshBasicMaterial({color: 0xff2a1a}), green: new THREE.MeshBasicMaterial({color: 0x40ff80}),
+  amber: new THREE.MeshBasicMaterial({color: 0xffa020}), frost: new THREE.MeshBasicMaterial({color: 0xcfe8ff}), spark: new THREE.MeshBasicMaterial({color: 0xbfe0ff}),
+  truck: clay(0x8a8a84), trailer: clay(0xc8c0b0), bus: clay(0xc8a038), umb: clay(0x141418, {side: THREE.DoubleSide}), coat: 0xa01e26};
+
+// ================================================================ places
+const HS = G(scene, [0, 0, 0]), ST_ = G(scene, [40, 0, 0]), RD = G(scene, [100, 0, 0]), FD = G(scene, [160, 0, 0]);
+const PLACES = [HS, ST_, RD, FD];
+
+// ---------------------------------------------------------------- HS: a long hall (z 2 .. -6), stairs climbing at the far end, the kitchen behind (z 2 .. 5)
+add(rbox(3.2, .1, 13, .01, .003, 2), M.floor, HS, [0, -.05, -1.5]);
+add(rbox(3.2, .1, 13, .01, .003, 2), clay(0x2a2622), HS, [0, 2.65, -1.5]);
+for (const s of [-1, 1]) add(rbox(.1, 2.7, 13, .01, .004, 2), M.wallpaper, HS, [s * 1.6, 1.35, -1.5]);
+add(rbox(3.2, 2.7, .1, .01, .004, 2), M.wallpaper, HS, [0, 1.35, 5]);
+// stairs: up the far end along -z, a banister
+const STEPS = [];
+for (let i = 0; i < 12; i++) STEPS.push(add(rbox(1.3, .18, .3, .02), M.wood, HS, [-.55, .09 + i * .18, -6.2 - i * .28]));
+add(rbox(1.3, 2.2, .1, .01), M.wallpaper, HS, [-.55, 3.3, -9.6]); add(rbox(3.2, .1, 4, .01), clay(0x2a2622), HS, [0, 3.9, -8]);
+for (let i = 0; i < 12; i += 2) add(Cp(.015, .9), M.wood, HS, [.1, .6 + i * .18, -6.2 - i * .28]);
+add(Cp(.025, 3.9), M.wood, HS, [.1, 1.45, -7.75], [1.18, 0, 0]);
+// picture frames on the walls (they drop in the run)
+const FRAMES = [];
+for (let i = 0; i < 6; i++) { const s = i % 2 ? 1 : -1, f = K.frame(.34, .42); f.position.set(s * 1.53, 1.55, 1 - i * 1.1); f.rotation.y = -s * PI / 2; HS.add(f); FRAMES.push({f, s, z: 1 - i * 1.1, y: 1.55}); }
+// ceiling fan in the middle of the hall
+const fan = G(HS, [0, 2.6, -2]); add(Cp(.02, .3), M.metal, fan, [0, -.15, 0]); const fanHub = G(fan, [0, -.32, 0]); add(S(.08, 1, .5, 1), M.metal, fanHub);
+for (let i = 0; i < 4; i++) add(rbox(.6, .015, .12, .005), M.wood, fanHub, [Math.cos(i * PI / 2) * .34, 0, Math.sin(i * PI / 2) * .34], [0, -i * PI / 2, 0]);
+// hall bulbs (they burst at midnight)
+const BULBS = [1.2, -1.5, -4.5].map(z => { const p = K.lampPool(HS, [0, 2.3, z], {color: 0xffc070, power: 4, dist: 6}); return p; });
+// kitchen at the near end: table, cake, counter, cooker
+const kt = K.table({w: 1.1, d: .8}); kt.position.set(.4, 0, 3.4); HS.add(kt);
+const cake = G(HS, [.4, .74, 3.4]); add(turn2(.16, .14), M.cake, cake); add(turn2(.165, .02), M.icing, cake, [0, .13, 0]);
+const FLAMES = []; for (let i = 0; i < 16; i++) { const a = i / 16 * PI * 2; add(Cp(.004, .05), clay([0xe86a8a, 0x6ab0e8, 0xf0d060][i % 3]), cake, [Math.cos(a) * .11, .17, Math.sin(a) * .11]);
+  FLAMES.push(add(S(.008, 1, 1.8, 1), M.flame, cake, [Math.cos(a) * .11, .215, Math.sin(a) * .11])); }
+const kc = K.counter({len: 2.2}); kc.position.set(-1.2, 0, 3.6); kc.rotation.y = PI / 2; HS.add(kc); const stv = K.stove(); stv.position.set(-1.2, .9, 3.4); HS.add(stv);
+const stoveFire = G(HS, [-1.2, 1.0, 3.4]); for (let i = 0; i < 9; i++) add(new THREE.ConeGeometry(.04, .2 + (i % 3) * .08, 6), M.flame, stoveFire, [(i % 3 - 1) * .1, .1, (Math.floor(i / 3) - 1) * .1]);
+const vase = G(HS, [1.3, 0, -.4]); add(rbox(.3, .8, .3, .02), M.wood, vase, [0, .4, 0]); const vaseTop = G(vase, [0, .8, 0]); add(turnV(), clay(0x3a6a8a), vaseTop);
+const kitchenL = new THREE.PointLight(0xffb070, 0, 5, 1.4); kitchenL.position.set(.4, 2.2, 3.4); HS.add(kitchenL);
+const hsMoon = new THREE.DirectionalLight(0x6a80b8, .6); hsMoon.position.set(3, 4, 2); hsMoon.target.position.set(0, 0, -2); HS.add(hsMoon, hsMoon.target);
+const hsHemi = new THREE.HemisphereLight(0x6a6a7a, 0x181212, 1.0); HS.add(hsHemi);
+const doorL = new THREE.PointLight(0x9ab8ff, 0, 5, 1.2); doorL.position.set(.4, 2.2, -5.2); HS.add(doorL);
+// the door at the end of the hall stands open in the chase; the woman waits in it
+add(rbox(1.0, 2.1, .08, .01), M.dark, HS, [.6, 1.05, -5.95]);
+// shards: glass that bursts out of a bulb
+const SHARDS = new THREE.Group(); HS.add(SHARDS); for (let i = 0; i < 26; i++) add(new THREE.TetrahedronGeometry(.02 + rnd() * .02), M.bulb, SHARDS, [0, 0, 0]);
+SHARDS.children.forEach(m => m.userData.v = V(rnd() - .5, rnd() * .6, rnd() - .5).multiplyScalar(3));
+
+function turn2(r, h) { return lump(new THREE.CylinderGeometry(r, r, h, 32, 2), .003, 10).translate(0, h / 2, 0); }
+function turnV() { return lump(new THREE.LatheGeometry([[0, 0], [.08, .01], [.1, .12], [.05, .22], [.06, .26]].map(([x, y]) => new THREE.Vector2(x, y)), 24), .003, 10); }
+
+// ---------------------------------------------------------------- ST: a street at dusk in the rain: road along x, kerbs, houses, a bus stop, a streetlamp
+add(rbox(40, .1, 6, .01, .003, 2), M.road, ST_, [0, -.05, 0]);
+for (const s of [-1, 1]) add(rbox(40, .16, 2.2, .02), M.kerb, ST_, [0, .03, s * 4.1]);
+for (let i = -8; i <= 8; i++) add(rbox(1.0, .012, .12, .005), M.line, ST_, [i * 2.4, .005, 0]);
+for (let i = -3; i <= 3; i++) { const h = K.house({color: [0x6a3a2e, 0x4a5a6a, 0x7a6a4a][(i + 3) % 3], lit: [i % 2 === 0, true, false]}); h.scale.setScalar(1.5); h.position.set(i * 3.6, 0, -6.4); ST_.add(h); }
+const busStop = G(ST_, [1.5, 0, 3.6]); add(rbox(2.2, .06, 1.0, .01), clay(0x3a3a3e), busStop, [0, 2.3, 0]); for (const x of [-1, 1]) add(Cp(.03, 2.2), M.metal, busStop, [x, 1.15, -.4]);
+add(rbox(2.1, 1.6, .03, .01), new THREE.MeshPhysicalMaterial({color: 0x8aa0b0, transparent: true, opacity: .25, roughness: .1}), busStop, [0, 1.2, -.45]);
+const stLamp = K.streetLamp(4.2, 0xffd8a0, 6); stLamp.position.set(-1.5, 0, 3.4); stLamp.rotation.y = PI; ST_.add(stLamp);
+const stLamp2 = K.streetLamp(4.2, 0xffd8a0, 4); stLamp2.position.set(8, 0, 3.4); stLamp2.rotation.y = PI; ST_.add(stLamp2);
+ST_.add(new THREE.HemisphereLight(0x5a6a8a, 0x141210, .7));
+const puddle = add(new THREE.CircleGeometry(.7, 24), gloss(0x2a3440, {roughness: .05}), ST_, [-3, .012, 1.4], [-PI / 2, 0, 0]);
+// the bus (pulls away), the car that runs the light, teen Haru's bike
+const bus = G(ST_); add(rbox(7, 2.6, 2.3, .2, .004, 4), M.bus, bus, [0, 1.6, 0]); for (let i = 0; i < 5; i++) add(new THREE.PlaneGeometry(.9, .8), new THREE.MeshBasicMaterial({color: 0xffe8a8}), bus, [-2.6 + i * 1.2, 2.1, 1.16]);
+for (const x of [-2.4, 2.4]) for (const z of [-1.1, 1.1]) add(lump(new THREE.TorusGeometry(.42, .18, 10, 20), .003, 10), clay(0x141414), bus, [x, .45, z]);
+const stCar = carBig(0x3a4a6a); ST_.add(stCar);
+const bike = G(ST_); for (const x of [-.45, .45]) add(lump(new THREE.TorusGeometry(.32, .025, 8, 28), .002, 10), clay(0x1a1a1a), bike, [x, .34, 0]); add(Cp(.02, .9), clay(0x2a6a8a), bike, [0, .55, 0], [0, 0, PI / 2]); add(Cp(.02, .45), clay(0x2a6a8a), bike, [.25, .6, 0], [0, 0, .5]);
+function carBig(c) { const g = new THREE.Group(), body = K.car(c); body.scale.set(2.5, 1.85, 2.3); g.add(body);
+  body.traverse(o => { if (o.isMesh && o.material.color && o.material.color.getHex() === 0x1a2430) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = .22; } });
+  body.children[1].material = new THREE.MeshPhysicalMaterial({color: 0x2a3440, transparent: true, opacity: .28, roughness: .1, side: THREE.DoubleSide, depthWrite: false});   // the cabin is glass: we see who is inside
+  body.children[1].castShadow = false;
+  const hl = new THREE.SpotLight(0xfff2c8, 0, 30, .5, .5, 1); hl.position.set(1.95, .75, 0); hl.target.position.set(10, 0, 0); g.add(hl, hl.target); g.userData.hl = hl; return g; }
+
+// ---------------------------------------------------------------- RD: a long road into the dark along -z: streetlights, a traffic light, the tree, a truck, a pole, the broken bridge
+add(rbox(7, .1, 140, .01, .003, 2), M.road, RD, [0, -.05, -60]);
+for (let i = 0; i < 60; i++) add(rbox(.12, .012, 1.0, .005), M.line, RD, [0, .005, 8 - i * 2.4]);
+for (const s of [-1, 1]) add(rbox(14, .05, 140, .01, .003, 2), M.grass, RD, [s * 10.5, -.06, -60]);
+const RDLAMPS = []; for (let i = 0; i < 8; i++) { const l = K.streetLamp(4.4, 0xffd090, 5); const s = i % 2 ? 1 : -1; l.position.set(s * 3.9, 0, -i * 12); l.rotation.y = s > 0 ? -PI / 2 : PI / 2; RD.add(l); RDLAMPS.push(l); }
+const tLight = G(RD, [3.6, 0, -14]); add(Cp(.05, 3.6), clay(0x2a2c2a), tLight, [0, 1.8, 0]); add(rbox(.3, .8, .25, .04), clay(0x1a1a1a), tLight, [0, 3.7, 0]);
+const TL = [M.red, M.amber, M.green].map((m, i) => add(S(.07), m.clone(), tLight, [0, 3.95 - i * .25, .13]));
+const tree = G(RD, [-4.2, 0, -26]); add(lump(new THREE.CylinderGeometry(.18, .3, 6, 10, 8), .02, 3), clay(0x3a2a1e, {bumpScale: 2}), tree, [0, 3, 0]);
+for (let i = 0; i < 6; i++) add(S(.9 + rnd() * .4, 1, .8, 1, .05, 3), clay(0x23361f, {bumpScale: 2}), tree, [(rnd() - .5) * 1.5, 5.6 + rnd() * 1.4, (rnd() - .5) * 1.5]);
+const truck = G(RD); add(rbox(2.4, 2.6, 2.5, .15), M.truck, truck, [0, 1.6, 0]); add(new THREE.PlaneGeometry(2.0, .9), new THREE.MeshBasicMaterial({color: 0x101820}), truck, [0, 2.2, 1.26]);
+const trailer = G(truck, [0, 0, -1.3]); add(rbox(2.5, 3.0, 8, .1), M.trailer, trailer, [0, 2.0, -4]);
+for (const z of [.6, -4.5, -8]) for (const x of [-1.15, 1.15]) add(lump(new THREE.TorusGeometry(.45, .2, 10, 20), .003, 10), clay(0x141414), z > 0 ? truck : trailer, [x, .5, z > 0 ? z : z + 1.3], [0, PI / 2, 0]);
+for (const x of [-.8, .8]) add(S(.12, 1, 1, .4), new THREE.MeshBasicMaterial({color: 0xfff2c8}), truck, [x, .9, 1.27]);
+const truckL = new THREE.SpotLight(0xfff2c8, 0, 30, .55, .5, 1); truckL.position.set(0, 1, 1.4); truckL.target.position.set(0, 0, 12); truck.add(truckL, truckL.target);
+const pole = G(RD, [3.8, 0, -40]); add(lump(new THREE.CylinderGeometry(.12, .15, 7, 10), .01, 4), clay(0x4a3a2a), pole, [0, 3.5, 0]); add(rbox(1.8, .1, .1, .02), clay(0x4a3a2a), pole, [0, 6.6, 0]);
+const wire = add(Cp(.015, 9), clay(0x141414), RD, [0, 0, 0]); wire.visible = false;
+const bridgeZ = -70;
+for (const s of [-1, 1]) for (let i = 0; i < 6; i++) add(rbox(.2, 1.1, .2, .02), M.stone, RD, [s * 3.4, .55, bridgeZ + 6 - i * 2]);
+for (const s of [-1, 1]) add(rbox(.12, .12, 12, .02), M.stone, RD, [s * 3.4, 1.15, bridgeZ + 1]);
+const gap = add(rbox(9, 6, 40, .01), M.dark, RD, [0, -3.1, bridgeZ - 20]);   // beyond the edge: nothing
+for (let i = 0; i < 9; i++) add(new THREE.TetrahedronGeometry(.3 + rnd() * .4), M.road, RD, [(rnd() - .5) * 6, -.1 - rnd() * .3, bridgeZ - .3 - rnd() * .5]);   // the broken lip
+for (let i = 0; i < 3; i++) add(rbox(9, .08, .2), M.dark, RD, [0, .001, bridgeZ - .2 - i * .3]);
+RD.add(new THREE.HemisphereLight(0x4a5a80, 0x0a0808, 1.0)); const rdMoon = new THREE.DirectionalLight(0x8aa0d8, 1.2); rdMoon.position.set(-20, 30, 10); rdMoon.target.position.set(0, 0, -30); RD.add(rdMoon, rdMoon.target);
+const demonKey = new THREE.PointLight(0xcfe0ff, 0, 8, 1.2); RD.add(demonKey); const garageL = new THREE.PointLight(0xffc890, 0, 7, 1.3); garageL.position.set(-1.4, 2.4, 10.5); RD.add(garageL);
+const rdCar = carBig(0x6a2a24); RD.add(rdCar); const carIn = new THREE.PointLight(0x8ab0ff, 0, 3, 1.2); carIn.position.set(.1, 1.05, 0); rdCar.add(carIn);   // dashboard glow
+const flashL = new THREE.PointLight(0xdfe8ff, 0, 80, 1); flashL.position.set(0, 25, -30); RD.add(flashL);
+
+// ---------------------------------------------------------------- FD: a football pitch under the sun; the graves on the hill
+add(rbox(60, .1, 60, .01, .003, 2), M.grass, FD, [0, -.05, 0]);
+for (const x of [-1.5, 1.5]) add(Cp(.05, 2.2), M.white, FD, [x, 1.1, -6]); add(Cp(.05, 3), M.white, FD, [0, 2.2, -6], [0, 0, PI / 2]);
+const ball = add(S(.11), M.white, FD, [0, .11, 0]);
+const GRAVES = []; for (let i = 0; i < 3; i++) { const g = G(FD, [12 + i * 1.4, 0, -2]); add(rbox(.7, 1.0, .18, .08, .006, 6), M.stone, g, [0, .5, 0]); add(rbox(.8, .06, 1.8, .02), clay(0x3a2a1e), g, [0, .03, .95]); GRAVES.push(g); }
+const fdSun = new THREE.DirectionalLight(0xfff0d8, 0); fdSun.position.set(10, 20, 10); FD.add(fdSun); const fdHemi = new THREE.HemisphereLight(0x9ab8e8, 0x3a4a2a, 0); FD.add(fdHemi);
+
+// ---------------------------------------------------------------- rain: falling streaks around the camera; a dry circle around Haru when she is lucky
+const RAIN_N = 1400, rainGeo = new THREE.BufferGeometry(), rainPos = new Float32Array(RAIN_N * 6), rainSeed = [];
+for (let i = 0; i < RAIN_N; i++) rainSeed.push([rnd(), rnd(), rnd()]);
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({color: 0x9ab0c8, transparent: true, opacity: .5})); rain.frustumCulled = false; scene.add(rain);
+function rainAt(t, center, dry = null, k = 1) {
+  rain.visible = k > 0; if (!k) return;
+  for (let i = 0; i < RAIN_N; i++) { const [a, b, c] = rainSeed[i];
+    let x = center.x + (a - .5) * 12, z = center.z + (c - .5) * 12, y = 6 - ((b * 6 + t * 9) % 6);
+    if (i / RAIN_N > k || (dry && Math.hypot(x - dry.x, z - dry.z) < dry.r)) y = -50;
+    rainPos.set([x, y, z, x - .02, y - .28, z], i * 6); }
+  rainGeo.attributes.position.needsUpdate = true; }
+
+// umbrellas
+function umbrella(color = 0x141418) { const g = new THREE.Group(); add(lump(new THREE.ConeGeometry(.6, .3, 12, 1, true), .004, 6), clay(color, {side: THREE.DoubleSide}), g, [0, .15, 0]); add(Cp(.01, 1.0), M.metal, g, [0, -.35, 0]); return g; }
+const umbW = umbrella(0x1a1a1e), umbH = umbrella(0x2a2a40); scene.add(umbW, umbH);
+const FUN_UMB = [0, 1, 2, 3, 4].map(() => { const u = umbrella(0x141418); scene.add(u); return u; });
+
+// ================================================================ people
+const P0 = {hood: false, pocket: false};
+const haruT = makePerson({...haruOpts, scale: .86, top: 0x6a7a8a});                                   // Haru at sixteen: school jumper, the same sweep of hair
+const haru = makePerson({...haruOpts, build: 'woman', outfit: 'cardigan', scale: 1.0, headScale: 1.08, sculpt: .45, faceShape: [.95, 1.08, 1.0], puffy: 1.0,
+  hair: 0x3c3a40, top: 0x6a4a5a, pants: 0x2e2c34, shoe: 0x2a2424, neckLen: .17, ...P0});             // Haru at fifty
+const nao = makePerson({...haruOpts, hairStyle: 'ponytail', scale: .88, headScale: 1.12, top: 0xd8b050, pants: 0x3a4a6a, ...P0});
+const ken = makePerson({build: 'man', outfit: 'hoodie', scale: .98, headScale: 1.06, top: 0x2a5a4a, pants: 0x2a2a34, longHair: false, hair: 0x1e1c22, skin: 0xe8a27c});
+const yui = makePerson({build: 'woman', outfit: 'sweater', scale: .92, headScale: 1.1, hairStyle: 'ponytail', top: 0xc85a6a, pants: 0x3a3a48, hair: 0x26242a, skin: 0xe8a27c, ...P0});
+const ren = makePerson({...haruOpts, hairStyle: 'short', scale: .84, headScale: 1.14, top: 0x2a4aa8, pants: 0xe8e8e8, ...P0});
+const husband = makePerson({build: 'man', outfit: 'shirt', scale: 1.05, top: 0xe8e4dc, pants: 0x2a2a34, longHair: false, hair: 0x2a2420, ...P0});
+const woman = makePerson({build: 'woman', outfit: 'coat', scale: 1.06, headScale: 1.02, sculpt: .55, top: M.coat, pants: 0x1a1a1e, shoe: 0x1a1a1e, hairStyle: 'long', hair: 0x14100e,
+  skin: 0xf0d0bc, eyeSize: .0082, lids: true, ...P0});
+const mourners = [0, 1, 2, 3, 4].map(i => makePerson({build: i % 2 ? 'man' : 'woman', outfit: 'coat', scale: 1, top: 0x1a1a1e, pants: 0x141416, shoe: 0x141416, longHair: i % 2 === 0, hair: 0x1e1c1c, ...P0}));
+const PEOPLE = [haruT, haru, nao, ken, yui, ren, husband, woman, ...mourners];
+PEOPLE.forEach(P => { scene.add(P.root); if (![haru, haruT, nao, ken, yui, ren, woman].includes(P)) P.faceLight.visible = false; });
+// the demon: the grey thing (no wings, no crown) with its face taken away
+const demon = makeFairy({wings: false, crown: false, skin: 0x9a958a, skinD: 0x5a564e}); scene.add(demon.root);
+demon.mouth.visible = false; demon.head.children.forEach((c, i) => { if (i > 0) c.visible = false; }); demon.head.scale.set(1, 1.15, 1);
+// the hand that pulls teen Haru back: a gloved hand on the end of a red sleeve
+const PEOPLE_ALL = [...PEOPLE];
+
+// ================================================================ helpers
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(P.s0 || P.root.scale.x); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  for (const o of [P.chest, P.neck, P.head, P.back]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  P.eyes('open'); P.brows(0); P.mouth('closed'); if (P.rest) P.rest(); if (P.clothes) P.clothes();
+}
+PEOPLE.forEach(P => P.s0 = P.root.scale.x);
+const place = (P, parent, x, z, ry) => { if (P.root.parent !== parent) parent.add(P.root); P.root.visible = true; P.root.position.set(x, 0, z); P.root.rotation.y = ry; };
+function talk(P, name, t) { const c = (MOUTH[name] ? MOUTH[name].cues : []).find(c => t >= c.start && t < c.end);
+  if (!c || c.value === 'X' || c.value === 'A') return false; P.mouth('open', {B: .35, F: .3, G: .3, C: .6, D: 1, E: .7, H: .55}[c.value] || .5); return true; }
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const HEAD = P => P.head.getWorldPosition(V(0, 0, 0));
+const HAND = (P, i) => { P.root.updateMatrixWorld(true); return P.arms[i].hand.getWorldPosition(V(0, 0, 0)); };
+let OFF = V(0, 0, 0);
+const show = g => { PLACES.forEach(p => p.visible = p === g); OFF = g.position.clone(); };
+const W = (x, y, z) => V(x, y, z).add(OFF);                          // a point in the shown place's own coordinates
+const CL = (p, l, fov) => C(p.clone().add(OFF), l.clone().add(OFF), fov);
+const shake = (t, k) => V(Math.sin(t * 61) * k, Math.sin(t * 47 + 1) * k, Math.sin(t * 53 + 2) * k);
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+const u01 = (t, a, b) => clamp01((t - a) / (b - a));
+function air(where) {
+  const A = {HS: [0x0c0a0e, .03, 0xffc8a0, .35, 'dread'], HSD: [0x050406, .05, 0x8aa0d0, .5, 'night'], ST: [0x1a1e26, .05, 0xa8c0e8, .45, 'night'],
+    RD: [0x06080c, .025, 0xa8c0ff, .55, 'night'], FD: [0x9ab8d8, .006, 0xfff0d8, .2, 'morning'], FUN: [0x4a5058, .04, 0xc8d0d8, .3, 'dread']}[where];
+  fog.color.set(A[0]); fog.density = A[1]; scene.background.set(A[0]); CLAY_RIM.color.value.set(A[2]); CLAY_RIM.k.value = A[3]; grade(A[4]); }
+// running hand in hand: Haru pulls, Nao a step behind with her arm out
+function handInHand(t, x, z, ry, back = .55) {
+  place(haru, HS, x, z, ry); kitWalk(haru, t, {run: true}); haru.expr('terrified');
+  const dx = -Math.sin(ry) * back, dz = -Math.cos(ry) * back;
+  place(nao, HS, x + dx + Math.cos(ry) * .25, z + dz - Math.sin(ry) * .25, ry); kitWalk(nao, t + .3, {run: true}); nao.expr('shock');
+  haru.arms[1].up.rotation.set(.6, 0, .5); haru.arms[1].fo.rotation.set(-.1, 0, 0);       // her left arm reaches back
+  nao.arms[0].up.rotation.set(-1.1, 0, -.3); nao.arms[0].fo.rotation.set(-.1, 0, 0);      // Nao's right arm forward to it
+}
+function demonStand(x, z, ry, parent) { const F = demon; if (F.root.parent !== parent) parent.add(F.root); F.root.visible = true; F.root.position.set(x, 0, z); F.root.rotation.set(0, ry, 0); F.root.scale.setScalar(1.25);
+  F.pelvis.position.set(0, .95, 0); F.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  F.spine.rotation.set(.35, 0, 0); F.neck.rotation.set(.25, 0, 0); F.head.rotation.set(-.3, 0, 0);
+  F.arms.forEach(a => { a.up.rotation.set(-.2, 0, a.sd * .25); a.fo.rotation.set(-.3, 0, 0); a.hd.rotation.set(0, 0, 0); curl(a, .4); }); }
+
+// ================================================================ the timeline
+function frame(t) {
+  const q = Math.floor(t * 12) / 12;
+  boil(Math.floor(t * 6));
+  black = false; PEOPLE.forEach(P => { reset(P); P.root.visible = false; }); demon.root.visible = false; rain.visible = false; umbW.visible = umbH.visible = false; FUN_UMB.forEach(u => u.visible = false);
+  BULBS.forEach(b => { b.light.intensity = 4; b.group.visible = true; }); doorL.intensity = 0; demonKey.intensity = 0; garageL.intensity = 0; kitchenL.intensity = 0; SHARDS.visible = false; stoveFire.visible = false;
+  FRAMES.forEach(o => { o.f.position.set(o.s * 1.53, o.y, o.z); o.f.rotation.set(0, -o.s * PI / 2, 0); }); fan.position.set(0, 2.6, -2); fan.rotation.set(0, 0, 0); fanHub.rotation.y = t * 9;
+  FLAMES.forEach(f => f.visible = true); STEPS.forEach((s, i) => { s.position.y = .09 + i * .18; s.rotation.set(0, 0, 0); }); vaseTop.position.set(0, .8, 0); vaseTop.rotation.set(0, 0, 0);
+  woman.face.visible = true; woman.face.position.y = -.012; woman.face.scale.set(1, 1, 1); woman.M.skin.color.set(0xf0d0bc);
+  wire.visible = false; flashL.intensity = 0; carIn.intensity = 0; rdCar.userData.hl.intensity = 0; truckL.intensity = 0; tree.rotation.set(0, 0, 0); TL.forEach(m => m.material.color.multiplyScalar(1));
+  fdSun.intensity = 0; fdHemi.intensity = 0; truck.position.set(0, 0, 60); truck.rotation.set(0, PI, 0); trailer.rotation.set(0, 0, 0);
+
+  if (t < ST('h02') - .3) {                                           // HOOK: down the stairs, hand in hand; the light fitting smashes where Nao just was
+    show(HS); air('HSD'); BULBS.forEach(b => b.light.intensity = 0); BULBS[2].light.intensity = 1.2 * (Math.sin(q * 37) > 0 ? 1 : .2);
+    const u = u01(t, 0, ST('h02') - .3), i = 11 - u * 11, y = .18 * (i + 1), z = -6.2 - i * .28;
+    place(haru, HS, -.45, z + .2, 0); kitWalk(haru, q, {run: true}); haru.root.position.y = y; haru.expr('terrified');
+    place(nao, HS, -.95, z - .3, 0); kitWalk(nao, q + .3, {run: true}); nao.root.position.y = y + .08; nao.expr('shock'); doorL.position.set(-.2, y + 2.0, z + 1.5); doorL.intensity = 3;
+    haru.arms[1].up.rotation.set(.7, 0, .4); nao.arms[0].up.rotation.set(-1.0, 0, -.2);
+    const fall = u01(t, 1.6, 2.4);                                    // the lamp drops behind them and bursts
+    BULBS[2].group.position.set(0, lerp(2.3, y + .1, fall * fall), lerp(-4.5, z - 1.0, .9));
+    if (fall >= 1) { BULBS[2].group.visible = false; SHARDS.visible = true; const k = u01(t, 2.4, 3.4); SHARDS.position.set(-.6, y + .2, z - 1.0);
+      SHARDS.children.forEach(m => { m.position.copy(m.userData.v).multiplyScalar(k * .5); m.position.y -= k * k * .6; }); }
+    const h = HEAD(haru); C(h.clone().add(V(.9, -.2, 1.6)).add(shake(q, .02)), h.clone().add(V(-.2, -.15, -.6)), 44);
+  } else if (t < ST('h03') - .3) {                                    // sixteen: the bus pulls away; she slips in the puddle; the bike chain snaps
+    show(ST_); air('ST'); const u = t - ST('h02') + .3; rainAt(t, W(0, 0, 2), null, 1);
+    if (u < 1.0) { bus.position.set(lerp(1.5, 7, u * u), 0, 1.2); place(haruT, ST_, lerp(-2.2, -.4, u), 2.4, PI / 2); kitWalk(haruT, q, {run: true}); haruT.expr('scared'); haruT.arms[0].up.rotation.set(-2.4, 0, 0);
+      CL(V(-4, 1.2, 5.2), V(.5, 1.2, 1.5), 46); }
+    else if (u < 1.9) { bus.position.set(40, 0, 0); const k = u01(u, 1.0, 1.7); place(haruT, ST_, lerp(-3.8, -3.1, k), 1.4, PI / 2); haruT.expr('shock');
+      haruT.root.rotation.z = -k * 1.3; haruT.root.position.y = lerp(0, .3, Math.sin(k * PI)); haruT.legs[0].th.rotation.x = -1.2 * k; haruT.arms.forEach(a => a.up.rotation.set(-2.2 * k, 0, 0));
+      CL(V(-1.5, .5, 3.4), V(-3.2, .4, 1.4), 40); }
+    else { const k = u01(u, 1.9, 2.8); bike.position.set(-40, 0, 0); stCar.position.set(lerp(-12, 10, k), 0, 1.2); stCar.userData.hl.intensity = 30;   // a car tears through the puddle and soaks her
+      place(haruT, ST_, -3, 2.7, 0); haruT.expr(k > .45 ? 'shock' : 'sad'); if (k > .45) { haruT.arms.forEach(a => { a.up.rotation.set(-1.5, 0, 0); a.fo.rotation.set(-1.6, 0, 0); }); haruT.chest.rotation.x = .2; }
+      SHARDS.visible = false; CL(V(-3.1, 1.25, 5.0), V(-3, 1.0, 2.2), 42); }
+  } else if (t < ST('w01') - .4) {                                    // she steps off the kerb; a car runs the light; a gloved hand yanks her back by the hood
+    show(ST_); air('ST'); rainAt(t, W(1, 0, 2), null, 1); bus.position.set(40, 0, 0); bike.position.set(-40, 0, 0);
+    const u = t - ST('h03') + .3, yank = u01(u, 1.25, 1.55);
+    place(haruT, ST_, 1.2, lerp(3.0, 2.4, u01(u, 0, 1.1)) + yank * .9, PI); kitWalk(haruT, q, {}); haruT.expr(yank > 0 ? 'shock' : 'neutral');
+    if (yank > 0) { haruT.chest.rotation.x = -.5 * yank; haruT.head.rotation.x = -.4 * yank; haruT.arms.forEach(a => a.up.rotation.set(-1.6, 0, 0)); }
+    stCar.position.set(lerp(-16, 14, u01(u, .3, 2.2)), 0, 1.6); stCar.userData.hl.intensity = 30;
+    place(woman, ST_, 1.4, 3.9, PI); woman.arms[0].up.rotation.set(-1.4, 0, -.2); woman.arms[0].fo.rotation.set(-.3 - yank * .8, 0, 0); woman.expr('neutral');
+    if (u < 1.4) CL(V(4.5, .9, 2.6), V(-2, 1.0, 1.8), 44); else CL(V(-1.2, 1.4, 5.4), V(1.3, 1.2, 3.4), 40);
+  } else if (t < ST('h04') - .3) {                                    // the woman: too beautiful, umbrella dry; the handshake: frost up Haru's arm
+    show(ST_); air('ST'); bus.position.set(40, 0, 0); stCar.position.set(40, 0, 0);
+    place(haruT, ST_, 1.0, 3.3, PI / 2 + .3); haruT.expr('scared'); place(woman, ST_, 1.75, 3.55, -PI / 2 - .2);
+    umbW.visible = true; woman.root.updateMatrixWorld(true); woman.arms[1].up.rotation.set(-.9, 0, .35); woman.arms[1].fo.rotation.set(-.9, 0, 0); umbW.position.copy(HAND(woman, 1)).add(V(0, 1.0, 0));
+    rainAt(t, W(1.4, 0, 3.4), {x: umbW.position.x, z: umbW.position.z, r: .62}, 1);
+    const shakeK = u01(t, EN('w01') - 1.6, EN('w01') - 1.1);
+    if (!talk(woman, 'w01', t)) woman.mouth('smile'); woman.eyes('open');
+    if (shakeK > 0) { woman.arms[0].up.rotation.set(-1.1, .3, 0); haruT.arms[0].up.rotation.set(-1.1 * shakeK, -.3, 0); haruT.expr('surprised'); }
+    if (t < ST('w01') + 2.6) { const h = HEAD(woman); C(h.clone().add(V(-.8, -.02, -.35)), h.clone().add(V(0, -.06, 0)), 32); }
+    else if (shakeK < 1) CL(V(1.45, 1.45, 5.5), V(1.35, 1.25, 3.4), 36);
+    else { CL(V(1.4, 1.45, 5.6), V(1.38, 1.15, 3.4), 40); haruT.M.skin.color.lerpColors(new THREE.Color(0xe8a27c), new THREE.Color(0xc8e0f0), u01(t, EN('w01') - 1.1, EN('w01') + .3) * .5); }
+  } else if (t < ST('h05') - .3) {                                    // it worked: she catches the falling vase without looking; four children race round her
+    show(HS); air('HS'); kitchenL.intensity = 4; haruT.M.skin.color.set(0xe8a27c);
+    const u = t - ST('h04') + .3;
+    if (u < 1.2) { const k = u01(u, 0, .8); place(haru, HS, 1.0, -.2, PI); kitWalk(haru, q, {}); haru.expr('neutral'); haru.arms[1].up.rotation.set(-1.0 * k, 0, .3); vaseTop.position.set(-.1 * k, .8 - k * .35, .1 * k); vaseTop.rotation.z = (1 - k) * .9;
+      CL(V(-.6, 1.2, -2.2), V(1.1, .85, -.35), 44); }
+    else { const kids = [ken, yui, ren, nao]; kids.forEach((P, i) => { const a = q * 2.2 + i * PI / 2; place(P, HS, Math.cos(a) * 1.0, 1.0 + Math.sin(a) * 1.0, a + PI); P.root.scale.setScalar(P.s0 * .78); kitWalk(P, q + i * .2, {run: true}); P.expr('relieved'); });
+      place(haru, HS, 0, 1.0, PI); haru.expr('relieved'); place(husband, HS, .7, 2.6, PI); husband.expr('relieved');
+      CL(V(-.9, 1.7, -1.7), V(0, .7, 1.2), 50); }
+  } else if (t < ST('h06') - .3) {                                    // KEN: singing at the wheel; a tree tips across the windscreen; no wind
+    show(RD); air('RD'); const u = u01(t, ST('h05') - .3, ST('h06') - .3);
+    const z = lerp(0, -22, u); rdCar.position.set(-1.6, 0, z); rdCar.rotation.y = PI / 2; rdCar.userData.hl.intensity = 40;
+    place(ken, RD, -1.6, z - .1, PI); pose(ken, 'sitChair'); ken.root.position.y = .2; ken.root.scale.setScalar(ken.s0 * .9); ken.mouth('open', .6 + .3 * Math.sin(q * 11)); ken.eyes('closed');
+    const fallK = u01(t, ST('h05') + 2.0, ST('h05') + 3.2); tree.rotation.z = -fallK * fallK * 1.45;
+    carIn.intensity = 9; if (t < ST('h05') + 1.8) CL(V(-1.3, 1.9, z - 6.5), V(-1.6, 1.25, z), 30);
+    else CL(V(1.6, 1.6, z + 5), V(-2.5, 2.6, -24), 48);
+    if (fallK >= 1) black = true;
+  } else if (t < ST('h07') - .3) {                                    // YUI: up the stairs two at a time with the cake; one step gives way
+    show(HS); air('HS'); kitchenL.intensity = 3;
+    const u = u01(t, ST('h06') - .3, ST('h07') - .3), i = Math.min(11, u * 14), gi = 7;
+    doorL.position.set(.2, 2.2 + i * .18, -5.8 - i * .28); doorL.intensity = 6; doorL.color.set(0xffc890); BULBS[2].light.intensity = 5; place(yui, HS, -.55, -6.2 - i * .28 + .15, PI); kitWalk(yui, q, {run: true}); yui.root.position.y = .18 * (i + 1); yui.expr('relieved');
+    yui.arms.forEach(a => { a.up.rotation.set(-1.2, 0, 0); a.fo.rotation.set(-.6, 0, 0); });
+    const brk = u01(u, .62, .8);
+    if (brk > 0) { STEPS[gi].rotation.x = brk * .8; STEPS[gi].position.y -= brk * .2; yui.root.position.y = lerp(.18 * (gi + 1), .4, brk); yui.root.rotation.x = brk * 1.4; yui.expr('shock');
+      cake.position.set(-.55, lerp(1.6, 2.4, Math.sin(brk * PI)) , -6.2 - gi * .28 + lerp(0, 1.4, brk)); cake.rotation.x = brk * 3; }
+    else cake.position.set(-.55, yui.root.position.y + 1.05, -6.2 - i * .28 + .45);
+    if (brk >= 1) black = true;
+    { const j = brk > 0 ? gi : i; CL(V(1.1, 1.0 + j * .18, -5.6 - j * .22), V(-.6, .8 + j * .18, -6.6 - j * .28), 50); }
+  } else if (t < ST('h08') - .4) {                                    // REN: the pitch in the sun; he shoots; a white flash out of a clear sky
+    show(FD); air('FD'); fdSun.intensity = 2.6; fdHemi.intensity = 1.2; cake.position.set(.4, .74, 3.4); cake.rotation.set(0, 0, 0);
+    const u = t - ST('h07') + .3; place(ren, FD, lerp(-2, 0, u01(u, 0, 1.4)), lerp(2, .3, u01(u, 0, 1.4)), PI); kitWalk(ren, q, {run: true}); ren.expr('relieved');
+    ball.position.set(0, .11 + Math.max(0, Math.sin(u01(u, 1.4, 2.4) * PI)) * 1.2, -u01(u, 1.4, 2.4) * 5);
+    const fl = u01(u, 1.9, 2.0); if (u > 1.9) { scene.background.set(0xffffff); fog.color.set(0xffffff); fog.density = .3 * (1 - u01(u, 2.0, 2.4)); }
+    if (u > 2.4) black = true;
+    CL(V(-2.6, 1.0, 3.6), V(-.4, 1.0, 0), 40);
+  } else if (t < ST('h09') - .6) {                                    // three graves; rain on everyone but her; she closes her umbrella and stays dry
+    show(FD); air('FUN'); fdHemi.intensity = .6; const u = t - ST('h08') + .4;
+    mourners.forEach((P, i) => { place(P, FD, 11 + i * .9, 1.4 + (i % 2) * .5, PI); P.expr('sad'); P.root.updateMatrixWorld(true); FUN_UMB[i].visible = true; FUN_UMB[i].position.copy(HEAD(P)).add(V(0, .55, 0)); P.arms[0].up.rotation.set(-1.4, 0, 0); });
+    place(haru, FD, 13.4, .9, PI); haru.expr('neutral'); haru.root.updateMatrixWorld(true);
+    const closeK = u01(t, ST('h08') + 2.6, ST('h08') + 3.6); umbH.visible = true; umbH.position.copy(HEAD(haru)).add(V(.05, .55 - closeK * .4, 0)); umbH.scale.set(1 - closeK * .8, 1 + closeK, 1 - closeK * .8);
+    haru.arms[0].up.rotation.set(-1.4 + closeK * .9, 0, 0);
+    rainAt(t, W(13, 0, 1.5), {x: HEAD(haru).x, z: HEAD(haru).z, r: .55}, 1);
+    const h = HEAD(haru); if (u < 2.2) CL(V(17, 1.6, 6), V(13, 1.0, 1), 42); else C(h.clone().add(V(-.4, .15, -1.1)), h.clone().add(V(0, -.05, 0)), 34);
+  } else if (t < ST('h10') - .4) {                                    // midnight: she blows the candles out; every bulb bursts; the cooker throws fire
+    show(HS); air('HS'); kitchenL.intensity = 3.5; const u = t - ST('h09') + .6;
+    place(nao, HS, .4, 2.75, 0); nao.expr(u > 2.4 ? 'shock' : 'relieved'); place(haru, HS, -.4, 2.6, .3); haru.expr(u > 2.4 ? 'terrified' : 'relieved');
+    const blow = u01(u, 1.0, 1.5); if (blow > .3) FLAMES.forEach(f => f.visible = false); if (u > .8 && u < 1.6) nao.mouth('o');
+    const burst = u01(u, 2.4, 2.6);
+    if (burst > 0) { BULBS.forEach(b => { b.light.intensity = 0; b.group.visible = false; }); kitchenL.intensity = 3.5 * (1 - burst); SHARDS.visible = true; SHARDS.position.set(.4, 2.2, 3.2);
+      const k = u01(u, 2.4, 3.6); SHARDS.children.forEach(m => { m.position.copy(m.userData.v).multiplyScalar(k * .6); m.position.y -= k * k * 1.2; });
+      stoveFire.visible = u > 2.8; stoveFire.scale.setScalar(1 + Math.sin(q * 20) * .3); stoveFire.children.forEach((c, i) => c.rotation.z = Math.sin(q * 13 + i) * .3); kitchenL.intensity = u > 2.8 ? 2.5 * (1 + Math.sin(q * 19) * .4) : 0; kitchenL.color.set(u > 2.8 ? 0xff7a30 : 0xffb070); }
+    if (u < 2.4) { const h = HEAD(nao); C(h.clone().add(V(.2, -.05, 1.0)), h.clone().add(V(0, -.35, .3)), 42); }
+    else CL(V(1.3, 1.5, .6).add(shake(q, .03)), V(-.4, 1.2, 3.2), 50);
+  } else if (t < ST('w02') - .4) {                                    // down the hall hand in hand: frames drop behind them; the fan tears loose and smashes where they were
+    show(HS); air('HSD'); BULBS.forEach(b => { b.light.intensity = 0; b.group.visible = false; }); kitchenL.intensity = 1.6 * (Math.sin(q * 23) > 0 ? 1 : .3); kitchenL.color.set(0xff7a30); stoveFire.visible = true;
+    const u = u01(t, ST('h10') - .4, ST('w02') - .4), z = lerp(2.0, -4.6, u);
+    handInHand(q, .15, z, PI);
+    FRAMES.forEach((o, i) => { const k = u01(z, o.z + .2, o.z - 1.0); if (k > 0) { o.f.position.y = lerp(o.y, .1, k * k); o.f.rotation.z = k * 1.2 * o.s; o.f.position.x = o.s * lerp(1.53, 1.2, k); } });
+    const fk = u01(t, ST('h10') + 2.4, ST('h10') + 3.1); fan.position.y = lerp(2.6, .25, fk * fk); fan.rotation.z = fk * .9;
+    if (u < .55) CL(V(.3, 1.35, z - 2.2).add(shake(q, .02)), V(.2, 1.0, z + .6), 52); else CL(V(-.9, 2.0, -5.6), V(.1, .9, z + .4), 50);
+  } else if (t < ST('h11') - .5) {                                    // "You can't hold her forever, Haru." At the end of the hall, in the door, the red coat
+    show(HS); air('HSD'); BULBS.forEach(b => { b.light.intensity = 0; b.group.visible = false; }); kitchenL.intensity = 1.4; kitchenL.color.set(0xff7a30);
+    place(woman, HS, .6, -5.6, 0); if (!talk(woman, 'w02', t)) woman.mouth('smile'); doorL.position.set(.9, 2.4, -4.2); doorL.intensity = 2.2; handInHand(q, .2, -3.6, PI); haru.hips.position.y -= .02; kitWalk(haru, 0, {}); haru.expr('terrified');
+    const k = u01(t, ST('w02') - .4, EN('w02') + .3); const h = HEAD(woman); C(h.clone().add(V(-.1, -.02, lerp(1.6, .9, k))), h.clone().add(V(0, -.05, 0)), 32);
+  } else if (t < ST('h12') - .4) {                                    // the garage door comes down; she rolls under it with Nao; the engine catches
+    show(RD); air('RD'); rdCar.position.set(-1.6, 0, 6); rdCar.rotation.y = PI / 2; const u = t - ST('h11') + .5;
+    garageL.intensity = 5; const gd = G0(); gd.visible = true; gd.position.set(-1.6, lerp(2.4, 0, u01(u, 0, 1.0)), 9.4);
+    place(haru, RD, -1.4, lerp(11.5, 8.6, u01(u, 0, 1.2)), PI); haru.root.rotation.x = u > .6 && u < 1.3 ? 1.3 : 0; haru.root.position.y = u > .6 && u < 1.3 ? .25 : 0; kitWalk(haru, q, {run: true}); haru.expr('terrified');
+    place(nao, RD, -1.9, lerp(12.0, 8.9, u01(u, 0, 1.3)), PI); nao.root.rotation.x = u > .7 && u < 1.4 ? 1.3 : 0; nao.root.position.y = u > .7 && u < 1.4 ? .25 : 0; kitWalk(nao, q + .3, {run: true}); nao.expr('shock');
+    rdCar.userData.hl.intensity = u > 1.8 ? 40 * (Math.sin(q * 30) > -.3 ? 1 : 0) : 0;
+    CL(V(1.2, .5, 10.8), V(-1.6, .8, 9.2), 48);
+  } else if (t < ST('h13') - .4) {                                    // the road: the light goes red for her; a truck jackknifes; a power line whips down across the bonnet
+    show(RD); air('RD'); G0().visible = false; const u = u01(t, ST('h12') - .4, ST('h13') - .4), z = lerp(4, -46, u);
+    rdCar.position.set(-1.6 + Math.sin(u * 30) * .15 + (u > .45 && u < .6 ? Math.sin((u - .45) / .15 * PI) * 1.8 : 0), 0, z); carIn.intensity = 2.5; rdCar.rotation.y = PI / 2 + (u > .45 && u < .6 ? Math.sin((u - .45) / .15 * PI * 2) * .3 : 0); rdCar.userData.hl.intensity = 40;
+    TL[0].material.color.set(u > .1 ? 0xff2a1a : 0x401010); TL[2].material.color.set(u > .1 ? 0x103010 : 0x40ff80);
+    const tk = u01(u, .3, .62); truck.position.set(lerp(6, -.5, tk), 0, lerp(-30, -24, tk)); truck.rotation.y = PI + tk * 1.1; trailer.rotation.y = -tk * 1.4; truckL.intensity = 40;
+    place(haru, RD, -1.25, z - .2, PI); pose(haru, 'sitChair'); haru.root.position.y = .2; haru.root.position.x = rdCar.position.x + .35; haru.expr('terrified'); haru.arms.forEach(a => { a.up.rotation.set(-1.2, 0, 0); a.fo.rotation.set(-.5, 0, 0); });
+    place(nao, RD, -1.9, z - .2, PI); pose(nao, 'sitChair'); nao.root.position.y = .2; nao.root.position.x = rdCar.position.x - .3; nao.expr('shock');
+    const wk = u01(u, .78, .92); if (wk > 0) { wire.visible = true; const a = W(3.8, 6.6, -40), b = V(rdCar.position.x, 1.5, z + lerp(-8, -1.5, wk)).add(OFF); wire.position.copy(a.clone().lerp(b, .5).sub(OFF)); wire.lookAt(b); wire.rotateX(PI / 2); wire.scale.y = a.distanceTo(b) / 9;
+      flashL.position.set(rdCar.position.x, 2, z - 2); flashL.intensity = Math.sin(q * 41) > 0 ? 60 : 10; }
+    if (u < .3) CL(V(.6, .7, z - 3.2).add(shake(q, .03)), V(-1.6, .9, z + 1.5), 50);
+    else if (u < .66) CL(V(-3.2, 3.4, z + 4).add(shake(q, .04)), V(0, 1.2, -25), 54);
+    else CL(V(-1.6 + .3, 1.6, z - 1.0), V(-1.6, 1.0, z - 9), 52);
+  } else if (t < ST('t01') - .2) {                                    // the road runs out: the car stops at the broken bridge; the woman in the headlights; her face slides off
+    show(RD); air('RD'); const z = bridgeZ + 4.2; rdCar.position.set(-1.0, 0, z); rdCar.rotation.y = PI / 2; rdCar.userData.hl.intensity = 14; carIn.intensity = 2.5;
+    const slide = u01(t, EN('h13') + .3, EN('h13') + 1.3);
+    if (slide < 1) { place(woman, RD, -1.0, bridgeZ + .6, 0); woman.mouth('smile'); woman.face.position.y = -.012 - slide * .16; woman.face.scale.set(1, 1 + slide * 1.2, 1); woman.M.skin.color.lerpColors(new THREE.Color(0xf0d0bc), new THREE.Color(0x9a958a), slide);
+      woman.root.updateMatrixWorld(true); const h = HEAD(woman); if (t < EN('h13')) CL(V(-.6, 1.3, z - 1.4), V(-1.0, 1.4, bridgeZ + .6), 40); else C(h.clone().add(V(.08, -.02, .95)), h.clone().add(V(0, -.04, 0)), 28); }
+    else { demonStand(-1.0, bridgeZ + .6, 0, RD); demonKey.position.set(.2, 2.4, bridgeZ + 2.5); demonKey.intensity = 7; flashL.position.set(-1, 6, bridgeZ + 3); flashL.intensity = 40 * (1 - u01(t, EN('h13') + 1.3, EN('h13') + 1.6)); CL(V(-.4, 1.5, z - 1.6), V(-1.0, 2.2, bridgeZ + .6), 46); }
+  } else if (t < ST('h15') - .4) {                                    // it crawls up over the bonnet; speaks; holds out a long grey hand; Nao grips Haru's other hand
+    show(RD); air('RD'); const z = bridgeZ + 4.2; rdCar.position.set(-1.0, 0, z); rdCar.rotation.y = PI / 2; rdCar.userData.hl.intensity = 14; carIn.intensity = 2.5;
+    const cr = u01(t, ST('t01') - .2, ST('t01') + 2.2);
+    demonStand(-1.0, lerp(bridgeZ + .6, z - 1.7, cr), 0, RD); demonKey.position.set(.4, 2.6, z - .2); demonKey.intensity = 7; demon.root.position.y = cr * .85; demon.spine.rotation.x = lerp(.35, 1.1, cr); demon.neck.rotation.x = .3; demon.head.rotation.x = lerp(-.3, -.9, cr);
+    demon.arms.forEach(a => { a.up.rotation.set(lerp(-.2, -1.5, cr), 0, a.sd * .35); a.fo.rotation.set(-.2, 0, 0); curl(a, .25, .2, q); });
+    if (t > ST('h14')) { const r = demon.arms[0]; r.up.rotation.set(-1.7, .3, -.1); r.fo.rotation.set(0, 0, 0); curl(r, .05); }
+    demon.head.rotation.z = Math.sin(q * 1.3) * .12;
+    place(haru, RD, -.65, z - .2, PI); pose(haru, 'sitChair'); haru.root.position.y = .2; haru.expr('terrified');
+    place(nao, RD, -1.3, z - .2, PI); pose(nao, 'sitChair'); nao.root.position.y = .2; nao.expr('terrified'); haru.arms[0].up.rotation.set(-.4, -.6, 0); nao.arms[1].up.rotation.set(-.4, .6, 0);
+    if (t < ST('h14')) { const k = u01(t, ST('t01'), EN('t01')); CL(V(lerp(3.2, 2.4, k), 1.7, z - lerp(.2, .8, k)), V(-1.0, 1.9, z - 1.2), lerp(60, 52, k)); }
+    else if (t < ST('h14') + 2.6) C(W(-1.0, 1.8, z + 1.5), W(-1.0, 2.2, z - 2.4), 52);
+    else { const h = HEAD(nao); C(h.clone().add(V(-.2, .18, -1.5)), h.clone().add(V(.1, -.02, 0)), 34); }   // Nao, holding on, through the windscreen
+  } else if (t < EN('h15') + .7) {                                    // her hand rises toward its fingers; Nao's grip slips; cut on the touch
+    show(RD); air('RD'); const z = bridgeZ + 4.2; rdCar.position.set(-1.0, 0, z); rdCar.rotation.y = PI / 2; rdCar.userData.hl.intensity = 14; carIn.intensity = 2.5;
+    demonStand(-1.0, z - 1.7, 0, RD); demonKey.position.set(.4, 2.6, z - .2); demonKey.intensity = 7; demon.root.position.y = .85; demon.spine.rotation.x = 1.1; demon.head.rotation.x = -.9;
+    const r = demon.arms[0]; r.up.rotation.set(-1.7, .3, -.1); r.fo.rotation.set(0, 0, 0); curl(r, .05);
+    place(haru, RD, -.65, z - .2, PI); pose(haru, 'sitChair'); haru.root.position.y = .2; haru.expr('terrified');
+    place(nao, RD, -1.3, z - .2, PI); pose(nao, 'sitChair'); nao.root.position.y = .2; nao.expr('terrified');
+    const k = u01(t, ST('h15'), EN('h15') + .5); haru.arms[1].up.rotation.set(-1.5 * k, .2, 0); haru.arms[1].fo.rotation.set(-.1, 0, 0);
+    haru.arms[0].up.rotation.set(-.4, -.6 + k * .4, 0); nao.arms[1].up.rotation.set(-.4, .6 - k * .5, 0);
+    const h = HEAD(haru); C(h.clone().add(V(.25, .22, -1.6)), h.clone().add(V(-.2, .05, 0)), lerp(46, 36, k));
+  } else black = true;
+  // the loop: the last half second is the hook frame again
+  if (t > DUR - .1) black = true;
+}
+// the garage door (a roller door at the near end of the road set)
+let garage = null; function G0() { if (!garage) { garage = G(RD); add(rbox(3.2, 2.4, .08, .01), clay(0x6a6e70, {bumpScale: 1.4}), garage, [0, 1.2, 0]); for (let i = 0; i < 8; i++) add(rbox(3.2, .02, .1, .005), clay(0x4a4e50), garage, [0, .15 + i * .3, .03]); } return garage; }
+const frameFX = followFrame(frame, () => [haru, nao, haruT]);
+window.renderAt = t => { frameFX(t); if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
