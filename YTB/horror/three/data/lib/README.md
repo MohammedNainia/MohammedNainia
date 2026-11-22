@@ -21,6 +21,16 @@ Buildings: house_family, house_old, cottage, hospital, church, crypt, gas_statio
 Hospital: hospital_bed, drip_stand, wheelchair, screen.  Church: pew, altar, candle_stand.  Cemetery: fence, cemetery_gate, cross_grave, angel, dead_tree.
 Desert: car_wreck, cow_skull, rocks.  Playground: swings, slide, roundabout.
 
+## Movement (scenes/moves.js)
+
+```js
+import {relaxed, idle, travel, travelTime} from './moves.js';
+reset(P); idle(P, t);                    // the default stance: relaxed (weight on one leg, soft elbows, shoulders down) and breathing
+const path = [{from: [-3, 0], heading: Math.PI / 2}, {idle: 1.5}, {walk: [2, 0]}, {turn: -Math.PI / 2}, {look: 'L'}, {run: [5, 1]}];
+reset(P); travel(P, t, path);            // walks / runs along it with the feet planted (the speed comes from the puppet's own stride), turns on the spot with little steps
+```
+Headings: 0 faces +z (the camera), PI/2 faces +x. See it: `scenes/haru_lab.html?mode=move` (and `?mode=face` for the face and stance from all sides).
+
 ## Whole places (sets)
 
 `scenes/lib_sets.js` builds finished, lit places from these models plus our own ground, sky, fog and lights:
@@ -47,6 +57,7 @@ See them: `scenes/lib_view.html` (`?show=chars`, `?show=props&grid=1`, `?char=mu
 2. 3D (Hyper3D Rodin v2.5 Fast, image-to-3D, 300) from that image.
 3. `python tools/glb_slim.py raw.glb data/lib/chars/<name>.glb` then `python tools/glb_autorig.py data/lib/chars/<name>.glb` (`--child` for a small child in a skirt;
    `--rot 90` if it came out facing sideways). Long skirts and coats are detected and the hips placed by proportion.
+   If the face bulges forward (a muzzle), `python tools/glb_face_flatten.py data/lib/chars/<name>.glb` flattens it and shrinks the nose (`--dry` to see the profile first).
 4. Add it to `index.json` (`file`, `desc`, `height`, `made`) and check it in `lib_view.html?char=<name>`.
 
 ## Adding a prop (300 credits)

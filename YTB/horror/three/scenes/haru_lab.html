@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// A library character on a studio floor, for checking it. ?char=haru (default)
+//   ?mode=face  renderAt(i): 0 face front, 1 face three-quarter, 2 face profile, 3 body front (relaxed), 4 body three-quarter, 5 body side, 6 old stiff stance
+//   ?mode=move  a movement test, timed (renderAt(t) seconds): idle, walk, turn, walk back, look over the shoulder, turn, run. window.DUR = its length
+import {THREE, setup} from './lib.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {lib} from './library.js';
+import {relaxed, idle, travel, travelTime} from './moves.js';
+import {look} from './clay.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), mode = q.get('mode') || 'face', wide = mode === 'move' || !!q.get('wide');
+const {scene, cam, render, renderer, grade, grain} = setup({bloom: .15, w: Math.round((wide ? 1920 : 1080) * PS), h: Math.round((wide ? 1080 : 1920) * PS)});
+renderer.toneMapping = THREE.NeutralToneMapping; grade('none'); grain.uniforms.sat.value = 1.08; grain.uniforms.vig.value = .2; renderer.shadowMap.type = THREE.VSMShadowMap;
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.background = new THREE.Color(0xdedbd6); scene.fog = new THREE.Fog(0xdedbd6, 14, 34);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({color: 0xb0ada8, roughness: 1, envMapIntensity: .5})); floor.receiveShadow = true; scene.add(floor);
+if (mode === 'move') for (let x = -8; x <= 8; x++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(.02, 6).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({color: 0x8e8b86})); m.position.set(x, .002, 0); scene.add(m); }   // a line every metre
+const key = new THREE.DirectionalLight(0xfff4e8, 1.2); key.position.set(3, 6, 8); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 10; key.shadow.blurSamples = 20; key.shadow.bias = -.0006;
+Object.assign(key.shadow.camera, {left: -10, right: 10, top: 6, bottom: -3, near: .5, far: 30}); scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xe8f0ff, .6); rim.position.set(-4, 4, -6); scene.add(rim);
+const P = await lib.char(q.get('char') || 'haru'); scene.add(P.root);
+const reset = () => { P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0); P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck);
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); };
+const H = 1.26 * (P.root.userData.k || 1);
+const PATH = [{from: [-3.2, 0], heading: Math.PI / 2}, {idle: 1.6}, {walk: [1.6, 0], speed: 1.15, amp: 1.2}, {turn: -Math.PI / 2, dur: 1.1}, {walk: [-.8, 0], speed: 1.15, amp: 1.2}, {look: 'L', dur: 1.8},
+  {turn: 0, dur: .8}, {idle: .5}, {run: [4.5, 1.2], speed: 1.25, amp: 1.25}, {turn: -Math.PI / 2, dur: .9}, {idle: 1.2}];
+import {stride} from "./moves.js"; window.STR = () => [stride(P), stride(P, {run: true})];
+window.DUR = mode === 'move' ? travelTime(P, PATH) : 7;
+let camX = 0;
+window.renderAt = t => { reset();
+  if (mode === 'face') { const i = Math.floor(t);
+    if (i < 6) relaxed(P); P.expr('neutral');
+    P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, .1, 0));
+    if (i < 3) { const a = [0, .7, 1.5708][i]; cam.position.set(h.x + Math.sin(a) * .85, h.y + .02, h.z + Math.cos(a) * .85); cam.lookAt(h); cam.fov = 26; }
+    else { const a = [0, .6, 1.5708, 0][i - 3]; cam.position.set(Math.sin(a) * 4.2, .7, Math.cos(a) * 4.2); cam.lookAt(0, .62, 0); cam.fov = 24; } }
+  else { const r = travel(P, t, PATH); if (r.move !== 'look') P.expr(r.move === 'run' ? 'scared' : 'neutral');
+    const cx = THREE.MathUtils.clamp(r.pos.x * .85, -2.6, 3.6); cam.position.set(cx, .95, 4.6); cam.lookAt(cx, .62, .3); cam.fov = 30; }
+  cam.updateProjectionMatrix(); render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

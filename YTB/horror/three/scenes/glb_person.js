@@ -137,7 +137,7 @@ export async function makeGlbPerson(name, o = {}) {
     const er = F.eyes[2] * sc * .55, ink = '#1c1414';
     for (const s of [-1, 1]) {                       // s: the character's right (-1) and left (+1), as seen from the front: right is on the image's left
       const ex = cX(s * F.eyes[0]), ey = cY(F.eyes[1]);
-      const lid = ST.eyes === 'closed' ? 1 : ST.eyes === 'squeeze' ? 1 : ST.eyes === 'wide' ? 0 : ST.lid;
+      const lid = ST.eyes === 'closed' ? 1 : ST.eyes === 'squeeze' ? 1 : ST.eyes === 'wide' ? 0 : Math.max(0, ST.lid - .2) * 1.3;   // a calm face has open eyes: only sad, sleepy, sly faces lower the lids
       if (lid >= .9) { fx.strokeStyle = ink; fx.lineWidth = er * .45; fx.lineCap = 'round'; fx.beginPath();
         if (ST.eyes === 'squeeze') { fx.moveTo(ex - er * 1.2, ey - er * .5); fx.lineTo(ex, ey); fx.lineTo(ex - er * 1.2 * -1, ey - er * .5); }
         else fx.arc(ex, ey - er * .3, er * 1.1, Math.PI * .15, Math.PI * .85); fx.stroke(); }
