@@ -24,7 +24,11 @@ const reset = P => { P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0
   P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); };
 const TESTS = ['stand', 'walk', 'run', 'sitChair', 'armsUp', 'scared', 'reach', 'turn', 'cower'];
-window.renderAt = t => { const n = TESTS[Math.floor(t) % TESTS.length]; reset(H); H.root.rotation.y = -.5;
+const FACES = ['neutral', 'worried', 'scared', 'terrified', 'sad', 'angry', 'creepySmile', 'surprised', 'shock', 'blink', 'talkA', 'talkB'];
+if (q.get('face')) window.renderAt = t => { const n = FACES[Math.floor(t) % FACES.length]; reset(H); H.rest();   // ?face=1: the drawn face, close up
+  if (n === 'blink') H.eyes('closed'); else if (n === 'talkA') H.mouth('open', .5); else if (n === 'talkB') H.mouth('o', .8); else H.expr(n);
+  H.root.updateMatrixWorld(true); const h = H.head.getWorldPosition(new THREE.Vector3()); const ang = +(q.get('ang') || 0); cam.position.set(h.x + Math.sin(ang) * 1.6, h.y + .1, h.z + Math.cos(ang) * 1.6); cam.lookAt(h.x, h.y + .06, h.z); cam.fov = 22; cam.updateProjectionMatrix(); render(t); };
+else window.renderAt = t => { const n = TESTS[Math.floor(t) % TESTS.length]; reset(H); H.root.rotation.y = -.5;
   if (n === 'walk') walk(H, .3, {}); else if (n === 'run') walk(H, .35, {run: true}); else if (n === 'turn') look(H, {turn: 1.0, tilt: .2}); else if (n !== 'stand') pose(H, n);
   cam.position.set(0, .72, 5.2); cam.lookAt(0, .66, 0); cam.fov = 22; cam.updateProjectionMatrix(); render(t); };
 window.renderAt(0); window.ready = true;

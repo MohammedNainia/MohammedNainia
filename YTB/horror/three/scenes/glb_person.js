@@ -5,6 +5,7 @@
 // The hips sit at y = .82 in the puppet's own units, like every makePerson character; P.s0 scales it to its height in the world.
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {EXPR} from './clay.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -63,17 +64,113 @@ export async function makeGlbPerson(name, o = {}) {
     top.forEach((c, k2) => { si[v * 4 + k2] = c[0]; sw[v * 4 + k2] = c[1] / tot; });
   }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  // ---- the skin: the generator painted it browner than the sheet; shift every skin-coloured texel toward the sheet's peach (the hoodie, hair and trousers stay)
+  const m0 = src.material, F = R.face || null;
+  let map = m0.map;
+  if (map && map.image && F && !R.skinDone) {
+    const im = map.image, cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+    const d = cx.getImageData(0, 0, cv.width, cv.height), a = d.data, tgt = new THREE.Color(F.skinTarget), src0 = [196, 127, 91];   // the measured face skin
+    const gain = [tgt.r * 255 / src0[0], tgt.g * 255 / src0[1], tgt.b * 255 / src0[2]];
+    for (let i = 0; i < a.length; i += 4) { const r = a[i], g = a[i + 1], b = a[i + 2], br = b / (r || 1);
+      if (r > g && g > b && br > .33 && br < .7 && r > 70) { const w = sm(.33, .42, br) * (1 - sm(.6, .7, br)); for (let c = 0; c < 3; c++) a[i + c] = Math.min(255, a[i + c] * (1 + (gain[c] - 1) * w)); } }
+    cx.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(cv); t.flipY = map.flipY; t.colorSpace = THREE.SRGBColorSpace; t.wrapS = map.wrapS; t.wrapT = map.wrapT; t.anisotropy = 4; map = t;
+  }
   // clay: matte, never metallic (the generator's gloss and metal maps make it plastic), a soft sheen
-  const m0 = src.material, mat = new THREE.MeshPhysicalMaterial({map: m0.map, normalMap: m0.normalMap, roughness: .88, metalness: 0, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color(0xfff0e0), side: m0.side});
+  const mat = new THREE.MeshPhysicalMaterial({map, normalMap: m0.normalMap, roughness: .88, metalness: 0, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color(0xfff0e0), side: m0.side});
   const mesh = new THREE.SkinnedMesh(geo, mat); mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false;
-  root.add(mesh); root.updateMatrixWorld(true); mesh.bind(new THREE.Skeleton(bones));
-  // ---- the makePerson interface the scenes use (the face controls are stubs until the animated face goes on)
+  const skel = new THREE.Skeleton(bones);
+  root.add(mesh); root.updateMatrixWorld(true); mesh.bind(skel);
+
+  // ---- the 2D face: a thin skin layer over the face (covering the painted features), with eyes, brows and a mouth DRAWN on it,
+  // redrawn when the expression changes. It is cut from the mesh's own face triangles, so it follows every bump, and skinned like them.
+  const FS = 512, fcv = document.createElement('canvas'); fcv.width = fcv.height = FS; const fx = fcv.getContext('2d');
+  const ftex = new THREE.CanvasTexture(fcv); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 4;
+  let faceMesh = null;
+  if (F && F.plate) {
+    // the face plate (tools/glb_face_clean.py): a smooth clay shell over the face, laid like a tarp over the sculpted brows and lips;
+    // a grid from its height map, skinned like the face under it (all head above the chin, blending into the neck below)
+    const {nx, ny, z: hz} = F.plate, chinP = J.headBase.y - .02, verts = [], uvs = [], ind = [], wi = [], ww = [], idmap = new Int32Array(nx * ny).fill(-1);
+    const hi = bones.indexOf(head), ni = bones.indexOf(neck), ci = bones.indexOf(chest);
+    for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) {
+      const u = c / (nx - 1), v = r / (ny - 1), mxm = F.x[0] + u * (F.x[1] - F.x[0]), mym = F.y[0] + v * (F.y[1] - F.y[0]);
+      if (((u - .5) / .5) ** 2 + ((v - .5) / .5) ** 2 > 1.0) continue;                                  // an oval face
+      idmap[r * nx + c] = verts.length / 3; verts.push(mxm * k, (mym - R.floor) * k, hz[r * nx + c] * k); uvs.push(u, v);
+      const fh = sm(chinP - .16, chinP + .08, (mym - R.floor) * k); wi.push(hi, ni, ci, 0); ww.push(fh * .7, fh * .3, 1 - fh, 0); }
+    for (let r = 0; r < ny - 1; r++) for (let c = 0; c < nx - 1; c++) { const a = idmap[r * nx + c], b = idmap[r * nx + c + 1], d = idmap[(r + 1) * nx + c], e2 = idmap[(r + 1) * nx + c + 1];
+      if (a >= 0 && b >= 0 && d >= 0 && e2 >= 0) ind.push(a, b, d, b, e2, d); }
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); fg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); fg.setIndex(ind);
+    fg.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(wi, 4)); fg.setAttribute('skinWeight', new THREE.Float32BufferAttribute(ww, 4)); fg.computeVertexNormals();
+    const fm = new THREE.MeshPhysicalMaterial({map: ftex, transparent: true, roughness: .88, metalness: 0, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color(0xfff0e0), normalMap: m0.normalMap ? null : null});
+    faceMesh = new THREE.SkinnedMesh(fg, fm); faceMesh.frustumCulled = false; faceMesh.castShadow = true; root.add(faceMesh); faceMesh.bind(skel, mesh.bindMatrix);
+  } else if (F) {
+    const toP = (mx, my) => [mx * k, (my - R.floor) * k];                                  // model units -> puppet units
+    const [x0, y0] = toP(F.x[0], F.y[0]), [x1, y1] = toP(F.x[1], F.y[1]);
+    const nrm = geo.attributes.normal, uv = geo.attributes.uv, idx = geo.index, tri = idx ? idx.count / 3 : pos.count / 3, keep = [];
+    const inFace = v => { const x = pos.getX(v), y = pos.getY(v), z = pos.getZ(v); const ex = (x / ((x1 - x0) / 2)) ** 2 + ((y - (y0 + y1) / 2) / ((y1 - y0) / 2)) ** 2;
+      return ex < 1.08 && nrm.getZ(v) > .15 && z > .06 * k; };
+    for (let t = 0; t < tri; t++) { const a = idx ? idx.getX(t * 3) : t * 3, b = idx ? idx.getX(t * 3 + 1) : t * 3 + 1, c = idx ? idx.getX(t * 3 + 2) : t * 3 + 2; if (inFace(a) && inFace(b) && inFace(c)) keep.push(a, b, c); }
+    const m = keep.length, fp = new Float32Array(m * 3), fn = new Float32Array(m * 3), fu = new Float32Array(m * 2), fi = new Uint16Array(m * 4), fw = new Float32Array(m * 4);
+    keep.forEach((v, q2) => { const lift = .0012 * k;                                                                        // a hair above the clay
+      fp[q2 * 3] = pos.getX(v) + nrm.getX(v) * lift; fp[q2 * 3 + 1] = pos.getY(v) + nrm.getY(v) * lift; fp[q2 * 3 + 2] = pos.getZ(v) + nrm.getZ(v) * lift;
+      fn[q2 * 3] = nrm.getX(v); fn[q2 * 3 + 1] = nrm.getY(v); fn[q2 * 3 + 2] = nrm.getZ(v);
+      fu[q2 * 2] = (pos.getX(v) - x0) / (x1 - x0); fu[q2 * 2 + 1] = (pos.getY(v) - y0) / (y1 - y0);                       // a flat front projection: the drawing is a face seen from the front
+      for (let c = 0; c < 4; c++) { fi[q2 * 4 + c] = si[v * 4 + c]; fw[q2 * 4 + c] = sw[v * 4 + c]; } });
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(fp, 3)); fg.setAttribute('normal', new THREE.BufferAttribute(fn, 3)); fg.setAttribute('uv', new THREE.BufferAttribute(fu, 2));
+    fg.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(fi, 4)); fg.setAttribute('skinWeight', new THREE.Float32BufferAttribute(fw, 4));
+    const fm = new THREE.MeshPhysicalMaterial({map: ftex, transparent: true, roughness: .88, metalness: 0, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color(0xfff0e0), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, depthWrite: false});
+    faceMesh = new THREE.SkinnedMesh(fg, fm); faceMesh.frustumCulled = false; faceMesh.renderOrder = 1; root.add(faceMesh); faceMesh.bind(skel, mesh.bindMatrix);
+  }
+  // face drawing: positions in the canvas, from the measured features (model units)
+  const cX = mx => (mx - F.x[0]) / (F.x[1] - F.x[0]) * FS, cY = my => (1 - (my - F.y[0]) / (F.y[1] - F.y[0])) * FS, sc = FS / (F.x[1] - F.x[0]);
+  const skinCss = F ? F.skinTarget : '#e8a27c', ST = {eyes: 'open', lid: .1, brows: [0, 0, 0], mouth: 'closed', open: 1, tears: false};
+  let drawn = '';
+  function drawFace() {
+    if (!F) return; const key = JSON.stringify(ST); if (key === drawn) return; drawn = key;
+    fx.clearRect(0, 0, FS, FS);
+    // the skin layer: solid in the middle, fading out at the edge into the clay's own skin
+    // the skin base (a plate fades to nothing before its own edge, so the edge never shows)
+    if (!R.clean || F.plate) { const g = fx.createRadialGradient(FS / 2, FS / 2, FS * (F.plate ? .36 : .3), FS / 2, FS / 2, FS * (F.plate ? .485 : .52)); g.addColorStop(0, skinCss); g.addColorStop(1, skinCss + '00'); fx.fillStyle = g; fx.fillRect(0, 0, FS, FS); }   // a cleaned model already has bare skin: draw only the features
+    const er = F.eyes[2] * sc * .55, ink = '#1c1414';
+    for (const s of [-1, 1]) {                       // s: the character's right (-1) and left (+1), as seen from the front: right is on the image's left
+      const ex = cX(s * F.eyes[0]), ey = cY(F.eyes[1]);
+      const lid = ST.eyes === 'closed' ? 1 : ST.eyes === 'squeeze' ? 1 : ST.eyes === 'wide' ? 0 : ST.lid;
+      if (lid >= .9) { fx.strokeStyle = ink; fx.lineWidth = er * .45; fx.lineCap = 'round'; fx.beginPath();
+        if (ST.eyes === 'squeeze') { fx.moveTo(ex - er * 1.2, ey - er * .5); fx.lineTo(ex, ey); fx.lineTo(ex - er * 1.2 * -1, ey - er * .5); }
+        else fx.arc(ex, ey - er * .3, er * 1.1, Math.PI * .15, Math.PI * .85); fx.stroke(); }
+      else { const big = ST.eyes === 'wide' ? 1.25 : 1;
+        if (ST.eyes === 'wide') { fx.fillStyle = '#f4efe6'; fx.beginPath(); fx.ellipse(ex, ey, er * 1.9, er * 1.9, 0, 0, 7); fx.fill(); }
+        fx.fillStyle = ink; fx.beginPath(); fx.ellipse(ex, ey, er * big, er * 1.12 * big, 0, 0, 7); fx.fill();
+        fx.fillStyle = '#ffffff'; fx.beginPath(); fx.arc(ex - er * .3, ey - er * .38, er * .28, 0, 7); fx.fill();   // the catch-light
+        if (lid > .05) { fx.save(); fx.beginPath(); fx.ellipse(ex, ey, er * 1.05 * big, er * 1.17 * big, 0, 0, 7); fx.clip(); fx.fillStyle = skinCss; fx.fillRect(ex - er * 1.6, ey - er * 1.4, er * 3.2, er * (.2 + 2.3 * lid)); fx.restore();   // the lid: only over the eye itself
+          fx.strokeStyle = ink; fx.lineWidth = er * .18; fx.beginPath(); fx.moveTo(ex - er * 1.05, ey - er * 1.17 + er * (.2 + 2.3 * lid)); fx.lineTo(ex + er * 1.05, ey - er * 1.17 + er * (.2 + 2.3 * lid)); fx.stroke(); } }   // the upper lid comes down
+      // the brow: a thick soft dash; worried tilts the inner end up, angry tilts it down
+      const k2 = s < 0 ? ST.brows[0] : ST.brows[1], bx = cX(s * F.brows[0]), by = cY(F.brows[1]) - ST.brows[2] * sc * 2;
+      fx.save(); fx.translate(bx, by - Math.abs(k2) * er * .4); fx.rotate(-s * k2 * .45); fx.fillStyle = '#2a2026'; fx.beginPath(); fx.ellipse(0, 0, er * 1.7, er * .42, 0, 0, 7); fx.fill(); fx.restore();
+      if (ST.tears) { fx.fillStyle = 'rgba(160,210,240,.85)'; fx.beginPath(); fx.ellipse(ex + s * er * .4, ey + er * 2.2, er * .35, er * .6, 0, 0, 7); fx.fill(); }
+    }
+    // the mouth
+    const mx = cX(F.mouth[0]), my = cY(F.mouth[1]), mw = F.mouth[2] * sc * .5, s2 = ST.mouth, amt = ST.open;
+    fx.lineCap = 'round'; fx.strokeStyle = '#5a1e22'; fx.lineWidth = mw * .16;
+    const shape = {open: [.9, .35 + .65 * amt], gums: [.9, .35 + .65 * amt], o: [.45, .55 + .3 * amt], grimace: [1.25, .35 + .15 * amt], scream: [.85, 1 + .7 * amt]}[s2];
+    if (!shape) { fx.beginPath(); const c = s2 === 'smile' ? -.45 : s2 === 'frown' ? .5 : s2 === 'pressed' ? .05 : .2;   // a line: curved up (smile) or down
+      fx.moveTo(mx - mw * .7, my + c * mw * .4); fx.quadraticCurveTo(mx, my - c * mw * .5, mx + mw * .7, my + c * mw * .4); fx.stroke(); }
+    else { const w = mw * shape[0], h = mw * .55 * shape[1]; fx.fillStyle = '#3a0c12'; fx.beginPath(); fx.ellipse(mx, my + h * .3, w, h, 0, 0, 7); fx.fill();
+      if (s2 === 'open' || s2 === 'grimace' || s2 === 'scream') { fx.fillStyle = '#f6f1e8'; fx.beginPath(); fx.ellipse(mx, my + h * .3 - h * .72, w * .8, h * .28, 0, 0, 7); fx.fill(); }
+      if (s2 === 'gums') { fx.fillStyle = '#d86a78'; fx.fillRect(mx - w * .8, my + h * .3 - h * .85, w * 1.6, h * .3); } }
+    ftex.needsUpdate = true;
+  }
+  drawFace();
   const neckLen = J.headBase.y - J.neckBase.y, s0 = (o.height || 1.26) / J.headTop.y;
   root.scale.setScalar(s0);
   const faceLight = new THREE.PointLight(0xffe8d8, 0, 1.2); head.add(faceLight); faceLight.position.set(0, .1, .4);
   const face = new THREE.Group(); head.add(face); const back = new THREE.Group(); head.add(back);
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, mesh, J, faceLight, sec: {strings: []}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
-    eyes() {}, brows() {}, mouth() {}, expr() {}, lid() {}, browPair() {}, tears() {}, talkCues() {}, clothes() {}, rest() {}};
+  // the makePerson face interface (the same calls drive it: P.expr('scared'), P.mouth('open', .6), P.eyes('closed'), P.brows(1)...)
+  const P = {root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: []}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
+    eyes(s) { ST.eyes = s; drawFace(); }, lid(v) { ST.eyes = v >= .9 ? 'closed' : 'open'; ST.lid = v; drawFace(); },
+    brows(kk) { ST.brows = [kk, kk, Math.abs(kk) * .004]; drawFace(); }, browPair(r, l, raise = 0) { ST.brows = [r, l, raise]; drawFace(); },
+    mouth(s, amt = 1) { ST.mouth = s; ST.open = amt; drawFace(); }, tears(b) { ST.tears = !!b; drawFace(); },
+    expr(name) { const e = EXPR[name] || EXPR.neutral; ST.eyes = (e.lid ?? 0) >= .9 ? 'closed' : 'open'; ST.lid = Math.min(.6, e.lid ?? .15); ST.brows = [e.brows[0], e.brows[1], e.brows[2] || 0]; ST.mouth = e.mouth; ST.open = e.open ?? 1; ST.tears = !!e.tears; drawFace(); },
+    talkCues() {}, clothes() {}, rest() { ST.eyes = 'open'; ST.lid = .15; ST.brows = [0, 0, 0]; ST.mouth = 'closed'; ST.open = 1; ST.tears = false; drawFace(); }};
   // the scenes' reset() puts the hips at .82 and the head at neckLen; keep the chest and neck where the mesh needs them
   P.restPos = {chest: chest.position.clone(), neck: neck.position.clone()};
   return P;
