@@ -205,6 +205,37 @@ export function makePerson(o = {}) {
     add(rbox2(.032, .01, .008), tieM, head, [.075, .045, .07], [0, .8, -.5]); }                                // a hair clip
   else if (style === 'buns') {
     for (const x of [-1, 1]) { const g = G(head, [x * .066, .088, -.03]); add(S(.046, 1, .95, 1, .004, 8), M.hair, g, [0, .02, 0]); tie(g, [0, -.012, 0], .03); bow(g, [0, .02, .03]); } }
+  if (style === 'sweep') {        // Haru's look (the Artlist concept 5): a deep side part, a fringe swept across the forehead, a small braid along the other side
+    const r = .116, part = .045;                                                    // the part sits over her left eye (+x)
+    const edge = x => .028 + .06 * Math.min(1, Math.max(0, (x + .04) / .12)) ** 1.5; // the fringe's lower edge: low over her right brow, up to the part
+    const fg = new THREE.SphereGeometry(r, 44, 14, Math.PI / 2 - 1.45, 2.3, 0, 1), p = fg.attributes.position, uv = fg.attributes.uv, rim = [];
+    for (let i = 0; i < p.count; i++) { const phi = Math.PI / 2 - 1.45 + uv.getX(i) * 2.3, v = 1 - uv.getY(i), sx = -Math.cos(phi), sz = Math.sin(phi);
+      const yEnd = edge(sx * r), th1 = Math.acos(Math.min(.99, yEnd / r)), th = v * th1, sw = sz > 0 ? 1 - .12 * v * v * sz : 1;   // the lower front hugs the forehead
+      p.setXYZ(i, -r * Math.cos(phi) * Math.sin(th) * sw, r * Math.cos(th), r * Math.sin(phi) * Math.sin(th) * sw);
+      if (v > .999 && sz > -.2) rim.push(new THREE.Vector3(p.getX(i), p.getY(i), p.getZ(i))); }
+    fg.computeVertexNormals(); const fm = M.hair.clone(); fm.side = THREE.DoubleSide;
+    const fringe = G(head, [0, .006, .004]); add(lump(fg, .003, 8), fm, fringe).scale.set(1.0, 1.02, 1.04);
+    rim.sort((a, b) => a.x - b.x); if (rim.length > 3) add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rim.filter((_, k) => k % 3 === 0)), 40, .0055, 8), M.hair, fringe, [0, 0, 0]).scale.set(1.0, 1.02, 1.04);   // the rounded edge
+    // the braid: from the part, along the hairline on her left, back behind the ear
+    const bp = [[part, .108, .045], [.07, .094, .052], [.095, .066, .04], [.11, .03, .012], [.112, -.005, -.022], [.1, -.035, -.05]].map(([x, y, z]) => new THREE.Vector3(x, y, z).multiplyScalar(1.035));
+    const bc = new THREE.CatmullRomCurve3(bp), n = 24;
+    for (let k = 0; k < n; k++) { const u = k / (n - 1), q = bc.getPoint(u), tg = bc.getTangent(u), nrm = q.clone().normalize(), side = new THREE.Vector3().crossVectors(tg, nrm).normalize();
+      const sd = k % 2 ? 1 : -1, b2 = add(S(.0105 - u * .002, 1.7, .62, .55, .001, 14), M.hair, head, q.clone().addScaledVector(side, sd * .0048).addScaledVector(nrm, .002).toArray());
+      b2.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tg.clone().multiplyScalar(.75).addScaledVector(side, sd * -.9).normalize()); }   // overlapping slanted strands: a plait's chevrons
+    // the long hair: ONE closed mass of clay all round (no cut edges, no gaps). The face opening is pushed in behind the face instead of cut out:
+    // wide on her left (tucked behind the ear, by the braid), narrower on her right, where the hair comes forward over the shoulder.
+    sec.hair = G(head, [0, .06, -.012]);
+    const gapR = o.hairGap ?? 1.05, gapL = gapR + .85;
+    const hg = turn([[.05, .118], [.088, .1], [.11, .066], [.12, .01], [.126, -.08], [.138, -.16], [.162, -.225], [.172, -.26], [.16, -.29], [.13, -.288], [.112, -.2], [.1, -.08], [.096, .02], [.082, .07], [.05, .105]], .004, 7, Math.PI, Math.PI * 2, 72);   // rests over the shoulders
+    { const hp = hg.attributes.position, sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+      for (let i = 0; i < hp.count; i++) { let x = hp.getX(i), y = hp.getY(i), z = hp.getZ(i); const r = Math.hypot(x, z), phi = Math.atan2(x, z);
+        const a = phi >= 0 ? phi / gapL : -phi / gapR, open = (1 - sm(.72, 1.02, a)) * sm(.07, .035, y);                  // 1 inside the face opening, below the hairline
+        const rr = r + ((y > -.11 ? .062 : .02) - r) * open, k = rr / (r || 1); x *= k; z *= k;
+        if (y < -.09) z -= .07 * open * sm(-.09, -.14, y);                                                      // under the chin the opening goes back behind the neck
+        if (phi < 0) z += .04 * sm(-.07, -.2, y) * (1 - sm(1.0, 1.7, a));                                              // her right: the hair falls forward over the shoulder
+        hp.setXYZ(i, x * (o.hairThick || 1), y, z * (z < 0 ? 1.1 : 1.02)); }                                 // a fuller back, so the hood never shows through
+      hg.computeVertexNormals(); }
+    add(hg, M.hair, sec.hair, [0, -.06, 0]); }
   if (style === 'long') {
     sec.hair = G(head, [0, .06, -.012]);
     const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.124, -.08], [.133, -.16], [.152, -.225], [.16, -.26], [.148, -.29], [.124, -.288], [.11, -.2], [.1, -.08], [.096, .02], [.085, .07]],
@@ -485,8 +516,8 @@ export const BUILDS = {                     // sh shoulders, hip, chest depth, l
   man:   {sh: 1.16, hip: .96, chest: 1.08, limb: 1.08, belly: .015, bust: 0, stoop: 0, hand: 1.2},
   old:   {sh: .94, hip: 1.06, chest: 1, limb: .9, belly: .025, bust: 0, stoop: .3, hand: 1},
 };
-export const haruOpts = {scale: .71, headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
-  puffy: 1.22, hairThick: 1.22, hairGap: 1.12, hairTop: true, hairline: .066, neckLen: .195,
+export const haruOpts = {hairStyle: 'sweep', scale: .71, headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
+  puffy: 1.22, hairThick: 1.1, hairGap: 1.12, hairTop: false, hairline: .06, neckLen: .195,
   skin: 0xe8a27c, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};       // matched to the Artlist sheets
 export const mumOpts = {build: 'woman', outfit: 'sweater', headScale: 1.05, top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
 

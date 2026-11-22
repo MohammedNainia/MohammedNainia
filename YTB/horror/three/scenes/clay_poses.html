@@ -24,7 +24,7 @@ const EX = Object.keys(EXPR), PO = Object.keys(POSES), LO = Object.keys(LOOKS);
 function frame(t) {
   boil(Math.floor(t * 6)); reset(H);
   if (MODE === 'head') { H.rest(); H.expr('worried'); if (q.get('bald')) H.head.traverse(o => { if (o.material === H.M.hair || (o.material && o.material.color && o.material.color.getHex() === H.M.hair.color.getHex())) o.visible = false; }); H.root.rotation.y = [0, -.7, -1.57, -.6, 2.6][Math.floor(t) % 5]; const h = H.head.getWorldPosition(new THREE.Vector3());
-    const far = q.get('hair') ? 1.25 : .85; cam.position.set(h.x, h.y - (Math.floor(t) % 4 === 3 ? .12 : 0), h.z + far); cam.lookAt(h.x, h.y - .1, h.z); cam.fov = 30; }
+    const far = q.get('hair') || q.get('wide') ? 1.25 : .85; cam.position.set(h.x, h.y - (Math.floor(t) % 4 === 3 ? .12 : 0), h.z + far); cam.lookAt(h.x, h.y - .1, h.z); cam.fov = 30; }
   else if (MODE === 'look') { H.rest(); H.expr('neutral'); headLook(H, LO[Math.floor(t) % LO.length]); H.root.rotation.y = -.35;
     cam.position.set(-.05, 1.42, 1.25); cam.lookAt(0, 1.32, 0); cam.fov = 30; }
   else if (MODE === 'expr') { H.rest(); H.expr(EX[Math.floor(t) % EX.length]); const h = H.head.getWorldPosition(new THREE.Vector3()); cam.position.set(h.x + .05, h.y - .02, h.z + .75); cam.lookAt(h.x, h.y - .05, h.z); cam.fov = 30; }
