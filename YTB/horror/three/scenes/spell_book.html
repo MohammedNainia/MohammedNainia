@@ -7,7 +7,7 @@
 // Timed to YTB/horror/spell_book/voice/layout.json (copied to three/data). Poses held on twos; the clay boils every other pose.
 // Places: the attic, the street (the backwards world at night, or the ordinary street in the morning), the kitchen.
 import {THREE, setup, ease, clamp01, lerp} from './lib.js';
-import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame, CLAY_RIM} from './clay.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame, CLAY_RIM, walk as kitWalk} from './clay.js';
 import * as K from './clay_sets.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
 const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
@@ -57,13 +57,7 @@ function reset(P) {
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
   P.eyes('open'); P.brows(0); P.mouth('closed'); if (P.rest) P.rest();     // a relaxed stance, then each shot poses on top of it
 }
-function walk(P, t, speed = 1, amp = 1) {
-  const ph = t * PI * 2 * speed, sw = Math.sin(ph);
-  P.hips.position.y = .82 - (1 - Math.cos(.42 * amp * sw)) * .74 + Math.abs(Math.cos(ph)) * .012 * amp;
-  P.legs.forEach(({th, sh, ft}, i) => { const q = i ? -sw : sw, kn = Math.max(0, Math.sin(ph + (i ? PI : 0) - .6)) * (.9 + .5 * (amp - 1));
-    th.rotation.x = -q * .42 * amp; sh.rotation.x = kn; ft.rotation.x = -kn * .5 + q * .2; });
-  P.arms.forEach(({up, fo}, i) => { const q = i ? sw : -sw; up.rotation.x = -q * .4 * amp; fo.rotation.x = -.2 - Math.max(0, q) * .4 * amp; });
-}
+const walk = (P, t, speed = 1, amp = 1) => kitWalk(P, t, {speed, amp: Math.min(amp, 1.2), run: amp > 1.3});   // the kit's walk (arms against legs, hip twist, level head)
 function sit(P, x, seatY, z, ry) { P.root.rotation.y = ry; P.root.position.set(x, seatY - .82 * (P.s0 || 1), z); P.legs.forEach(({th, sh}) => { th.rotation.x = -1.5; sh.rotation.x = 1.5; }); }
 function faceTo(P, v, k = 1) {
   P.root.updateMatrixWorld(true); const hp = P.head.getWorldPosition(V(0, 0, 0));
@@ -152,19 +146,19 @@ const gran = makePerson({build: 'old', outfit: 'cardigan', age: 1, top: 0x5a4a62
 add(new THREE.PlaneGeometry(.2, .26), M.cloth, gran.chest, [0, .14, .17]);
 gran.faceLight.intensity = .15;                                                                        // white hair: a softer face light, or it glows                                    // the napkin in her collar
 add(new THREE.CylinderGeometry(.14, .12, .02, 20), M.plate, TB, [2.15, .8, 0]);                                 // an empty plate in front of her
-const stLamps = [-6, -1.5, 3, 7.5].map(x => { const g = G(SR, [x, 0, 1.75]); add(Cp(.035, 3), M.pole, g, [0, 1.5, 0]); add(S(.1, 1, .6, 1), new THREE.MeshBasicMaterial({color: 0xd8f0c8}), g, [0, 3.05, -.1]);
-  const l = new THREE.PointLight(0xc8e8b8, 3, 6, 1.4); l.position.set(x, 3.0, 1.6); SR.add(l); return l; });
+const stLamps = [-6, -1.5, 3, 7.5].map(x => { const sl = K.streetLamp(3.1, 0xd8f0c8, 3); sl.position.set(x, 0, 1.75); sl.rotation.y = PI; SR.add(sl); return sl.userData.light; });
 const moon = new THREE.DirectionalLight(0x8ab0a8, .9); moon.position.set(-4, 7, 6); moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, {left: -9, right: 9, top: 6, bottom: -6}); SR.add(moon, moon.target);
 const srAmb = new THREE.HemisphereLight(0x3a5048, 0x0a0806, .4); SR.add(srAmb);
 const sun = new THREE.DirectionalLight(0xffe0b0, 0); sun.position.set(5, 7, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, {left: -9, right: 9, top: 6, bottom: -6}); SR.add(sun, sun.target);
 const keyS = new THREE.PointLight(0xe8f0d8, 0, 3, 1.5); SR.add(keyS);                                        // a soft light on whoever the shot is about
+const WINS = []; SR.traverse(o => { if (o.userData.on !== undefined) WINS.push(o); }); let lastWorld = null;
 function world(backwards) {                                          // the backwards world at night, or the ordinary morning
   M.sky.color.set(backwards ? 0x1e2e2c : 0x9ab8d8); moon.intensity = backwards ? .9 : 0; sun.intensity = backwards ? 0 : 2.4;
   srAmb.color.set(backwards ? 0x3a5048 : 0xb8c8e0); srAmb.intensity = backwards ? .4 : .9; stLamps.forEach(l => l.intensity = backwards ? 3 : 0);
   TB.visible = backwards; scene.background.set(backwards ? 0x020303 : 0x8aa8c8);
-  SR.traverse(o => { if (o.userData.on !== undefined) o.material = backwards && o.userData.on ? M.winOn : M.winOff; });
+  if (backwards !== lastWorld) { lastWorld = backwards; WINS.forEach(o => o.material = backwards && o.userData.on ? M.winOn : M.winOff); }   // only when it changes
 }
 
 // ================================================================ THE KITCHEN (morning), dressed with the set kit
@@ -239,7 +233,7 @@ function frame(t) {
     show(SR); haru.root.position.set(.1, .07, 1.95); haru.root.rotation.y = .5; haru.eyes('wide'); haru.brows(.9); haru.mouth('pressed');
     haru.head.rotation.y = Math.sin(q * 1.3) * .7; haru.arms.forEach(({up}, i) => up.rotation.set(-.15, 0, (i ? 1 : -1) * .2));
     keyS.intensity = 1.6; keyS.position.set(.6, 1.8, 3.0);
-    const u = ease(t / 4.8); C(V(1.6 - .5 * u, 1.25, 4.8 - 1.2 * u), V(-.2, .95, 1.0), 44);
+    const u = ease(t / 4.8); C(V(1.35 - .4 * u, 1.05, 4.0 - 1.0 * u), V(-.1, .72, 1.2), 44);
   } else if (t < ST('h03') - .2) {                                    // the attic: Mum lifts the book out of the trunk
     show(AT); mum.root.visible = true; mum.root.position.set(-.35, 0, -.45); mum.root.rotation.y = PI; mum.chest.rotation.x = .35;
     const k = ease((t - ST('h02') - .6) / 2); mum.arms.forEach(({up, fo}) => { up.rotation.set(-.9 - .5 * k, 0, 0); fo.rotation.set(-.6, 0, 0); });
@@ -267,7 +261,7 @@ function frame(t) {
     show(AT); bulb.intensity = .4; atWin.material.color.set(0x3a5a50);
     keyA.intensity = 1.2; keyA.position.set(.4, 1.3, -.4); haru.root.position.set(0, 0, -1.25); haru.root.rotation.y = PI; haru.neck.rotation.x = -.1; haru.arms.forEach(({up, fo}) => { up.rotation.set(-1.1, 0, 0); fo.rotation.set(-.9, 0, 0); });
     const u = ease((t - ST('h06')) / 4.4);
-    if (t < ST('h06') + 2.6) C(V(.3, 1.35, .9), V(0, 1.3, -1.5), 46);
+    if (t < ST('h06') + 2.6) C(V(.3, 1.1, .7), V(0, 1.05, -1.5), 46);
     else { show(SR); haru.root.visible = false; C(V(-.4 + u * .3, 4.6, 5.4), V(.8, 0, -.6), 40); }       // looking down from the attic window
   } else if (t < ST('h08') - .2) {                                    // cars wait at green; then red, and one tears through
     show(SR); haru.root.visible = false; const red = t > ST('h07') + 1.1; setLight(red ? 'r' : 'g');
@@ -342,7 +336,7 @@ function frame(t) {
     show(KI); mum.root.visible = true; mum.root.position.set(.2, 0, -1.3); mum.root.rotation.y = PI;
     const k = clamp01((t - ST('h19') + .1) / 1.6); haru.root.position.set(lerp(2.4, .9, k), 0, lerp(.6, -.1, k)); haru.root.rotation.y = -1.9;
     if (k < 1) walk(haru, q, 1.6, 1.5); haru.mouth('smile'); haru.brows(-.2);
-    C(V(-.7, 1.25, 2.3), V(.9, .85, -.4), 46);
+    C(V(-.3, 1.05, 2.0), V(.95, .7, -.3), 46);
   } else if (t < EN('m01') + .25) {                                   // Mum turns round, smiling: "Good morning, Haru", backwards
     show(KI); mum.root.visible = true; const tr = ease(clamp01((t - ST('m01') + .3) / .5));
     mum.root.position.set(.2, 0, -1.3); mum.root.rotation.y = PI + PI * tr; if (!talk(mum, 'm01', t)) mum.mouth('smile'); mum.eyes('open');

@@ -124,7 +124,7 @@ export function makePerson(o = {}) {
     blush: clay(0xd89080, {bumpScale: 0, transparent: true, opacity: .22}), sole: clay(0x3a3532, {bumpScale: .6}), lace: clay(0xd8d2c8, {bumpScale: 0}),
     shine: new THREE.MeshBasicMaterial({color: 0xffffff}), tear: gloss(0xa8d0f0, {transparent: true, opacity: .85}), lip: clay(new THREE.Color(o.skin || 0xefc09c).lerp(new THREE.Color(0xb86a5e), .45).getHex(), {bumpScale: .1})};
   for (const k of ['skin', 'top', 'pants', 'shoe', 'hair', 'lip']) if (M[k]) M[k].userData.rim = true;   // characters catch the rim light
-  M.crease = clay(new THREE.Color(o.skin || 0xefc09c).multiplyScalar(.66).getHex(), {bumpScale: .2});   // age lines: the skin pressed in
+  M.crease = clay(new THREE.Color(o.skin || 0xefc09c).multiplyScalar((o.age || 0) > .4 ? .5 : .66).getHex(), {bumpScale: .2});   // age lines: the skin pressed in
   const root = new THREE.Group(); root.scale.setScalar(o.scale || 1);
   const sec = {hair: null, hood: null, strings: []};                                          // the loose parts that swing behind the body (follow-through)
   // body build (child | woman | man | old) and outfit (hoodie | sweater | cardigan | shirt | coat | dress): every character, not only Haru
@@ -184,7 +184,7 @@ export function makePerson(o = {}) {
     const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.124, -.08], [.133, -.16], [.152, -.225], [.16, -.26], [.148, -.29], [.124, -.288], [.11, -.2], [.1, -.08], [.096, .02], [.085, .07]],
       .004, 7, o.hairGap ?? 1.3, Math.PI * 2 - 2 * (o.hairGap ?? 1.3), 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(o.hairThick || 1, 1, o.hairThick ? 1.04 : .95);           // rests on the shoulders, wider at the ends
     for (const a of [o.hairGap ?? 1.3, -(o.hairGap ?? 1.3)]) {                                                                                     // the two locks framing the face (they close the curtain's edges)
-      const lock = G(sec.hair, [Math.sin(a) * .112 * (o.hairThick || 1), -.06, Math.cos(a) * .112 * .95]);
+      const lock = G(sec.hair, [Math.sin(a) * .118 * (o.hairThick || 1), -.06, Math.cos(a) * .112 * .95]);
       add(turn([[0, .06], [.017, .04], [.022, -.02], [.024, -.11], [.024, -.17], [.016, -.205], [0, -.21]], .002, 10), M.hair, lock, [0, 0, 0], [0, a, -Math.sign(a) * .05]); }
   }
   if (o.bun) add(S(.055, 1, 1, 1, .003), M.hair, head, [0, .04, -.11]);
@@ -207,11 +207,11 @@ export function makePerson(o = {}) {
     else add(new THREE.TorusGeometry(.017, .0058, 6, 16, Math.PI * .5).scale(1, .75, 1), M.hair, br, [0, -.012, 0], [0, 0, Math.PI * .25]);
     brows.push(br);
     if ((o.age || 0) > .4) { add(new THREE.TorusGeometry(.015, .0018, 5, 14, Math.PI * .5), M.crease, face, [x, -.006, 0], [0, 0, -Math.PI * .75]);   // bags under the eyes
-      add(Cp(.0016, .028, .0003, 30), M.crease, face, [x * 1.05, -.05, -.004], [0, 0, (x > 0 ? 1 : -1) * .55]); }            // the lines from nose to mouth
+      add(Cp(.0022, .028, .0003, 30), M.crease, face, [x * 1.05, -.05, -.002], [0, 0, (x > 0 ? 1 : -1) * .55]); }            // the lines from nose to mouth
   }
   if (o.nose === 'button') add(S(.0092, 1.0, .95, .95, .001, 18), M.skin, face, [0, -.03, .006]);              // a small round button nose
   else { add(S(.0115, .95, .85, 1.15, .001, 18), M.skin, face, [0, -.033, .01]); add(Cp(.0058, .012, .0008, 24), M.skin, face, [0, -.02, .003], [-.35, 0, 0]); }   // nose: a rounded tip and a soft bridge
-  if ((o.age || 0) > .6) for (const y of [.058, .07]) add(Cp(.0015, .045, .0003, 30), M.crease, face, [0, y, -.008], [0, 0, Math.PI / 2]);   // forehead lines
+  if ((o.age || 0) > .6) for (const y of [.058, .07]) add(Cp(.0021, .045, .0003, 30), M.crease, face, [0, y, -.006], [0, 0, Math.PI / 2]);   // forehead lines
   const mouth = G(face, [0, -.06, -.003]);
   const mLine = add(new THREE.TorusGeometry(.013, .0034, 6, 18, Math.PI * .6).rotateZ(Math.PI * .2), M.mouth, mouth, [0, 0, .004]);   // the curve centred on its top, so it flattens evenly mLine.castShadow = false;   // the mouth: a curved line
   const lowLip = add(S(.0085, 1.45, .45, .35, .0008, 20), M.lip, mouth, [0, -.0075, 0]); lowLip.castShadow = false;                 // and a soft lower lip
@@ -280,7 +280,9 @@ export function makePerson(o = {}) {
     whites.forEach(w => w.visible = !!e.wide); P.lid(e.lid); if (e.lid < .9) { P.pupils(e.pupils ?? 1); P.look(...(e.look || [0, 0])); }
     P.browPair(e.brows[0], e.brows[1], e.brows[2] || 0); P.mouth(e.mouth, e.open ?? 1); P.tears(!!e.tears); };
   P.clothes = () => { if (!skirt) return; const a = legs[0].th.rotation.x, c = legs[1].th.rotation.x, spread = Math.abs(a - c), fwd = -Math.min(0, (a + c) / 2);
-    skirt.rotation.set(-Math.min(1.1, fwd * .55), 0, 0); skirt.scale.set(1 + spread * .25, 1 - Math.min(.35, fwd * .2), 1 + spread * .55 + fwd * .25); };
+    const lead = -(a + c) * .5 + (Math.abs(a) > Math.abs(c) ? -a : -c) * .25;                     // the hem follows the leg that is forward
+    skirt.rotation.set(-Math.min(1.1, fwd * .55) - Math.max(-.25, Math.min(.25, lead * .35)) * (fwd < .3 ? 1 : 0), 0, 0);
+    skirt.scale.set(1 + spread * .35, 1 - Math.min(.35, fwd * .2), 1 + spread * 1.1 + fwd * .25); };
   P.rest = (k = 1) => {
     if (b.stoop) { chest.rotation.x += b.stoop * .45 * k; neck.rotation.x += b.stoop * .25 * k; head.rotation.x -= b.stoop * .5 * k; }   // an old back bends forward; the eyes stay up
     hips.rotation.z += .035 * k; hips.position.x += .008 * k; chest.rotation.z -= .05 * k; chest.rotation.x += .03 * k; neck.rotation.z += .03 * k; head.rotation.z += .04 * k;
@@ -340,7 +342,15 @@ export function pose(P, name, k = 1) {
   arm(P.arms[0], p.armR, 1); arm(P.arms[1], p.armL, 1);
   if (p.legs) P.legs.forEach((l, i) => { for (const j of ['th', 'sh', 'ft']) if (p.legs[j]) lerpRot(l[j], [p.legs[j][0], (i ? -1 : 1) * p.legs[j][1], (i ? -1 : 1) * p.legs[j][2]], k); });
   if (p.drop) P.hips.position.y -= p.drop * k;
+  if (p.legs && !p.float) groundFeet(P, k);
   if (P.clothes) P.clothes();
+}
+// groundFeet(P): move the hips up or down so the lowest shoe rests on the floor under the character (keeps crouches, kneels and sits planted)
+export function groundFeet(P, k = 1) {
+  P.root.updateMatrixWorld(true); const v = new THREE.Vector3(); let low = Infinity;
+  for (const {ft} of P.legs) { ft.getWorldPosition(v); low = Math.min(low, v.y); }
+  const floor = P.root.position.y + .045 * (P.s0 || 1), d = (low - floor) / (P.root.scale.y || 1);
+  P.hips.position.y -= d * k;
 }
 
 // ---------------------------------------------------------------- the neck: head looks and gestures (call after reset / pose, before the face)
