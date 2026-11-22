@@ -203,6 +203,245 @@
     "graveyard"
    ],
    "made": "Rodin Fast, text-to-3D"
+  },
+  "house_family": {
+   "file": "house_family.glb",
+   "desc": "two-storey family house, porch",
+   "height": 7.5,
+   "tags": [
+    "street",
+    "house"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "house_old": {
+   "file": "house_old.glb",
+   "desc": "abandoned crooked wooden house, boarded windows",
+   "height": 8.0,
+   "tags": [
+    "street",
+    "house",
+    "scary"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "cottage": {
+   "file": "cottage.glb",
+   "desc": "small stone cottage with chimney",
+   "height": 4.5,
+   "tags": [
+    "street",
+    "house",
+    "village"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "hospital": {
+   "file": "hospital.glb",
+   "desc": "small three-storey town hospital, red cross sign",
+   "height": 11.0,
+   "tags": [
+    "hospital",
+    "building"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "hospital_bed": {
+   "file": "hospital_bed.glb",
+   "desc": "hospital bed with rails, on wheels",
+   "length": 2.1,
+   "tags": [
+    "hospital"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "drip_stand": {
+   "file": "drip_stand.glb",
+   "desc": "IV drip stand with a fluid bag",
+   "height": 1.9,
+   "tags": [
+    "hospital"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "wheelchair": {
+   "file": "wheelchair.glb",
+   "desc": "old hospital wheelchair",
+   "height": 0.95,
+   "tags": [
+    "hospital"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "screen": {
+   "file": "screen.glb",
+   "desc": "three-panel green hospital privacy screen",
+   "height": 1.8,
+   "tags": [
+    "hospital"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "church": {
+   "file": "church.glb",
+   "desc": "old stone village church with bell tower",
+   "height": 14.0,
+   "tags": [
+    "church",
+    "building"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "pew": {
+   "file": "pew.glb",
+   "desc": "dark wooden church pew",
+   "length": 3.0,
+   "tags": [
+    "church"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "altar": {
+   "file": "altar.glb",
+   "desc": "altar table with white cloth and wooden cross",
+   "height": 2.4,
+   "tags": [
+    "church"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "candle_stand": {
+   "file": "candle_stand.glb",
+   "desc": "iron stand of melted candles",
+   "height": 1.6,
+   "tags": [
+    "church"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "fence": {
+   "file": "fence.glb",
+   "desc": "wrought iron cemetery fence section",
+   "length": 3.0,
+   "tags": [
+    "cemetery"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "cemetery_gate": {
+   "file": "cemetery_gate.glb",
+   "desc": "wrought iron cemetery gates between stone pillars",
+   "height": 3.4,
+   "tags": [
+    "cemetery"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "cross_grave": {
+   "file": "cross_grave.glb",
+   "desc": "leaning mossy stone cross grave",
+   "height": 1.2,
+   "tags": [
+    "cemetery"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "angel": {
+   "file": "angel.glb",
+   "desc": "weeping stone angel statue on a pedestal",
+   "height": 2.1,
+   "tags": [
+    "cemetery",
+    "scary"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "crypt": {
+   "file": "crypt.glb",
+   "desc": "small stone mausoleum with iron door",
+   "height": 3.6,
+   "tags": [
+    "cemetery",
+    "building"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "dead_tree": {
+   "file": "dead_tree.glb",
+   "desc": "dead twisted leafless tree",
+   "height": 5.5,
+   "tags": [
+    "cemetery",
+    "desert",
+    "forest",
+    "scary"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "gas_station": {
+   "file": "gas_station.glb",
+   "desc": "abandoned desert gas station with pumps",
+   "height": 4.8,
+   "tags": [
+    "desert",
+    "building"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "car_wreck": {
+   "file": "car_wreck.glb",
+   "desc": "rusted 1950s car wreck",
+   "length": 4.6,
+   "tags": [
+    "desert",
+    "street"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "cow_skull": {
+   "file": "cow_skull.glb",
+   "desc": "bleached cow skull with horns",
+   "length": 0.6,
+   "tags": [
+    "desert"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "rocks": {
+   "file": "rocks.glb",
+   "desc": "cluster of sandstone rocks",
+   "height": 1.8,
+   "tags": [
+    "desert"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "swings": {
+   "file": "swings.glb",
+   "desc": "rusty playground swing set",
+   "height": 2.3,
+   "tags": [
+    "playground"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "slide": {
+   "file": "slide.glb",
+   "desc": "old playground slide",
+   "height": 2.2,
+   "tags": [
+    "playground"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "roundabout": {
+   "file": "roundabout.glb",
+   "desc": "rusty playground merry-go-round",
+   "length": 1.9,
+   "tags": [
+    "playground"
+   ],
+   "made": "Rodin Fast, text-to-3D"
   }
  }
 }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// The library's sets, on show: ?set=cemetery (renderAt(i) = the set's shot i, in the order lib_sets.js lists them; Haru stands at the set's haru spot)
+//   &time=night (the desert at night)  &haru=0 (no Haru)  &grade=dread  &s=.5 (size)  &wide=1 (16:9)
+import {THREE, setup} from './lib.js';
+import {lib} from './library.js';
+import {buildSet} from './lib_sets.js';
+import {pose} from './clay.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), wide = !!q.get('wide');
+const {scene, cam, render, grade, dofPass} = setup({bloom: .5, w: Math.round((wide ? 1920 : 1080) * PS), h: Math.round((wide ? 1080 : 1920) * PS)});
+cam.far = 300; grade(q.get('grade') || 'night');
+const S = await buildSet(q.get('set') || 'cemetery', scene, {time: q.get('time') || undefined});
+let haru = null;
+if (q.get('haru') !== '0') { haru = await lib.char('haru'); haru.root.position.copy(S.spots.haru); scene.add(haru.root); pose(haru, 'scared'); haru.expr('scared'); }
+const shots = Object.values(S.shots);
+const qc = q.get('cam');   // &cam=x,y,z,lx,ly,lz,fov: any camera, for checking a set
+if (qc) { const c = qc.split(',').map(Number); shots.unshift({pos: new THREE.Vector3(c[0], c[1], c[2]), look: new THREE.Vector3(c[3], c[4], c[5]), fov: c[6] || 50}); }
+window.renderAt = t => { const s = shots[Math.floor(t) % shots.length];
+  cam.position.copy(s.pos); cam.lookAt(s.look); cam.fov = s.fov; cam.updateProjectionMatrix();
+  S.update(t); render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

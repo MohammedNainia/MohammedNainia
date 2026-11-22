@@ -16,7 +16,27 @@ const tree = await lib.prop('tree', {height: 7});
 ```
 
 Characters: haru, mum, dad, woman_red, grandma, boy, girl.
-Props: kitchen_table, chair, armchair, bed, wardrobe, stove, fridge, floor_lamp, bookshelf, school_desk, car, street_lamp, bench, bin, tree, gravestone.
+Props (house, school, street): kitchen_table, chair, armchair, bed, wardrobe, stove, fridge, floor_lamp, bookshelf, school_desk, car, street_lamp, bench, bin, tree, gravestone.
+Buildings: house_family, house_old, cottage, hospital, church, crypt, gas_station.
+Hospital: hospital_bed, drip_stand, wheelchair, screen.  Church: pew, altar, candle_stand.  Cemetery: fence, cemetery_gate, cross_grave, angel, dead_tree.
+Desert: car_wreck, cow_skull, rocks.  Playground: swings, slide, roundabout.
+
+## Whole places (sets)
+
+`scenes/lib_sets.js` builds finished, lit places from these models plus our own ground, sky, fog and lights:
+
+```js
+import {buildSet} from './lib_sets.js';
+const S = await buildSet('cemetery', scene);        // also: street, hospital, ward, church, church_in, desert ({time: 'night'} or dusk), playground, forest
+haru.root.position.copy(S.spots.haru);              // named spots: where to stand (cemetery: gate, angel, crypt; ward: bed; church_in: altar ...)
+const sh = S.shots.wide; cam.position.copy(sh.pos); cam.lookAt(sh.look); cam.fov = sh.fov;   // named cameras; every set has 'wide' and 'haru'
+S.update(t);                                         // each frame: failing lamps flicker, candles waver, the roundabout turns
+```
+
+Several sets can sit in one scene (`{at: [100, 0, 0]}`); `S.apply()` restores a set's sky and fog after a cut. Each set adds a soft fill light on its
+haru spot so a face reads in the dark (`{fill: 0}` turns it off). See every set: `scenes/set_view.html?set=church_in` (`&time=night`, `&cam=x,y,z,lx,ly,lz,fov`),
+and `YTB/channel_art/library_sets.png`.
+Everything faces +z (the camera looks down -z), lengths are in metres.
 See them: `scenes/lib_view.html` (`?show=chars`, `?show=props&grid=1`, `?char=mum`), and `YTB/channel_art/library_cast.png`, `library_props.png`.
 
 ## Adding a character (about 430 credits)
@@ -39,3 +59,4 @@ Then `python tools/glb_slim.py raw.glb data/lib/props/<name>.glb --max 1024` and
 - Arms fused to the body in the generated mesh: big arm moves (arms fully up, reaching far out) stretch the side of the top a little.
 - Long coats and skirts follow the hips; in strong poses they can still crease or split slightly.
 - Hair is part of the head (no sway yet).
+- Buildings are outsides only (no rooms inside): rooms are built in code, as `ward` and `church_in` do.
