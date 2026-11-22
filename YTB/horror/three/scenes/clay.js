@@ -31,7 +31,7 @@ function clayShader(m) {
       .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 + vClayShade;')
       .replace('#include <opaque_fragment>', m.userData.rim ? 'outgoingLight += clayRimColor * clayRimK * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.6) * (0.25 + 0.75 * diffuseColor.rgb) * (1.0 - 0.5 * smoothstep(0.6, 0.9, dot(diffuseColor.rgb, vec3(.333))));\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       .replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment.replace(/vec2 dHdxy_fwd\(\) \{[\s\S]*?return vec2\( dBx, dBy \);\s*\}/, `
-        float clayH(vec3 p) { vec3 w = pow(abs(normalize(vClayNrm)), vec3(4.0)); w /= (w.x + w.y + w.z + 1e-5); p *= ${PRINT.toFixed(2)};
+        float clayH(vec3 p) { vec3 w = pow(abs(normalize(vClayNrm + vec3(1e-5))), vec3(4.0));   // (never normalize a zero normal: it gives NaN) w /= (w.x + w.y + w.z + 1e-5); p *= ${PRINT.toFixed(2)};
           return w.x * texture2D(bumpMap, p.yz).x + w.y * texture2D(bumpMap, p.zx + .37).x + w.z * texture2D(bumpMap, p.xy + .71).x; }
         vec2 dHdxy_fwd() { float H = 1.8 * bumpScale * clayH(vClayPos);
           return vec2(1.8 * bumpScale * clayH(vClayPos + dFdx(vClayPos)) - H, 1.8 * bumpScale * clayH(vClayPos + dFdy(vClayPos)) - H); }`));

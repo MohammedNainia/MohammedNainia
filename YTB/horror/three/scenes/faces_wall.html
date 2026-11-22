@@ -1,0 +1,265 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE FACES ON THE WALL (9:16, 94.2 s): the clay kit (clay.js people, clay_sets.js sets, lib.js finish). Timed to faces_wall/voice/layout.json.
+// Places (each its own group, only one shown): the classroom (CR), the third-floor corridor (CO), the abandoned classroom and the room behind its wall (AB).
+// The faceless thing is seen only in glass: it stands in the scene only while a window (Reflector) renders its reflection.
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, followFrame, CLAY_RIM, pose, groundFeet, walk as kitWalk, look, headLook} from './clay.js';
+import * as K from './clay_sets.js';
+import {Reflector} from 'three/addons/objects/Reflector.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade, composer} = setup({bloom: .5, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+scene.background = new THREE.Color(0x0c0e10); cam.near = .02; cam.far = 60; cam.updateProjectionMatrix();
+let rs = 5; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+const LAY = Object.fromEntries((await (await fetch('/data/faces_wall_layout.json')).json()).map(l => [l.name, l]));
+const MOUTH = await (await fetch('/data/faces_wall_mouths.json')).json();
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+const fog = K.haze(scene, 0x0c0e10, .05);
+
+// ================================================================ materials
+const M = {floor: clay(0x6a5e52, {bumpScale: .8}), lino: clay(0x5a6a62, {bumpScale: .6}), plaster: clay(0xcfc6b2, {bumpScale: 1.2}), green: clay(0x5e7a66),
+  dark: clay(0x18161a), board: clay(0x2a3a32, {bumpScale: .4}), wood: clay(0x8a6a48), metal: gloss(0x8a8e90, {roughness: .4}), locker: clay(0x4a6a8a),
+  tube: new THREE.MeshBasicMaterial({color: 0xe8f4ee}), glass: new THREE.MeshBasicMaterial({color: 0x1a2630})};
+
+// a school wall: green lower half, cream upper, a dado rail
+function schoolWall(w, h = 2.8) { const g = new THREE.Group(); add(K.rbox(w, h, .12, .01, .004, 2), M.plaster, g, [0, h / 2, 0]).castShadow = false;
+  add(K.rbox(w, 1.05, .02, .005), M.green, g, [0, .525, .065]).castShadow = false; add(K.rbox(w, .05, .035, .008), M.wood, g, [0, 1.06, .07]); return g; }
+function desk(x, z, parent) { const g = G(parent, [x, 0, z]); add(K.rbox(.62, .04, .46, .01), M.wood, g, [0, .58, 0]);
+  for (const [a, b] of [[-.27, -.19], [.27, -.19], [-.27, .19], [.27, .19]]) add(Cp(.014, .55), M.metal, g, [a, .29, b]);
+  const c = K.chair({color: 0x4a5a6a}); c.scale.setScalar(.75); c.position.set(0, 0, .42); c.rotation.y = PI; g.add(c); return g; }
+
+// ================================================================ THE CLASSROOM (afternoon)
+const CR = G(scene);
+add(K.rbox(8, .1, 7, .01, .003, 2), M.lino, CR, [0, -.05, 0]);
+{ const fw = schoolWall(8); fw.position.set(0, 0, -3.3); CR.add(fw); const bw = schoolWall(8); bw.position.set(0, 0, 3.3); bw.rotation.y = PI; CR.add(bw);
+  const dw = schoolWall(6.6); dw.position.set(-3.7, 0, 0); dw.rotation.y = PI / 2; CR.add(dw);
+  const ww = schoolWall(6.6); ww.position.set(3.7, 0, 0); ww.rotation.y = -PI / 2; CR.add(ww); window.__crWall = ww; }
+add(K.rbox(3.2, 1.2, .05, .01), M.board, CR, [0, 1.55, -3.22]); add(K.rbox(3.3, .05, .1, .01), M.wood, CR, [0, .93, -3.2]);   // the blackboard
+{ const ck = K.clock(.16); ck.position.set(2.2, 2.3, -3.22); CR.add(ck);
+  for (const [x, c] of [[-2.6, 0xd8b04a], [-1.9, 0x6a9ac8], [2.9, 0xc86a5a]]) { const p = K.frame(.42, .56, (g, w, h) => { g.fillStyle = '#' + new THREE.Color(c).getHexString(); g.fillRect(0, 0, w, h); g.fillStyle = '#fff8'; for (let i = 0; i < 5; i++) g.fillRect(14, 20 + i * 24, w - 28, 8); }, 0xd8d2c4); p.position.set(x, 1.7, -3.22); CR.add(p); } }
+const winZ = [-1.9, 0, 1.9];
+winZ.forEach(z => { const wf = K.windowFrame(1.2, 1.25, {view: 0x9ab0c0, curtains: null}); wf.position.set(3.62, z === 0 ? .77 : .95, z); wf.rotation.y = -PI / 2; CR.add(wf); if (z === 0) wf.userData.glass.visible = false; });   // the middle one is the mirror
+const DESKS = []; for (const z of [-1.7, -.5, .7, 1.9]) for (const x of [-2.3, -1.05, .2, 1.45]) DESKS.push(desk(x, z, CR));
+const crSun = new THREE.DirectionalLight(0xffe6c4, 2.0); crSun.position.set(9, 5, -1); crSun.target.position.set(0, 0, 0); crSun.castShadow = true; crSun.shadow.mapSize.set(2048, 2048);
+Object.assign(crSun.shadow.camera, {left: -5, right: 5, top: 4, bottom: -2}); CR.add(crSun, crSun.target);
+CR.add(new THREE.HemisphereLight(0xd8e0e8, 0x3a3430, .6)); const crFill = new THREE.PointLight(0xfff0e0, 1.4, 9, 1.2); crFill.position.set(0, 2.6, 1.5); CR.add(crFill);
+const crBeam = K.windowBeam(CR, {from: [3.6, 1.6, 0], to: [.6, 0, .4], color: 0xffe6c4, power: 2.5, width: .55, beamOpacity: .035});
+// the glass that shows what the room doesn't: a mirror in the middle window
+const mirror = new Reflector(new THREE.PlaneGeometry(1.08, 1.12), {textureWidth: Math.round(512 * PS), textureHeight: Math.round(540 * PS), color: 0xd0d8e0, multisample: 0});
+mirror.position.set(3.6, 1.395, 0); mirror.rotation.y = -PI / 2; CR.add(mirror);
+const onlyInGlass = []; const mrb = mirror.onBeforeRender; mirror.onBeforeRender = () => {};   // rendered by hand once per frame (see glassPass): the post passes would re-run it with their own materials
+
+// ================================================================ THE CORRIDOR (third floor, cold strip lights)
+const CO = G(scene, [30, 0, 0]);
+add(K.rbox(2.8, .1, 26, .01, .003, 2), M.lino, CO, [0, -.05, -9]); add(K.rbox(2.8, .06, 26, .01, .002, 2), M.plaster, CO, [0, 2.8, -9]).castShadow = false;
+const coDoors = [];
+for (const s of [-1, 1]) { const w = schoolWall(26); w.position.set(s * 1.4, 0, -9); w.rotation.y = -s * PI / 2; CO.add(w); if (s > 0) window.__coWall = w;
+  for (let k = 0; k < 6; k++) { const z = 1 - k * 3.2; const d = K.door(.9, 2.05, 0x6a4a34); d.position.set(s * 1.33, 0, z); d.rotation.y = -s * PI / 2; CO.add(d);
+    add(new THREE.PlaneGeometry(.86, 2.0), M.dark, CO, [s * 1.36, 1.0, z], [0, -s * PI / 2, 0]).castShadow = false; coDoors.push({d, s, z});
+    if (!(s > 0 && k === 0)) for (let j = 0; j < 3; j++) add(K.rbox(.06, 1.7, .45, .01), M.locker, CO, [s * 1.3, .85, z - 1.0 - j * .46], [0, 0, 0]); } }
+const endDoor = K.door(.95, 2.1, 0x3a2a22); endDoor.position.set(0, 0, -21.9); CO.add(endDoor);
+for (const [x, y, w, h] of [[-.25, 1.4, .9, .09], [.1, .8, .9, .09], [0, 1.85, .9, .09]]) add(K.rbox(w, h, .04, .005), M.wood, CO, [x, y, -21.83], [0, 0, x * .4]);   // boards nailed across it
+const tubes = [], coLights = [];
+for (let k = 0; k < 7; k++) { const z = 1 - k * 3.4; tubes.push(add(K.rbox(.25, .04, 1.2, .01), M.tube, CO, [0, 2.75, z])); const l = new THREE.PointLight(0xd8f0e8, 1.6, 6, 1.4); l.position.set(30, 2.5, z); scene.add(l); l.userData.co = true; coLights.push(l); }
+coLights.forEach(l => CO.attach(l));
+CO.add(new THREE.HemisphereLight(0x8aa0a0, 0x1a1a1a, .3));
+const coMirror = new Reflector(new THREE.PlaneGeometry(1.0, 1.1), {textureWidth: Math.round(512 * PS), textureHeight: Math.round(560 * PS), color: 0xb8c4cc, multisample: 0});
+coMirror.position.set(1.33, 1.5, -.6); coMirror.rotation.y = -PI / 2; CO.add(coMirror);
+{ const wf = K.windowFrame(1.08, 1.18, {view: 0x101820, curtains: null}); wf.position.set(1.36, .92, -.6); wf.rotation.y = -PI / 2; CO.add(wf); wf.userData.glass.visible = false; }
+const crb = coMirror.onBeforeRender; coMirror.onBeforeRender = () => {};
+// the glass: render each visible window's reflection once, with the faceless things shown only there
+function glassPass() { scene.updateMatrixWorld(); cam.updateMatrixWorld(); for (const [m, f, wall] of [[mirror, mrb, window.__crWall], [coMirror, crb, window.__coWall]]) { if (!m.visible || !m.parent.visible) continue;
+  onlyInGlass.forEach(o => o.visible = o.userData.want === true); wall.visible = false; f(renderer, scene, cam); wall.visible = true; onlyInGlass.forEach(o => o.visible = false); } }   // the wall the glass sits in would block the mirrored view
+
+// ================================================================ THE ABANDONED CLASSROOM, and the room behind its wall
+const AB = G(scene, [60, 0, 0]);
+add(K.rbox(7, .1, 7, .01, .003, 2), clay(0x4a4238, {bumpScale: 1.4}), AB, [0, -.05, .5]);
+{ const bw = schoolWall(7); bw.position.set(0, 0, 3.6); bw.rotation.y = PI; AB.add(bw); for (const s of [-1, 1]) { const w = schoolWall(7); w.position.set(s * 3.4, 0, .5); w.rotation.y = -s * PI / 2; AB.add(w); }
+  [[-2.2, .2, .3, 0], [-1.6, .6, -.4, 1.2], [1.9, 1.3, .5, -.6], [2.3, -.4, -.3, 2.6], [-.5, 2.2, .2, .4]].forEach(([x, z, r, tilt]) => { const d = desk(x, z, AB); d.rotation.set(0, r, 0); if (tilt > 2) d.rotation.z = 1.4; });
+  for (let i = 0; i < 3; i++) { const cw = K.cobweb(.5); cw.position.set(-3.3, 2.7, -2.5 + i * 2.2); cw.rotation.y = PI / 2; AB.add(cw); } }
+// the scratched wall: a canvas of names, dates and the sentence, cut into tiles that can fall out
+const scratchTex = K.canvasTex(1024, 720, (g, w, h) => {
+  g.fillStyle = '#cfc6b2'; g.fillRect(0, 0, w, h); g.fillStyle = '#5e7a66'; g.fillRect(0, h * .63, w, h * .37);
+  for (let i = 0; i < 900; i++) { g.strokeStyle = `rgba(40,30,24,${.15 + Math.random() * .35})`; g.lineWidth = .6 + Math.random() * 1.4; g.beginPath(); const x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y); g.lineTo(x + (Math.random() - .5) * 40, y + (Math.random() - .5) * 18); g.stroke(); }
+  const names = ['ELLA', 'TOM R', 'MAYA', 'JONAH', 'SARA K', 'LEO', 'AMIRA', 'BEN', 'NOOR', 'KAI', 'LILY', 'SAM', 'YUSUF', 'ROSE', 'DANIEL', 'IVY', 'OMAR', 'GRACE'];
+  g.fillStyle = 'rgba(46,34,28,.75)';
+  for (let i = 0; i < 60; i++) { g.save(); g.translate(Math.random() * w, Math.random() * h); g.rotate((Math.random() - .5) * .5); g.font = `${14 + Math.random() * 12}px monospace`;
+    g.fillText(Math.random() < .55 ? names[i % names.length] : `${1 + i % 28}/${1 + i % 12}/${19 + (i % 7) * 7}`, 0, 0); g.restore(); }
+  g.fillStyle = 'rgba(30,20,16,.92)';
+  for (let i = 0; i < 9; i++) { g.save(); g.translate(60 + (i % 2) * 70 + Math.random() * 40, 90 + i * 66); g.rotate((Math.random() - .5) * .12); g.font = `bold ${30 + (i === 4) * 14}px monospace`; g.fillText("DON'T LET IT TURN AROUND", 0, 0); g.restore(); }
+});
+const WALLW = 4.4, WALLH = 2.8, NX = 11, NY = 7, TW = WALLW / NX, TH = WALLH / NY, tiles = [];
+const wallG = G(AB, [0, 0, -2.9]);
+for (let iy = 0; iy < NY; iy++) for (let ix = 0; ix < NX; ix++) {
+  const pg = new THREE.PlaneGeometry(TW, TH), uv = pg.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (ix + uv.getX(i)) / NX, (iy + uv.getY(i)) / NY);
+  const tg = G(wallG, [-WALLW / 2 + (ix + .5) * TW, (iy + .5) * TH, 0]);
+  add(pg, clay(0xffffff, {map: scratchTex, bumpScale: 1.4}), tg, [0, 0, .062]).castShadow = false; add(K.rbox(TW, TH, .12, .004, .003, 4), M.plaster, tg);
+  tiles.push({g: tg, x: tg.position.x, y: tg.position.y, d: Math.hypot(tg.position.x - .3, (tg.position.y - 1.15) * 1.3), seed: rnd()}); }
+for (const s of [-1, 1]) add(K.rbox(1.5, 2.8, .12, .01), M.plaster, AB, [s * 2.95, 1.4, -2.9]);
+const bulge = add(S(.11, .9, 1.25, .5, .006, 7), M.plaster, AB, [.62, 1.12, -2.83]);                   // something pressing back through the plaster
+// the narrow room behind
+const NR = G(AB, [0, 0, -2.9]);
+add(K.rbox(3.2, .1, 6, .01, .003, 2), clay(0x2a2420), NR, [0, -.05, -3]); add(K.rbox(3.2, .1, 6, .01, .003, 2), clay(0x1e1a18), NR, [0, 3.4, -3]);
+for (const s of [-1, 1]) add(K.rbox(.1, 3.4, 6, .01, .004, 2), clay(0x3a3430, {bumpScale: 1.6}), NR, [s * 1.6, 1.7, -3]);
+add(K.rbox(3.2, 3.4, .1, .01, .004, 2), clay(0x3a3430, {bumpScale: 1.6}), NR, [0, 1.7, -6]);
+const nrLight = new THREE.PointLight(0xc04a32, 0, 9, 1.1); nrLight.position.set(0, 3.1, -3.4); NR.add(nrLight);
+const abMoon = K.windowBeam(AB, {from: [-3.3, 2.2, 1.5], to: [.6, 0, -1.4], color: 0x8aa8d8, power: 7, width: .55, beamOpacity: .04});
+AB.add(new THREE.HemisphereLight(0x5a6a8a, 0x141210, 1.0)); const abFill = new THREE.PointLight(0x8aa0c8, 4, 9, 1.2); abFill.position.set(.5, 2.4, 1.6); AB.add(abFill);   // moonlight filling the room
+const abKey = new THREE.PointLight(0x9ab0d8, 0, 3, 1.5); AB.add(abKey);
+
+// ================================================================ the cast
+const haru = makePerson(haruOpts); scene.add(haru.root);
+const HAIRS = ['short', 'pigtails', 'ponytail', 'bob', 'braids', 'short', 'long', 'buns', 'short'];
+const TOPS = [0x6a8aa8, 0xa86a5a, 0x5a8a6a, 0xc8a85a, 0x8a6a9a, 0x4a5a7a, 0xb88a6a, 0x6a6a6a];
+const SKINS = [0xe8a27c, 0xd0906a, 0x8d5a3b, 0xf0c0a0, 0xb07850, 0xe0b090];
+const KIDS = [];
+for (let i = 0; i < 18; i++) { const hs = HAIRS[i % HAIRS.length], boy = hs === 'short';
+  const P = makePerson({build: 'child', outfit: i % 3 ? 'sweater' : 'hoodie', hood: i % 3 === 0, pocket: i % 3 === 0, headScale: 1.14 + (i % 3) * .04, scale: .64 + (i % 4) * .03,
+    hairStyle: hs, longHair: !boy, bangs: !boy && i % 2 === 0, bow: hs === 'pigtails' || hs === 'buns', tie: [0xe0507e, 0x5a8ad8, 0xe8c040][i % 3], hair: [0x1e1a18, 0x4a2e1e, 0x2a2420, 0x6a4a2a][i % 4],
+    top: TOPS[i % TOPS.length], pants: [0x3a3a44, 0x2a3a5a, 0x4a4038][i % 3], skin: SKINS[i % SKINS.length], eyeSize: .0074, lids: false, brow: 'dash', nose: 'button', blush: false, sculpt: .3});
+  P.s0 = .64 + (i % 4) * .03; scene.add(P.root); KIDS.push(P); }
+const boy = KIDS[0];                                                       // the boy who whispers
+const teacher = makePerson({build: 'woman', outfit: 'cardigan', top: 0x7a5a6a, pants: 0x3a3440, hair: 0x5a3a2a, longHair: false, bun: true, hood: false, pocket: false, scale: 1.0}); teacher.s0 = 1; scene.add(teacher.root);
+const medics = [0, 1].map(i => { const P = makePerson({build: 'man', outfit: 'coat', top: 0x2e6a4a, pants: 0x2e3a34, hair: [0x2a2018, 0x6a5a4a][i], longHair: false, hood: false, scale: 1.05}); P.s0 = 1.05; scene.add(P.root); return P; });
+// the faceless thing: a back of a head on both sides
+function faceless(P) { P.face.visible = false; add(S(.112, .98, 1.08, 1.04, .004, 8), P.M.hair, P.head, [0, .004, .012]); P.faceLight.intensity = 0; return P; }
+const extra = faceless(makePerson({build: 'child', outfit: 'sweater', hood: false, pocket: false, top: 0x5a5a62, pants: 0x3a3a44, hair: 0x141210, longHair: true, headScale: 1.16, scale: .68, skin: 0xb8a898}));
+extra.s0 = .68; scene.add(extra.root); onlyInGlass.push(extra.root);
+const giant = faceless(makePerson({build: 'man', outfit: 'sweater', hood: false, pocket: false, top: 0x2a2826, pants: 0x2a2826, shoe: 0x141210, hair: 0x100e0c, longHair: false, skin: 0x8a8078, scale: 2.35}));
+giant.s0 = 1.85; giant.arms.forEach(a => { a.up.scale.y = 1.35; a.fo.scale.y = 1.35; }); scene.add(giant.root);
+const glassGiant = faceless(makePerson({build: 'man', outfit: 'sweater', hood: false, pocket: false, top: 0x2a2826, pants: 0x2a2826, shoe: 0x141210, hair: 0x100e0c, longHair: false, skin: 0x8a8078, scale: 1.08}));
+glassGiant.s0 = 1.35; glassGiant.arms.forEach(a => { a.up.scale.y = 1.35; a.fo.scale.y = 1.35; }); scene.add(glassGiant.root); onlyInGlass.push(glassGiant.root);
+const PEOPLE = [haru, ...KIDS, teacher, ...medics, extra, giant, glassGiant];
+PEOPLE.forEach(P => { if (P !== haru) P.faceLight.visible = false; });
+[CR, ...PEOPLE.map(P => P.root)].forEach(g => g.traverse(o => { if (o.isMesh) o.frustumCulled = false; }));   // the mirror's tilted camera would cull them wrongly   // only Haru carries a face light: a crowd of lights is too many for the shader
+
+// ================================================================ helpers
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(P.s0 || 1); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  for (const o of [P.chest, P.neck, P.head, P.back]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}, i) => { up.rotation.set(0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.12, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); });
+  P.eyes('open'); P.brows(0); P.mouth('closed'); if (P.rest) P.rest(); if (P.clothes) P.clothes();
+}
+const place = (P, parent, x, z, ry) => { if (P.root.parent !== parent) parent.add(P.root); P.root.visible = true; P.root.position.set(x, 0, z); P.root.rotation.y = ry; };
+function seat(P, parent, x, z, ry) { place(P, parent, x, z, ry); pose(P, 'sitChair'); P.root.position.y = .06; }   // on a classroom chair
+function atWall(P, parent, x, z, ry, press = 1) {                          // face to the wall, hands up flat beside it
+  place(P, parent, x, z, ry); P.chest.rotation.x = .1 * press; P.head.rotation.x = .12 * press;
+  P.arms.forEach(({up, fo}, i) => { up.rotation.set(-1.35 * press, 0, (i ? 1 : -1) * .35 * press); fo.rotation.set(-.95 * press, 0, 0); }); P.eyes('closed'); P.brows(.9); }
+function talk(P, name, t) { const c = (MOUTH[name] ? MOUTH[name].cues : []).find(c => t >= c.start && t < c.end);
+  if (!c || c.value === 'X' || c.value === 'A') return false; P.mouth('open', {B: .35, F: .3, G: .3, C: .6, D: 1, E: .7, H: .55}[c.value] || .5); return true; }
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const HEAD = P => P.head.getWorldPosition(V(0, 0, 0));
+let OFF = V(0, 0, 0);
+const show = g => { for (const p of [CR, CO, AB]) p.visible = p === g; mirror.visible = g === CR; coMirror.visible = g === CO; OFF = g.position.clone(); crBeam.beam.visible = true; };
+const CL = (p, l, fov) => C(p.add(OFF), l.add(OFF), fov);            // a camera in the shown place's own coordinates
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+const flick = (t, k = .25) => 1 - k * (Math.sin(Math.floor(t * 12) * 91.7) > .82 ? 1 : 0);   // a strip light that stutters
+function air(where, t) {
+  const A = {CR: [0x3a3630, .04, 0xffe8d0, .25, 'dread'], CO: [0x0e1414, .07, 0x9ad0c8, .4, 'night'], AB: [0x0c1016, .06, 0x9ab8e8, .5, 'night']}[where];
+  fog.color.set(A[0]); fog.density = A[1]; scene.background.set(A[0]); CLAY_RIM.color.value.set(A[2]); CLAY_RIM.k.value = A[3]; grade(A[4]);
+  crBeam.update(t); abMoon.update(t); coLights.forEach((l, i) => l.intensity = 1.6 * (i === 2 ? flick(t, .7) : flick(t + i, .15))); }
+
+function frame(t) {
+  const q = Math.floor(t * 12) / 12;
+  boil(Math.floor(t * 6));
+  black = false; PEOPLE.forEach(P => { reset(P); P.root.visible = false; }); haru.M.eye.color.set(0x0c0c0e);
+  tiles.forEach(o => { o.g.position.set(o.x, o.y, 0); o.g.rotation.set(0, 0, 0); o.g.visible = true; }); bulge.scale.setScalar(.001); nrLight.intensity = 0; abKey.intensity = 0;
+  giant.head.rotation.y = 0; glassGiant.head.rotation.y = 0;
+
+  if (t < ST('h02') - .2) {                                           // HOOK: three children, faces pressed to the front wall of the classroom
+    show(CR); air('CR', t); [[-2.55, 0], [-1.95, 0], [2.55, 0]].forEach(([x], i) => atWall(KIDS[i], CR, x, -3.07, PI));
+    for (let i = 3; i < 12; i++) KIDS[i].root.visible = false;
+    const u = ease(t / 5.6); C(V(lerp(.2, -.2, u), lerp(1.6, 1.3, u), lerp(2.6, .6, u)), V(-1.3, .95, -3.2), 46);
+  } else if (t < ST('h03') - .2) {                                    // the teacher pulls a boy back; he holds on, nails in the paint
+    show(CR); air('CR', t); atWall(boy, CR, -2.55, -3.07, PI, 1); atWall(KIDS[1], CR, -1.95, -3.07, PI);
+    const k = .5 + .5 * Math.sin(q * 9); boy.chest.rotation.x = -.15 * k; boy.root.position.z += .06 * k; boy.mouth('open', .9); boy.eyes('squeeze');
+    place(teacher, CR, -2.55, -2.45, PI); teacher.chest.rotation.x = -.2; teacher.arms.forEach(({up, fo}) => { up.rotation.set(-1.25, 0, 0); fo.rotation.set(-.5, 0, 0); }); teacher.expr('scared');
+    const u = t - ST('h02'); if (u < 2.6) C(V(-.9, 1.3, -.9), V(-2.4, 1.0, -2.9), 48);
+    else C(V(-1.75, 1.15, -2.5), V(-2.55, 1.05, -3.05), 40);   // his hands on the wall
+  } else if (t < ST('h04') - .4) {                                    // the paramedics; the boy whispers into the wall
+    show(CR); air('CR', t); atWall(boy, CR, -2.55, -3.07, PI); atWall(KIDS[1], CR, -1.95, -3.07, PI); atWall(KIDS[2], CR, 2.55, -3.07, PI);
+    place(medics[0], CR, -2.2, -2.3, PI + .3); place(medics[1], CR, -1.5, -2.1, PI - .2); medics.forEach(m => { m.expr('worried'); look(m, {nod: .2}); });
+    place(teacher, CR, -.9, -2.2, PI - .5); pose(teacher, 'handsMouth'); teacher.expr('worried');
+    if (t < ST('k01') - .1) C(V(.4, 1.5, -.3), V(-1.9, .95, -2.9), 46);
+    else { boy.eyes('closed'); boy.brows(1); if (!talk(boy, 'k01', t)) boy.mouth('pressed'); const h = HEAD(boy); C(h.clone().add(V(.5, .06, .08)), h.clone().add(V(0, -.02, -.1)), 38); }   // his face side-on against the plaster
+  } else if (t < ST('h06') - .3) {                                    // the afternoon: twenty-seven at desks; in the window, twenty-eight
+    show(CR); air('CR', t); DESKS.forEach((d, i) => { const P = i === 11 ? haru : KIDS[3 + (i % 15)]; if (i > 15 && P !== haru) return; seat(P, CR, d.position.x, d.position.z + .42, PI); P.expr('neutral'); });
+    haru.expr('worried'); const hd = DESKS[11].position;
+    const near = clamp01((t - ST('h05') - 2.0) / 2.5); place(extra, CR, hd.x + .1, hd.z + lerp(1.6, .85, near), PI);
+    crBeam.beam.visible = false;
+    if (t < ST('h05')) { look(haru, {turn: -.6}); C(V(2.35, 1.1, -.62), V(3.6, 1.0, .02), 40); }   // the glass, angled to hold the class behind her   // over her shoulder, the window and what it holds
+    else if (t < ST('h05') + 1.6) { look(haru, {turn: Math.min(1, (t - ST('h05')) / .4) * 1.2, nod: -.05}); haru.expr('scared'); const h = HEAD(haru); C(h.clone().add(V(-.75, .1, -.55)), h.clone().add(V(0, -.05, .5)), 40); }   // she turns: nothing
+    else { look(haru, {turn: -.5}); haru.expr('terrified'); C(V(2.6, 1.08, -.5), V(3.6, .98, .02), 34); }
+  } else if (t < ST('h07') - .5) {                                    // in the glass, close: no face, only the back of a head
+    show(CR); air('CR', t); const hd = DESKS[11].position; seat(haru, CR, hd.x, hd.z + .42, PI); look(haru, {turn: -.5}); haru.expr('terrified');
+    DESKS.forEach((d, i) => { if (i === 11 || i > 15) return; seat(KIDS[3 + (i % 15)], CR, d.position.x, d.position.z + .42, PI); });
+    crBeam.beam.visible = false; place(extra, CR, hd.x + .08, hd.z + .78, PI); extra.root.rotation.y = PI - .9;
+    const u = ease((t - ST('h06') + .3) / 2.4); C(V(lerp(2.6, 3.0, u), 1.1, lerp(-.5, -.28, u)), V(3.6, 1.08, .18), lerp(32, 24, u));
+  } else if (t < ST('h08') - .2) {                                    // seven, then fourteen, all facing the same wall
+    show(CR); air('CR', t); const n = t < ST('h07') + 2.2 ? 7 : 14;
+    for (let i = 0; i < n; i++) { const P = KIDS[i + 1]; const row = Math.floor(i / 7), col = i % 7; atWall(P, CR, -3.55 + row * .7, -2.6 + col * .82, -PI / 2, row ? .3 : 1); if (row) { P.arms.forEach(({up, fo}) => { up.rotation.set(0, 0, 0); fo.rotation.set(-.1, 0, 0); }); } }
+    const u = ease((t - ST('h07') + .5) / 5.6); C(V(lerp(2.6, 1.6, u), 1.4, lerp(2.4, 1.4, u)), V(-3.0, .9, -.6), 44);
+  } else if (t < ST('h09') - .4) {                                    // the corridor: everyone faces the far end, toward the boarded door
+    show(CO); air('CO', t);
+    for (let i = 0; i < 10; i++) { const P = KIDS[i + 1]; place(P, CO, (i % 2 ? .55 : -.55) + (rnd() - .5) * .1, -2 - i * 1.4, PI); P.eyes('closed'); P.brows(.6); }
+    const u = ease((t - ST('h08') + .2) / 2.4); CL(V(0, 1.1, 2.5 - u * 1.5), V(0, 1.0, -20), lerp(40, 30, u));
+  } else if (t < ST('h10') - .6) {                                    // she opens the boarded door and goes in
+    show(AB); air('AB', t); place(haru, AB, .4, lerp(3.0, 1.9, clamp01((t - ST('h09')) / 2.4)), PI); if (t < ST('h09') + 2.4) kitWalk(haru, q, {speed: .6, sneak: true}); haru.expr('scared');
+    abKey.intensity = 1.2; abKey.position.set(.7, 1.6, 3.0); CL(V(-1.0, 1.2, 3.3), V(.2, 1.0, 0), 44);
+  } else if (t < ST('h11') - .1) {                                    // the scratched wall: names, dates, the sentence
+    show(AB); air('AB', t); place(haru, AB, .3, -1.3, PI); haru.expr('scared');
+    const u = ease((t - ST('h10') + .6) / 5.8); CL(V(lerp(-1.4, 1.2, u), lerp(1.7, 1.2, u), -1.2), V(lerp(-1.1, 1.0, u), lerp(1.5, 1.1, u), -2.9), 36);
+  } else if (t < ST('h12') - .3) {                                    // DON'T LET IT TURN AROUND
+    show(AB); air('AB', t); CL(V(-.95, 1.98, -2.1), V(-1.0, 1.98, -2.9), 26);
+  } else if (t < ST('h13') - .4) {                                    // breathing behind the plaster; her ear to it; something presses back; "Thank you for looking."
+    show(AB); air('AB', t); place(haru, AB, .62, -2.62, PI / 2 + .1); haru.chest.rotation.z = -.18; look(haru, {tilt: .35}); haru.arms[1].up.rotation.set(-1.3, 0, .3); haru.arms[1].fo.rotation.set(-1.0, 0, 0);
+    haru.expr(t > ST('x01') ? 'terrified' : 'scared'); abKey.intensity = 1.6; abKey.position.set(1.0, 1.5, -2.0);
+    const push = ease(clamp01((t - ST('h12') - 3.4) / 1.2)); bulge.scale.setScalar(.001 + push); bulge.position.set(.4, 1.12 + push * .02, -2.83 + push * .03);
+    if (t < ST('x01') - .1) { const h = HEAD(haru); C(h.clone().add(V(.15, .05, .75)), h.clone().add(V(-.15, 0, -.05)), 34); }
+    else { const h = HEAD(haru); C(h.clone().add(V(.42, .03, .12)), h.clone().add(V(0, .02, -.02)), 30); }   // her eye, wide
+  } else if (t < ST('h14') - .2) {                                    // the wall cracks open; a narrow room of children facing away; something huge at the end
+    show(AB); air('AB', t); const u = (t - ST('h13') + .4) / (EN('h13') - ST('h13') + .4), open = ease(clamp01(u / .35)) * 1.7;
+    tiles.forEach(o => { const f = clamp01((open - o.d) * 3); if (f > 0) { o.g.position.set(o.x + (o.seed - .5) * .2 * f, o.y - f * f * (o.y + .1), f * .5); o.g.rotation.set(f * (o.seed * 3 - 1.5), 0, f * (o.seed - .5) * 2); if (f >= 1) o.g.visible = false; } });
+    place(haru, AB, .3, -.8, PI); look(haru, {jut: -.02, nod: -.1}); haru.expr('terrified');
+    for (let i = 0; i < 12; i++) { const P = KIDS[i + 2]; place(P, NR, -1.05 + (i % 4) * .7, -1.2 - Math.floor(i / 4) * 1.05, PI); P.eyes('closed'); }
+    place(giant, NR, 0, -5.55, PI); giant.chest.rotation.x = .3; giant.neck.rotation.x = .2; giant.arms.forEach(({up, fo}, i) => { up.rotation.set(.1, 0, (i ? 1 : -1) * .15); fo.rotation.set(-.2, 0, 0); });
+    nrLight.intensity = 11 * clamp01(u * 2);
+    if (u < .45) CL(V(.9, 1.25, .6), V(.2, 1.1, -2.9), 42); else { const k = ease((u - .45) / .55); CL(V(lerp(.4, .15, k), 1.3, lerp(-.5, -2.2, k)), V(0, 2.1, -8.4), lerp(44, 38, k)); }
+  } else if (t < ST('h15') - .5) {                                    // its head begins to turn; she runs
+    show(AB); air('AB', t); tiles.forEach(o => { if (o.d < 1.7) o.g.visible = false; }); nrLight.intensity = 11;
+    for (let i = 0; i < 12; i++) { const P = KIDS[i + 2]; place(P, NR, -1.05 + (i % 4) * .7, -1.2 - Math.floor(i / 4) * 1.05, PI); P.eyes('closed'); }
+    place(giant, NR, 0, -5.55, PI); giant.chest.rotation.x = .3; giant.neck.rotation.x = .2; giant.head.rotation.y = ease(clamp01((t - ST('h14')) / 1.6)) * .9;
+    if (t < ST('h14') + 1.0) CL(V(.15, 1.4, -2.4), V(0, 2.2, -8.4), 36);
+    else { place(haru, AB, .3, lerp(-.8, 2.4, clamp01((t - ST('h14') - 1.0) / 1.4)), 0); kitWalk(haru, q, {run: true}); haru.expr('terrified'); CL(V(-.9, 1.1, 3.2), V(.3, .9, 0), 46); }
+  } else if (t < ST('h16') - .3) {                                    // every door open, every child at a wall; "She's looking."
+    show(CO); air('CO', t); coDoors.forEach(o => { o.d.rotation.y = -o.s * PI / 2 + o.s * 1.3; });
+    for (let i = 0; i < 12; i++) { const o = coDoors[i % coDoors.length]; atWall(KIDS[i + 1], CO, o.s * 1.18, o.z - .9 - (i > 5) * .5, o.s > 0 ? -PI / 2 : PI / 2, .6); }
+    const rp = clamp01((t - ST('h15') + .5) / 4.2); place(haru, CO, 0, lerp(-16, -2, rp), 0); kitWalk(haru, q, {run: true}); haru.expr('terrified');
+    if (t < ST('x02') - .1) C(V(.3, 1.1, 1.2).add(OFF), HEAD(haru).add(V(0, -.2, 0)), 40);
+    else { const P = KIDS[1]; P.mouth('open', .35); const h = HEAD(P); C(h.clone().add(V(.45, .05, .2)), h, 28); KIDS.forEach(k => k.mouth('open', .3)); }
+  } else if (t < ST('h17') - .3) {                                    // in the corridor window it stands right behind her; in the corridor, nothing
+    show(CO); air('CO', t); place(haru, CO, .95, -.35, PI / 2 - .25); haru.expr('terrified'); look(haru, {turn: -.2});
+    place(glassGiant, CO, .4, .05, PI / 2 - .6); glassGiant.chest.rotation.x = .2; glassGiant.neck.rotation.x = .35; glassGiant.head.rotation.y = .6;
+    if (t < ST('h16') + 2.6) CL(V(.05, 1.3, -1.6), V(1.33, 1.5, -.6), 46);
+    else { look(haru, {turn: 1.2}); const h = HEAD(haru); C(h.clone().add(V(.3, .05, .8)), h.clone().add(V(-.25, -.15, -3)), 42); }   // she turns: the corridor is empty
+  } else if (t < EN('h18') + .1) {                                    // it can only see through the eyes that look at it
+    show(CO); air('CO', t); place(haru, CO, .7, -.25, PI / 2 - .25); haru.expr('shock'); look(haru, {turn: -.1});
+    const h = HEAD(haru), u = ease((t - ST('h17') + .3) / 6.5); C(h.clone().add(V(lerp(.55, .46, u), .03, lerp(-.25, .02, u))), h, lerp(46, 38, u));
+  } else {                                                            // the push in: her eyes go blank. It has them now.
+    show(CO); air('CO', t); place(haru, CO, .7, -.25, PI / 2 - .25); haru.expr('shock'); look(haru, {turn: -.1});
+    const k = clamp01((t - EN('h18') - .6) / .5); if (k > .5) haru.M.eye.color.set(0xe8e4dc);
+    const h = HEAD(haru), u = ease((t - EN('h18') - .1) / 3.0); C(h.clone().add(V(.46, .02, .1)), h.clone().add(V(0, .0, .02)), lerp(38, 28, u));
+    if (t > DUR - .35) black = true;
+  }
+}
+const frameFX = followFrame(frame, () => [haru]);
+window.renderAt = t => { frameFX(t); onlyInGlass.forEach(o => { o.userData.want = o.visible; o.visible = false; }); if (!black) glassPass();
+  if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

@@ -27,6 +27,9 @@ export function setup({bloom = .45, ao = true, w = 1080, h = 1920, dof = false, 
   const bokeh = useDof ? new BokehPass(scene, cam, {focus: 2, aperture: .0007, maxblur: .012}) : null;
   if (bokeh) composer.addPass(bokeh);
   const dofPass = {set(dist, k = 1) { if (!bokeh) return; bokeh.enabled = k > 0; bokeh.uniforms.focus.value = dist; bokeh.uniforms.aperture.value = .0007 * k; }};
+  // safety: a single NaN pixel (from a degenerate normal anywhere) would be spread over the whole frame by the bloom; clear them first
+  composer.addPass(new ShaderPass({uniforms: {tDiffuse: {value: null}}, vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); if (!(c.r == c.r) || !(c.g == c.g) || !(c.b == c.b) || c.r > 6e4 || c.g > 6e4 || c.b > 6e4) c = vec4(0., 0., 0., 1.); gl_FragColor = c; }'}));
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), bloom, .6, .85));
   composer.addPass(new OutputPass());
   // the finish: grain, vignette, and a colour grade (lift = colour pushed into the shadows, gain = into the highlights, sat = saturation)
