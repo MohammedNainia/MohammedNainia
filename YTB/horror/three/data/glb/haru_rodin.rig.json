@@ -1,0 +1,18 @@
+{
+  "note": "Joint positions in the model's own units (measured by slicing the mesh: legs part below y -0.30, hands end at -0.40, shoulders ~0.26, chin ~0.45). x = the character's left (+x) side.",
+  "front": [0, 0, 1],
+  "floor": -0.944,
+  "hip": [0.11, -0.27, 0.0],
+  "pelvis": [0, -0.27, 0.0],
+  "chestBase": [0, -0.22, 0.0],
+  "neckBase": [0, 0.32, 0.0],
+  "headBase": [0, 0.42, 0.02],
+  "headTop": [0, 0.95, 0.0],
+  "shoulder": [0.25, 0.26, 0.0],
+  "elbow": [0.31, 0.0, 0.0],
+  "wrist": [0.29, -0.27, 0.03],
+  "fingerTip": [0.29, -0.4, 0.04],
+  "knee": [0.11, -0.565, 0.03],
+  "ankle": [0.11, -0.86, 0.0],
+  "toe": [0.11, -0.93, 0.2]
+}
