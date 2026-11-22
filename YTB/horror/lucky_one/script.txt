@@ -1,0 +1,24 @@
+THE LUCKY ONE (draft 2, action cut, approved)  9:16, voices 1.5x in post (pitch kept), target ~95 s
+Hook text at frame 0: MY LUCK KILLED THREE / OF MY CHILDREN. / TONIGHT IT'S COMING / FOR THE LAST ONE.
+Rule: while Nao holds Haru's hand, the bad luck misses her.  Flaw: Haru kept the deal; she loved her lucky life.
+Twist: the bad luck was saved for her children.  Ending: Haru reaches for its hand as Nao's grip slips; cut. Loop.
+Voices: Haru = Samara X (stability .5); the woman = Allison; IT = Hushed (stability .3) + Thanksgiving creature fx.
+
+h01  HARU   My luck killed three of my children. Tonight it's coming for the last one.
+h02  HARU   At sixteen, I was the unluckiest girl alive.
+h03  HARU   Then a woman in a red coat caught me before a car did.
+w01  WOMAN  You've had enough bad luck for one life. Shake my hand, and it's gone. Just never tell anyone about me.
+h04  HARU   It worked. Too well.
+h05  HARU   On Ken's sixteenth birthday, a tree came down on his car. There was no wind.
+h06  HARU   Yui fell down the stairs she'd raced up all her life.
+h07  HARU   Ren got hit by lightning under a clear blue sky.
+h08  HARU   And every time, my luck got better. I knew. I kept my mouth shut.
+h09  HARU   Tonight, the clock hit midnight, and Nao turned sixteen.
+h10  HARU   I grabbed her hand. Whatever fell, it missed her, as long as she held on.
+w02  WOMAN  You can't hold her forever, Haru.
+h11  HARU   We ran for the car.
+h12  HARU   Every light turned red for her. Every truck swerved toward her side.
+h13  HARU   Then the road ran out.
+t01  IT     (dead language) Hhhrrr... vaak'thu... nnhesk... drrah.   caption: (give it back.)
+h14  HARU   It wanted my luck back. All of it, at once. Nobody survives that much bad luck.
+h15  HARU   Nao's still holding my hand. I'm reaching for its.
