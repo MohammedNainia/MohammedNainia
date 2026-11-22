@@ -1,0 +1,114 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:M;src:url(fonts/Montserrat-500.ttf);font-weight:500}
+@font-face{font-family:M;src:url(fonts/Montserrat-400.ttf);font-weight:400}
+@font-face{font-family:T;src:url(fonts/Tajawal-400.ttf);font-weight:400}
+@font-face{font-family:T;src:url(fonts/Tajawal-500.ttf);font-weight:500}
+@font-face{font-family:T;src:url(fonts/Tajawal-700.ttf);font-weight:700}
+:root{--g:#2F9A4A;--b:#2A88C8;--ink:#0E0F12}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:var(--ink);font-family:T,M,sans-serif}
+#glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 55%,rgba(47,154,74,.28),rgba(42,136,200,.10) 35%,transparent 60%)}
+#phone{position:absolute;left:50%;top:50%;width:440px;height:920px;margin:-460px 0 0 -220px;border-radius:64px;background:#000;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 3px #2a2d33 inset}
+#screen{position:absolute;inset:14px;border-radius:52px;overflow:hidden;background:#F7F9F8}
+.notch{position:absolute;top:12px;left:50%;width:120px;height:32px;margin-left:-60px;background:#000;border-radius:20px;z-index:9}
+.scr{position:absolute;inset:0;padding:70px 30px 30px;box-sizing:border-box;direction:rtl}
+.top{display:flex;justify-content:center;align-items:center;gap:6px;font-family:M;font-weight:500;font-size:24px;letter-spacing:3px;direction:ltr;margin-bottom:34px}
+.top .a{color:#111}.top .g{color:var(--g)}.top .bl{color:var(--b)}
+h1{font-family:T;font-weight:700;font-size:34px;color:#111;margin:0 0 26px;text-align:center}
+.notes{display:flex;gap:12px;justify-content:center;direction:ltr;margin-bottom:28px}
+.note{width:110px;height:64px;border-radius:16px;border:2px solid #dfe5e2;display:flex;align-items:center;justify-content:center;font-family:M;font-weight:500;font-size:22px;color:#555;background:#fff}
+.note.sel{border-color:var(--g);background:rgba(47,154,74,.08);color:var(--g)}
+.big{font-family:M;font-weight:500;font-size:86px;color:#111;text-align:center;direction:ltr;margin:10px 0 4px}
+.sub{font-size:22px;color:#777;text-align:center;margin-bottom:40px}
+.btn{position:absolute;left:30px;right:30px;bottom:44px;height:76px;border-radius:38px;background:linear-gradient(90deg,var(--g),var(--b));color:#fff;font-family:T;font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ripple{position:absolute;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.5);left:50%;top:50%;margin:-20px 0 0 -20px;transform:scale(0)}
+.chips{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;direction:ltr;margin:10px 0 26px}
+.chip{padding:14px 22px;border-radius:14px;background:#fff;border:2px solid #dfe5e2;font-family:M;font-weight:500;font-size:26px;color:#111;opacity:0}
+.chip.coin{border-radius:40px;border-color:var(--b);color:var(--b)}
+.row{display:flex;justify-content:space-between;font-size:26px;color:#333;padding:14px 4px;border-top:1px solid #e6ebe9}
+.row b{font-family:M;font-weight:500;direction:ltr}
+.row.fee b{color:var(--g)}
+.row.tot{font-weight:700;color:#111}
+#map{position:absolute;left:0;right:0;top:0;height:560px;background:#e8eeeb;overflow:hidden}
+.card{position:absolute;left:20px;right:20px;bottom:30px;background:#fff;border-radius:30px;padding:26px;box-shadow:0 10px 40px rgba(0,0,0,.12);direction:rtl}
+.who{display:flex;align-items:center;gap:16px}
+.av{width:70px;height:70px;border-radius:50%;background:var(--g);border:4px solid var(--b);display:flex;align-items:center;justify-content:center;color:#fff;font-family:T;font-weight:700;font-size:30px}
+.nm{font-weight:700;font-size:30px;color:#111}
+.eta{font-size:24px;color:#666}
+.ok{margin-top:18px;font-size:24px;color:var(--g);font-weight:700}
+.bar{height:8px;border-radius:4px;background:#e6ebe9;margin-top:16px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--g),var(--b));width:0}
+#finger{position:absolute;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.35);border:3px solid rgba(255,255,255,.8);left:50%;margin-left:-35px;opacity:0;z-index:20}
+</style></head><body>
+<div id="glow"></div>
+<div id="phone"><div id="screen"><div class="notch"></div>
+
+<div class="scr" id="s1">
+  <div class="top"><span class="a">ALLO</span><span><span class="g">FLOU</span><span class="bl">$$I</span></span></div>
+  <h1>شحال بغيتي تصرف؟</h1>
+  <div class="notes"><div class="note">50 DH</div><div class="note">100 DH</div><div class="note sel" id="n200">200 DH</div></div>
+  <div class="big" id="amt">0 DH</div>
+  <div class="sub">غادي نجيبو ليك الصرف حتى لعندك</div>
+  <div class="btn" id="b1">طلب الصرف<span class="ripple" id="r1"></span></div>
+</div>
+
+<div class="scr" id="s2" style="opacity:0">
+  <div class="top"><span class="a">ALLO</span><span><span class="g">FLOU</span><span class="bl">$$I</span></span></div>
+  <h1>الصرف ديالك</h1>
+  <div class="chips"><div class="chip">100</div><div class="chip">50</div><div class="chip">20</div><div class="chip">20</div><div class="chip coin">2</div><div class="chip coin">1</div></div>
+  <div class="row"><span>غادي توصل</span><b>193 DH</b></div>
+  <div class="row fee"><span>خدمة ألو فلوسي</span><b>7 DH</b></div>
+  <div class="row tot"><span>كتعطي للموزع</span><b>200 DH</b></div>
+  <div class="btn" id="b2">تأكيد<span class="ripple" id="r2"></span></div>
+</div>
+
+<div class="scr" id="s3" style="opacity:0;padding:0">
+  <div id="map"><svg width="412" height="560" viewBox="0 0 412 560">
+    <g stroke="#fff" stroke-width="14" fill="none">
+      <path d="M-10,120 H430"/><path d="M-10,300 H430"/><path d="M-10,460 H430"/>
+      <path d="M90,-10 V570"/><path d="M250,-10 V570"/><path d="M360,-10 V570"/>
+      <path d="M-10,560 L430,20" stroke-width="20"/>
+    </g>
+    <path id="route" d="M70,500 L90,460 L90,300 L250,300 L250,120 L320,120" stroke="#2F9A4A" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="320" cy="120" r="16" fill="#2A88C8"/><circle cx="320" cy="120" r="30" fill="none" stroke="#2A88C8" stroke-width="3" id="pulse"/>
+    <circle id="dot" r="14" fill="#2F9A4A" stroke="#fff" stroke-width="5"/>
+  </svg></div>
+  <div class="card">
+    <div class="who"><div class="av">ح</div><div><div class="nm">حمزة جاي ليك</div><div class="eta" id="eta">6 دقايق</div></div></div>
+    <div class="ok">✓ الطلب تأكد</div>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+</div>
+
+<div id="finger"></div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+const clamp=x=>Math.max(0,Math.min(1,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const route=$('route'), RL=route.getTotalLength(); route.style.strokeDasharray=RL;
+window.setT=function(t){
+  // phone entrance
+  const p=ease(seg(t,0,0.6)); $('phone').style.transform=`translateY(${(1-p)*80}px) scale(${0.94+0.06*p})`; $('phone').style.opacity=p;
+  // S1
+  $('amt').textContent=Math.round(200*ease(seg(t,0.4,1.1)))+' DH';
+  $('n200').style.transform=`scale(${1+0.08*Math.sin(Math.PI*seg(t,0.3,0.7))})`;
+  const f1=seg(t,1.15,1.45); $('r1').style.transform=`scale(${f1*14})`; $('r1').style.opacity=1-f1;
+  const s12=ease(seg(t,1.5,1.8)); $('s1').style.opacity=1-s12; $('s1').style.transform=`translateX(${s12*-60}px)`;
+  $('s2').style.opacity=s12*(1-ease(seg(t,3.4,3.7))); $('s2').style.transform=`translateX(${(1-s12)*60}px)`;
+  [...document.querySelectorAll('.chip')].forEach((c,i)=>{const k=ease(seg(t,1.8+i*0.12,2.1+i*0.12));c.style.opacity=k;c.style.transform=`translateY(${(1-k)*24}px)`});
+  const f2=seg(t,3.05,3.35); $('r2').style.transform=`scale(${f2*14})`; $('r2').style.opacity=1-f2;
+  const s3=ease(seg(t,3.4,3.7)); $('s3').style.opacity=s3;
+  // finger taps
+  const tap=(a)=>Math.max(0,1-Math.abs(t-a)/0.25);
+  const tp=Math.max(tap(1.2),tap(3.1)); $('finger').style.opacity=tp; $('finger').style.top=(892-14-38-35)+'px'; $('finger').style.transform=`scale(${1-0.2*tp})`;
+  // S3 route + dot
+  const r=ease(seg(t,3.7,4.6)); route.style.strokeDashoffset=RL*(1-r);
+  const m=seg(t,4.4,6.0); const pt=route.getPointAtLength(RL*m*0.85); $('dot').setAttribute('cx',pt.x); $('dot').setAttribute('cy',pt.y);
+  $('pulse').setAttribute('r',18+18*((t*1.2)%1)); $('pulse').style.opacity=1-((t*1.2)%1);
+  $('prog').style.width=(ease(seg(t,3.8,6))*62)+'%';
+  $('eta').textContent=(t<5.2?'6':'5')+' دقايق';
+};
+setT(0);
+</script></body></html>

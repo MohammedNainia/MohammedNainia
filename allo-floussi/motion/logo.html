@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:M;src:url(fonts/Montserrat-400.ttf);font-weight:400}
+@font-face{font-family:M;src:url(fonts/Montserrat-300.ttf);font-weight:300}
+@font-face{font-family:T;src:url(fonts/Tajawal-500.ttf);font-weight:500}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#fff}
+#bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,#ffffff 0%,#f4f6f5 70%,#e9eeec 100%)}
+svg{position:absolute;left:50%;top:50px;transform:translateX(-50%)}
+.tag{position:absolute;left:0;right:0;text-align:center;opacity:0}
+#ar{top:860px;font-family:T;font-weight:500;font-size:54px;color:#111;direction:rtl}
+#en{top:945px;font-family:M;font-weight:300;font-size:34px;letter-spacing:8px;color:#444}
+</style></head><body>
+<div id="bg"></div>
+<svg id="logo" width="870" height="790" viewBox="0 0 870 790">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path id="arrow" d="M88,328 C240,235 470,252 600,232 C680,220 720,200 742,166" stroke="#111" stroke-width="7"/>
+    <path id="head" d="M698,160 L743,163 L736,206" stroke="#111" stroke-width="7"/>
+    <path id="A"  d="M85,500 L165,330 L245,500" stroke="#111" stroke-width="9"/>
+    <path id="L1" d="M290,330 V500 H362" stroke="#111" stroke-width="9"/>
+    <path id="L2" d="M405,330 V500 H477" stroke="#111" stroke-width="9"/>
+    <g id="g"><circle cx="562" cy="415" r="86" stroke="#2F9A4A" stroke-width="9"/></g>
+    <g id="b"><circle cx="690" cy="415" r="86" stroke="#2A88C8" stroke-width="9"/></g>
+    <path id="smile" d="M650,425 Q648,468 676,468 Q705,468 728,447" stroke="#2A88C8" stroke-width="9"/>
+  </g>
+  <text id="fl" x="435" y="700" text-anchor="middle" font-family="M" font-weight="400" font-size="150" letter-spacing="20"><tspan fill="#2F9A4A">FLOU</tspan><tspan fill="#2A88C8">$$I</tspan></text>
+</svg>
+<div id="ar" class="tag">ما تخليش الصرف يوقف لحظتك.</div>
+<div id="en" class="tag">SMALL CHANGE. BIG MOMENTS.</div>
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(x)=>Math.max(0,Math.min(1,x));
+const ease=x=>1-Math.pow(1-clamp(x),3);
+const io=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const strokes={};
+['arrow','head','A','L1','L2','smile'].forEach(k=>{const p=$(k);const L=p.getTotalLength();strokes[k]=L;p.style.strokeDasharray=L;p.style.strokeDashoffset=L;});
+function draw(k,p){$(k).style.strokeDashoffset=strokes[k]*(1-p);}
+window.setT=function(t){
+  // rings roll in from opposite sides and interlock
+  const r=io(seg(t,0.0,1.4));
+  const off=(1-r)*900, rot=(1-r)*360;
+  $('g').setAttribute('transform',`translate(${-off},0) rotate(${-rot} 562 415)`);
+  $('b').setAttribute('transform',`translate(${off},0) rotate(${rot} 690 415)`);
+  $('g').style.opacity=$('b').style.opacity=ease(seg(t,0,0.5));
+  draw('smile',ease(seg(t,1.35,1.8)));
+  draw('A',ease(seg(t,1.5,2.0))); draw('L1',ease(seg(t,1.7,2.15))); draw('L2',ease(seg(t,1.85,2.3)));
+  draw('arrow',io(seg(t,2.1,2.9))); draw('head',ease(seg(t,2.8,3.05)));
+  const f=ease(seg(t,2.7,3.3)); $('fl').style.opacity=f; $('fl').setAttribute('transform',`translate(0,${(1-f)*40})`);
+  const a=ease(seg(t,3.5,4.1)); $('ar').style.opacity=a; $('ar').style.transform=`translateY(${(1-a)*20}px)`;
+  const e=ease(seg(t,3.8,4.4)); $('en').style.opacity=e; $('en').style.transform=`translateY(${(1-e)*20}px)`;
+  // gentle settle scale over whole clip
+  $('logo').style.transform=`translateX(-50%) scale(${0.96+0.04*ease(seg(t,0,6))})`;
+};
+setT(0);
+</script></body></html>
