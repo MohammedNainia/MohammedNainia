@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Check page for a generated 3D character (data/glb/<name>.glb): ?glb=name  renderAt(i): i = 0 front, 1 three-quarter, 2 side, 3 three-quarter back, 4 back.
+// The model is stood on the floor, centred and scaled to Haru's height (1.26 m), on the same green backdrop and lights as clay_poses' turnaround,
+// so tools/turncmp-style comparisons line up with the Artlist sheet.
+import {THREE, setup} from './lib.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1);
+const {scene, cam, render} = setup({bloom: .3, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+scene.background = new THREE.Color(0x00ff00);
+const key = new THREE.DirectionalLight(0xfff0dc, 2.2); key.position.set(2, 4, 4); scene.add(key);
+scene.add(new THREE.HemisphereLight(0xc8d0e0, 0x302820, .7));
+const g = (await new GLTFLoader().loadAsync('/data/glb/' + (q.get('glb') || 'haru_rodin') + '.glb')).scene;
+const box = new THREE.Box3().setFromObject(g), size = box.getSize(new THREE.Vector3()), k = 1.26 / size.y;
+g.scale.setScalar(k); g.position.set(-(box.min.x + size.x / 2) * k, -box.min.y * k, -(box.min.z + size.z / 2) * k);
+const holder = new THREE.Group(); holder.add(g); scene.add(holder);
+let tris = 0; g.traverse(o => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+window.INFO = {tris: Math.round(tris), size: size.toArray().map(v => +v.toFixed(3))};
+window.renderAt = t => { holder.rotation.y = [0, -.6, -Math.PI / 2, Math.PI * .8, Math.PI][Math.floor(t) % 5];
+  cam.position.set(0, .72, 5.2); cam.lookAt(0, .68, 0); cam.fov = 22; cam.updateProjectionMatrix(); render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
