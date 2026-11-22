@@ -234,7 +234,7 @@ export function makePerson(o = {}) {
     for (let k = 0; k < 3; k++) add(Cp(.0035, .05, .0005, 30), M.lace, ft, [0, .025, .06 + k * .022], [0, 0, Math.PI / 2]);
     return {th, sh, ft};
   });
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, M, faceLight, sec, neckLen: o.neckLen ?? .155};
+  const P = {root, hips, chest, neck, head, back, face, arms, legs, M, faceLight, sec, neckLen: o.neckLen ?? .155, s0: o.scale || 1};   // s0: the character's size (scenes reset to it)
   const eyeBase = eyes.map(e => e.position.clone());
   const tears = [-1, 1].map(x => { const t = add(S(.0055, 1, 1.6, .8, .0005, 20), M.tear, face, [x * .038, -.024, .004]); t.visible = false; return t; });
   P.eyes = s => {                 // 'open' | 'closed' | 'wide' | 'squeeze'
@@ -433,7 +433,7 @@ export const BUILDS = {                     // sh shoulders, hip, chest depth, l
   man:   {sh: 1.16, hip: .96, chest: 1.08, limb: 1.08, belly: .015, bust: 0, stoop: 0},
   old:   {sh: .94, hip: 1.06, chest: 1, limb: .9, belly: .025, bust: 0, stoop: .3},
 };
-export const haruOpts = {headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
+export const haruOpts = {scale: .84, headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
   puffy: 1.22, hairThick: 1.22, hairGap: 1.12, hairTop: true, hairline: .066, neckLen: .195,
   skin: 0xe8a27c, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};       // matched to the Artlist sheets
 export const mumOpts = {build: 'woman', outfit: 'sweater', headScale: 1.05, top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
