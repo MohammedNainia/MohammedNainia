@@ -1,0 +1,24 @@
+THE FACES ON THE WALL (draft 1, approved)  9:16, voices 1.5x in post (pitch kept), target ~95 s
+
+h01  HARU   Three kids at my school were found with their faces pressed against a classroom wall. They'd been there for eleven hours.
+h02  HARU   When the teachers pulled them away, they screamed. One boy broke his own fingers holding on.
+h03  HARU   The paramedics couldn't make them turn around. One kept whispering:
+k01  BOY    Please don't make me look at you.
+h04  HARU   That afternoon, in the classroom window, I counted twenty-eight of us. I counted the room. Twenty-seven.
+h05  HARU   I turned around. Nothing. In the glass, the extra one was standing closer.
+h06  HARU   It had no face. Just the back of a head.
+h07  HARU   The next morning, seven more were facing the walls. By lunch, fourteen. All facing the same way.
+h08  HARU   Toward the empty classroom at the end of the third floor.
+h09  HARU   I always have to know. So that evening, I went in.
+h10  HARU   One wall was covered in scratches. Names. Dates. And one sentence, over and over.
+h11  HARU   Don't let it turn around.
+h12  HARU   Something was breathing behind the plaster. I pressed my ear to it. Something pressed back.
+x01  WALL   Thank you for looking.
+h13  HARU   The wall cracked open. Inside, a narrow room full of children, all facing away. And at the end, something huge, bent under the ceiling. Facing the wall too.
+h14  HARU   Its head began to turn. I ran.
+h15  HARU   Every classroom door was open. Hundreds of kids, faces to the walls, all whispering:
+x02  CROWD  She's looking.
+h16  HARU   In the corridor window, it was standing right behind me. In the corridor, nothing.
+h17  HARU   It can only see through the eyes that look at it. They weren't hiding from it. They were keeping it blind.
+h18  HARU   And I'd just given it mine.
+(end: push-in on Haru's eyes; in their reflection the figure's head finishes turning. Loop to h01.)
