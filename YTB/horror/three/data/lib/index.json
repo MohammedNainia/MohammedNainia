@@ -1,0 +1,208 @@
+{
+ "note": "The clay library: generated once with Artlist, reused in every reel. Load with scenes/library.js (lib.char / lib.prop). Sizes in metres (Haru is 1.26 m). Add items with tools/glb_slim.py + tools/glb_autorig.py and an entry here.",
+ "chars": {
+  "haru": {
+   "file": "haru.glb",
+   "desc": "Haru (the lead): mustard hoodie, grey trousers, long dark hair",
+   "height": 1.26,
+   "made": "Rodin v2.5 from the Artlist sheet, blank-face edit"
+  },
+  "mum": {
+   "file": "mum.glb",
+   "desc": "Mum: plum sweater, grey trousers, hair in a low bun",
+   "height": 1.65,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "dad": {
+   "file": "dad.glb",
+   "desc": "Dad: light blue shirt, navy trousers",
+   "height": 1.78,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "woman_red": {
+   "file": "woman_red.glb",
+   "desc": "The woman in the red coat: long black hair, red coat to the knee, black boots",
+   "height": 1.8,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "grandma": {
+   "file": "grandma.glb",
+   "desc": "Grandma: white bun, lilac cardigan, grey skirt",
+   "height": 1.55,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "boy": {
+   "file": "boy.glb",
+   "desc": "Boy, about 10: green hoodie, jeans, red sneakers",
+   "height": 1.35,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "girl": {
+   "file": "girl.glb",
+   "desc": "Girl, about 8: pigtails, pink sweater, navy skirt",
+   "height": 1.2,
+   "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  }
+ },
+ "props": {
+  "kitchen_table": {
+   "file": "kitchen_table.glb",
+   "desc": "wooden kitchen table",
+   "height": 0.76,
+   "tags": [
+    "house",
+    "kitchen"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "chair": {
+   "file": "chair.glb",
+   "desc": "wooden kitchen chair",
+   "height": 0.9,
+   "tags": [
+    "house",
+    "kitchen"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "armchair": {
+   "file": "armchair.glb",
+   "desc": "mustard armchair",
+   "height": 0.95,
+   "tags": [
+    "house",
+    "living"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "bed": {
+   "file": "bed.glb",
+   "desc": "single bed, blue blanket",
+   "length": 2.0,
+   "tags": [
+    "house",
+    "bedroom"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "wardrobe": {
+   "file": "wardrobe.glb",
+   "desc": "old wooden wardrobe",
+   "height": 1.95,
+   "tags": [
+    "house",
+    "bedroom"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "stove": {
+   "file": "stove.glb",
+   "desc": "white cooker",
+   "height": 0.9,
+   "tags": [
+    "house",
+    "kitchen"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "fridge": {
+   "file": "fridge.glb",
+   "desc": "cream retro fridge",
+   "height": 1.75,
+   "tags": [
+    "house",
+    "kitchen"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "floor_lamp": {
+   "file": "floor_lamp.glb",
+   "desc": "standing lamp",
+   "height": 1.6,
+   "tags": [
+    "house",
+    "living"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "bookshelf": {
+   "file": "bookshelf.glb",
+   "desc": "bookshelf with books",
+   "height": 1.8,
+   "tags": [
+    "house",
+    "living",
+    "school"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "school_desk": {
+   "file": "school_desk.glb",
+   "desc": "school desk with chair",
+   "height": 0.8,
+   "tags": [
+    "school"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "car": {
+   "file": "car.glb",
+   "desc": "old dark red hatchback",
+   "length": 3.9,
+   "tags": [
+    "street",
+    "road"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "street_lamp": {
+   "file": "street_lamp.glb",
+   "desc": "street lamp",
+   "height": 4.2,
+   "tags": [
+    "street",
+    "road"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "bench": {
+   "file": "bench.glb",
+   "desc": "park bench",
+   "length": 1.6,
+   "tags": [
+    "street",
+    "park"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "bin": {
+   "file": "bin.glb",
+   "desc": "green wheelie bin",
+   "height": 1.05,
+   "tags": [
+    "street"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "tree": {
+   "file": "tree.glb",
+   "desc": "leafy tree",
+   "height": 5.0,
+   "tags": [
+    "street",
+    "park",
+    "forest"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "gravestone": {
+   "file": "gravestone.glb",
+   "desc": "weathered gravestone",
+   "height": 0.9,
+   "tags": [
+    "graveyard"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  }
+ }
+}

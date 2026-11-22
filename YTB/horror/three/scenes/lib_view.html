@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// The clay library, on show: ?show=chars (the cast in a row: renderAt(0) standing, 1 walking, 2 scared, 3 talking) | ?show=props (every prop, renderAt(i) = page i of 4)
+//   | ?char=mum (one character: 0 front, 1 walk, 2 sit, 3 scared, 4 three-quarter face close-up)
+import {THREE, setup} from './lib.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {pose, walk, look} from './clay.js';
+import {lib} from './library.js';
+const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), wide = !!q.get('wide');
+const {scene, cam, render, renderer, grade, grain} = setup({bloom: .15, w: Math.round((wide ? 1920 : 1080) * PS), h: Math.round((wide ? 1080 : 1920) * PS)});
+renderer.toneMapping = THREE.NeutralToneMapping; grade('none'); grain.uniforms.sat.value = 1.08; grain.uniforms.vig.value = 0; renderer.shadowMap.type = THREE.VSMShadowMap;
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.background = new THREE.Color(0xe6e4e0); scene.fog = new THREE.Fog(0xe6e4e0, 12, 30);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({color: 0xb4b1ac, roughness: 1, envMapIntensity: .5})); floor.receiveShadow = true; scene.add(floor);
+const key = new THREE.DirectionalLight(0xfff4e8, 1.2); key.position.set(3, 6, 8); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 10; key.shadow.blurSamples = 20; key.shadow.bias = -.0006;
+Object.assign(key.shadow.camera, {left: -8, right: 8, top: 6, bottom: -1, near: .5, far: 30}); scene.add(key);
+const rim = new THREE.DirectionalLight(0xe8f0ff, .6); rim.position.set(-4, 4, -6); scene.add(rim);
+const I = await lib.list(), show = q.get('show') || 'chars', one = q.get('char');
+const reset = P => { P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0); P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck);
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); };
+let cast = [], props = [];
+if (one) { const P = await lib.char(one); scene.add(P.root); cast = [P]; }
+else if (show === 'chars') { let x = 0; for (const n of Object.keys(I.chars)) { const P = await lib.char(n); P.root.position.x = x; scene.add(P.root); cast.push(P); x += .85; } cast.forEach(P => P.root.position.x -= (x - .85) / 2); }
+else { for (const n of Object.keys(I.props)) { const g = await lib.prop(n); g.visible = false; scene.add(g); props.push(g); } }
+window.renderAt = t => { const i = Math.floor(t);
+  if (one) { const P = cast[0]; reset(P); P.root.rotation.y = -.45;
+    if (i === 1) walk(P, .3, {}); else if (i === 2) { pose(P, 'sitChair'); } else if (i === 3) { pose(P, 'scared'); P.expr('scared'); } else if (i === 4) { P.expr('worried'); P.mouth('open', .6); }
+    P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3()), top = h.y + .25;
+    if (i === 4) { cam.position.set(h.x - .55, h.y + .05, h.z + .9); cam.lookAt(h.x, h.y + .02, h.z); cam.fov = 26; }
+    else { cam.position.set(0, top * .55, top * 2.9 + 1); cam.lookAt(0, top * .5, 0); cam.fov = 26; } }
+  else if (show === 'chars') { cast.forEach((P, k) => { reset(P); P.root.rotation.y = -.25;
+      if (i === 1) walk(P, .3 + k * .1, {}); else if (i === 2) { pose(P, 'scared'); P.expr('terrified'); } else if (i === 3) { P.expr('neutral'); P.mouth(['open', 'o', 'smile', 'open', 'scream', 'o', 'open'][k], .7); } });
+    cam.position.set(0, 1.05, 7.2); cam.lookAt(0, .9, 0); cam.fov = 30; }
+  else if (q.get('grid')) { const names = Object.keys(I.props), g = props[i % props.length]; props.forEach(o => o.visible = false); g.visible = true; g.position.set(0, 0, 0); g.rotation.y = -.55;   // ?show=props&grid=1: prop i, framed alone
+    const b = new THREE.Box3().setFromObject(g), sz = b.getSize(new THREE.Vector3()), r = Math.max(sz.x, sz.y, sz.z);
+    cam.position.set(r * .9, sz.y * .55 + r * .45, r * 2.1); cam.lookAt(0, sz.y * .45, 0); cam.fov = 32; }
+  else { const page = props.slice(i * 4, i * 4 + 4); props.forEach(g => g.visible = false);
+    page.forEach((g, k) => { g.visible = true; g.position.set((k - 1.5) * (wide ? 4.2 : 2.6), 0, 0); g.rotation.y = -.5; });
+    const big = Math.max(...page.map(g => new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()).y));
+    cam.position.set(0, big * .7 + .4, big * 2.2 + 7); cam.lookAt(0, big * .45, 0); cam.fov = 30; }
+  cam.updateProjectionMatrix(); render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

@@ -10,9 +10,12 @@ import {EXPR} from './clay.js';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 export async function makeGlbPerson(name, o = {}) {
-  const [gl, R] = await Promise.all([new GLTFLoader().loadAsync('/data/glb/' + name + '.glb'), fetch('/data/glb/' + name + '.rig.json').then(r => r.json())]);
+  const base = name.includes('/') ? '/data/' + name : '/data/glb/' + name;            // 'haru_blank' (data/glb) or 'lib/chars/mum' (the library)
+  const [gl, R] = await Promise.all([new GLTFLoader().loadAsync(base + '.glb'), fetch(base + '.rig.json').then(r => r.json())]);
   gl.scene.updateMatrixWorld(true); let src = null; gl.scene.traverse(m => { if (m.isMesh && !src) src = m; });
   const geo = src.geometry.clone(); geo.applyMatrix4(src.matrixWorld);
+  if (R.rot) geo.rotateY(R.rot * Math.PI / 180);                                          // a model that came out facing sideways (glb_autorig.py --rot)
+  if (R.note && R.note.startsWith('measured by tools/glb_autorig')) { geo.computeBoundingBox(); const bb = geo.boundingBox; geo.translate(-(bb.min.x + bb.max.x) / 2, 0, -(bb.min.z + bb.max.z) / 2); }   // the auto-rig measured it centred
   // puppet units: the hip joint at .82 above the floor, the floor at 0
   const k = .82 / (R.hip[1] - R.floor), P0 = a => V(a[0] * k, (a[1] - R.floor) * k, a[2] * k);
   geo.translate(0, -R.floor, 0); geo.scale(k, k, k);
@@ -55,7 +58,8 @@ export async function makeGlbPerson(name, o = {}) {
       put([HEADS.find(sg => sg.b === head)], fh * .7); put([HEADS.find(sg => sg.b === neck)], fh * .3);
       const dArm = Math.min(...segs.filter(sg => sg.arm === sd).map(sg => 1 / Math.cbrt(near(sg))));                     // distance to the arm's centre line
       const fa = sm(ax0, ax1, ax) * (1 - sm(J.shoulder.y + .02, J.shoulder.y + .12, p.y)) * sm(SR1, SR0, dArm);          // how much sleeve: out at the side, and not far from the arm
-      const fl = sm(hem + .03, hem - .08, p.y) * sm(.004, .03, ax);                                                         // how much leg
+      const fl = R.skirt ? sm(J.knee.y + .05, J.knee.y - .12, p.y) * sm(.004, .05, ax) * .9 + sm(J.ankle.y + .1, J.ankle.y, p.y) * .1   // a skirt or long coat swings with the hips; only its hem and the legs below it follow the legs
+                         : sm(hem + .03, hem - .08, p.y) * sm(.004, .03, ax);                                                // how much leg
       put(segs.filter(sg => sg.arm === sd), fa * (1 - fh));
       put(segs.filter(sg => sg.leg === sd), fl * (1 - fa));
       put(TORSO, (1 - fa) * (1 - fl) * (1 - fh));

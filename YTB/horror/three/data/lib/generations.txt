@@ -1,0 +1,30 @@
+# Artlist generation ids for the library (re-download with get_generation_status / download_generation)
+char_img mum        01a2047e-5de0-791d-a503-eca63498f582
+char_img dad        01a2047e-6100-715f-9804-fcd9c664c5d0
+char_img woman_red  01a2047e-6472-7638-a537-e06d6cce50bd
+char_img grandma    01a2047e-681b-7104-81f5-65b997e37d1d
+char_img boy        01a2047e-6b98-7b44-b44a-3a490c37ccca
+char_img girl       01a2047e-6ec9-75bc-8681-d3860abb41f5
+char_src haru       01a20472-a03b-705e-beec-2791c8c5c082 (blank-face image) -> model 01a20473-4dd4-773f-8a03-5429414e620b (Rodin v2.5)
+prop kitchen_table  01a2047e-bf47-78f0-b222-b7b20e98f7fc
+prop chair          01a2047e-c275-7d58-8868-01ef589cf830
+prop armchair       01a2047e-c59c-72a8-8004-2142a02da1d5
+prop bed            01a2047e-c943-79d8-9021-5bf57ad31663
+prop wardrobe       01a2047e-cc0a-737d-b5be-148f387dd9e7
+prop stove          01a2047e-cec1-74e1-94e9-a47d2ae1f613
+prop fridge         01a2047e-d188-75a5-bb9e-b117fabbc21e
+prop floor_lamp     01a2047e-d693-7aa4-8407-a7d13cddb16b
+prop bookshelf      01a2047f-0a77-7fb2-8c78-38dea01274bb
+prop school_desk    01a2047f-0d6a-7f2d-a7bd-80a0ea04839f
+prop car            01a2047f-105a-7919-a8ff-e89494cefe00
+prop street_lamp    01a2047f-1474-73aa-bd33-fcafd7e726c0
+prop bench          01a2047f-1750-7b66-ac34-6ea6d77cc323
+prop bin            01a2047f-1bb3-7608-b46f-a161cd1df2e4
+prop tree           01a2047f-1f86-78cc-8997-d0fda3d11ab0
+prop gravestone     01a2047f-224f-7089-8668-5105abdaa818
+char_model mum        01a20480-1a32-755f-9f2a-b6edd46c6c99 (Rodin Fast)
+char_model dad        01a20480-1d4f-7a81-a375-7696b1f13089
+char_model woman_red  01a20480-2055-7e3f-9479-15785de688b6
+char_model grandma    01a20480-2341-748f-94c7-df3d27a49f66
+char_model boy        01a20480-2659-7c10-8e66-50be9636c137
+char_model girl       01a20480-2982-77c3-9542-4854bc20a580
