@@ -318,7 +318,7 @@ function frame(t) {
     bookH.userData.glow.intensity = 2.5 + Math.sin(q * 30); bookH.userData.glow.color.set(0xff6040);
     const k = Math.floor(clamp01((t - ST('h15') - 1.0) / 1.0) * 3) / 3;
     mourners.forEach(({P}) => { P.hips.position.y = .82; P.legs.forEach(({th, sh}) => { th.rotation.x = -1.5 * (1 - k); sh.rotation.x = 1.5 * (1 - k); }); P.root.position.y += .82 * .95 * 0 + k * .38; P.arms.forEach(({up}) => up.rotation.set(-1.2 * k, 0, 0)); });
-    keyS.intensity = 2.6; keyS.position.set(5.6, 1.6, -1.5);
+    keyS.intensity = 1.5; keyS.position.set(5.5, 1.5, -1.3);
     C(V(4.7, 1.35, -.6), V(6.2, .85, -2.3), 50);
     if (t > EN('h15') - .1) black = true;
   } else if (t < ST('h17') - .2) {                                    // she wakes in the attic. Her hand is empty. Still warm.
