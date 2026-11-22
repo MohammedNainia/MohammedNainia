@@ -113,6 +113,7 @@ export function sculptHead(geo, k = 1) {
   }
   geo.computeVertexNormals(); return geo;
 }
+const rbox2 = (w, h, d) => lump(new THREE.CapsuleGeometry(h / 2, w, 4, 10).rotateZ(Math.PI / 2).scale(1, 1, d / h), .0005, 30);   // a small rounded bar
 export const G = (parent, pos = [0, 0, 0]) => { const g = new THREE.Group(); g.position.set(...pos); parent.add(g); return g; };
 
 // ---------------------------------------------------------------- a person (Haru or Mum): ~7 heads tall, joints, face controls
@@ -179,7 +180,32 @@ export function makePerson(o = {}) {
     const hm = M.hair.clone(); hm.side = THREE.DoubleSide; add(lump(cap, .004, 8), hm, head);
     if (o.hairTop) add(S(.107, 1.03, .52, 1.0, .004, 8), M.hair, head, [.012, .074, -.006], [.22, 0, -.22]); }   // the fringe swept across the forehead, lower on one side   // a fuller, rounded top (the sheet's hair volume)
   const back = G(head, [0, -.02, -.07]);
-  if (o.longHair !== false) {
+  // hairstyles: 'long' (the default for longHair) | 'pigtails' | 'braids' | 'ponytail' | 'bob' | 'buns'; o.bangs adds a rounded fringe, o.tie the hair-tie colour
+  const style = o.hairStyle || (o.longHair !== false ? 'long' : 'short'), tieM = clay(o.tie || 0xe0507e, {bumpScale: .2});
+  if (o.bangs) { const bg = new THREE.SphereGeometry(.113, 36, 12, Math.PI / 2 - 1.0, 2.0, .3, .92).scale(1, 1.04, 1.06);   // a rounded fringe over the forehead
+    const bm = M.hair.clone(); bm.side = THREE.DoubleSide; add(lump(bg, .003, 9), bm, head, [0, .012, -.002], [-.06, 0, 0]); }
+  const tie = (g, p, r = .022) => add(lump(new THREE.TorusGeometry(r, .008, 8, 18), .001, 18), tieM, g, p, [Math.PI / 2, 0, 0]);
+  const bow = (g, p) => { if (!o.bow) return; for (const x of [-1, 1]) add(S(.026, 1.3, .8, .45, .001, 16), tieM, g, [p[0] + x * .03, p[1], p[2]], [0, 0, x * .5]); add(S(.011), tieM, g, p); };
+  if (style === 'pigtails' || style === 'braids') {
+    sec.hair = G(head, [0, -.02, -.04]);
+    for (const x of [-1, 1]) { const g = G(sec.hair, [x * .098, -.02, -.01]); tie(g, [0, 0, 0]); bow(g, [x * .006, .006, .02]);
+      if (style === 'pigtails') add(turn([[0, .02], [.036, .0], [.048, -.06], [.044, -.15], [.026, -.21], [0, -.225]], .004, 8), M.hair, g, [0, 0, 0], [0, 0, x * .2]);   // a bunch, hanging out a little
+      else { for (let k = 0; k < 7; k++) add(S(.026 - k * .0015, 1, 1.15, .9, .002, 12), M.hair, g, [x * .012 + (k % 2 ? .006 : -.006), -.03 - k * .034, 0], [0, 0, (k % 2 ? .4 : -.4)]);   // a plait
+        const e = G(g, [x * .012, -.27, 0]); tie(e, [0, 0, 0], .014); add(S(.016, 1, 1.4, 1, .002, 12), M.hair, e, [0, -.025, 0]); } } }
+  else if (style === 'ponytail') {
+    const base = G(head, [0, .07, -.098]); tie(base, [0, 0, 0], .026); bow(base, [0, .01, -.01]);
+    sec.hair = G(base, [0, -.005, -.012]);                                                                  // the tail swings from the tie
+    add(turn([[0, .02], [.034, -.0], [.044, -.08], [.04, -.18], [.026, -.25], [0, -.27]], .004, 8), M.hair, sec.hair, [0, 0, -.015], [.25, 0, 0]); }
+  else if (style === 'bob') {
+    sec.hair = G(head, [0, .06, -.012]);
+    add(turn([[.09, .09], [.11, .055], [.12, 0], [.126, -.06], [.13, -.1], [.12, -.128], [.102, -.124], [.096, -.06], [.097, .02], [.085, .07]],
+      .004, 7, o.hairGap ?? 1.3, Math.PI * 2 - 2 * (o.hairGap ?? 1.3), 40), M.hair, sec.hair, [0, -.06, 0]).scale.set(o.hairThick || 1.08, 1, 1.02);
+    for (const a of [o.hairGap ?? 1.3, -(o.hairGap ?? 1.3)]) { const lk = G(sec.hair, [Math.sin(a) * .118 * (o.hairThick || 1.08), -.06, Math.cos(a) * .112]);   // rounded ends that close the bob's edges
+      add(turn([[0, .06], [.017, .04], [.021, -.02], [.022, -.08], [.016, -.115], [0, -.125]], .002, 10), M.hair, lk, [0, 0, 0], [0, a, 0]); }
+    add(rbox2(.032, .01, .008), tieM, head, [.075, .045, .07], [0, .8, -.5]); }                                // a hair clip
+  else if (style === 'buns') {
+    for (const x of [-1, 1]) { const g = G(head, [x * .066, .088, -.03]); add(S(.046, 1, .95, 1, .004, 8), M.hair, g, [0, .02, 0]); tie(g, [0, -.012, 0], .03); bow(g, [0, .02, .03]); } }
+  if (style === 'long') {
     sec.hair = G(head, [0, .06, -.012]);
     const curtain = add(turn([[.09, .09], [.11, .055], [.12, 0], [.124, -.08], [.133, -.16], [.152, -.225], [.16, -.26], [.148, -.29], [.124, -.288], [.11, -.2], [.1, -.08], [.096, .02], [.085, .07]],
       .004, 7, o.hairGap ?? 1.3, Math.PI * 2 - 2 * (o.hairGap ?? 1.3), 40), M.hair, sec.hair, [0, -.06, 0]); curtain.scale.set(o.hairThick || 1, 1, o.hairThick ? 1.04 : .95);           // rests on the shoulders, wider at the ends
