@@ -126,14 +126,15 @@ export function makePerson(o = {}) {
     shine: new THREE.MeshBasicMaterial({color: 0xffffff}), tear: gloss(0xa8d0f0, {transparent: true, opacity: .85}), lip: clay(new THREE.Color(o.skin || 0xefc09c).lerp(new THREE.Color(0xb86a5e), .45).getHex(), {bumpScale: .1})};
   for (const k of ['skin', 'top', 'pants', 'shoe', 'hair', 'lip']) if (M[k]) M[k].userData.rim = true;   // characters catch the rim light
   M.crease = clay(new THREE.Color(o.skin || 0xefc09c).multiplyScalar((o.age || 0) > .4 ? .5 : .66).getHex(), {bumpScale: .2});   // age lines: the skin pressed in
-  const root = new THREE.Group(); root.scale.setScalar(o.scale || 1);
+  const root = new THREE.Group();
   const sec = {hair: null, hood: null, strings: []};                                          // the loose parts that swing behind the body (follow-through)
   // body build (child | woman | man | old) and outfit (hoodie | sweater | cardigan | shirt | coat | dress): every character, not only Haru
   const b = BUILDS[o.build || ((o.headScale || 1) >= 1.1 ? 'child' : 'woman')] || BUILDS.child;
+  root.scale.setScalar((o.scale || 1) * (b.fit || 1));
   const outfit = o.outfit || (o.hood !== false ? 'hoodie' : 'sweater');
   const hips = G(root, [0, .82, 0]);
-  add(S(.125 * b.hip, 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
-  const chest = G(hips, [0, .06, 0]);
+  add(S(.125 * b.hip * (b.legW || 1), 1.05, .62, .72, .004), M.pants, hips, [0, .02, 0]);
+  const chest = G(hips, [0, .06, 0]); chest.scale.setScalar(b.upper || 1);
   const TORSO = {hoodie: [[0, -.105], [.11, -.1], [.146, -.088], [.152, -.066], [.147, -.048], [.157, -.02], [.16, .05], [.157, .15], [.156, .25], [.166, .34], [.168, .395], [.14, .44], [.09, .485], [.05, .515]],
     fitted: [[0, -.105], [.118, -.1], [.14, -.085], [.143, -.055], [.145, 0], [.148, .1], [.152, .25], [.155, .32], [.15, .37], [.13, .42], [.095, .462], [.06, .492], [.045, .505]]};   // sloping adult shoulders
   const torso = turn(outfit === 'hoodie' ? TORSO.hoodie : TORSO.fitted, .007, 5).scale(1.14 * b.sh, 1, .78 * b.chest);
@@ -159,10 +160,10 @@ export function makePerson(o = {}) {
   if (outfit === 'coat') add(turn([[.17 * b.hip, .02], [.19 * b.hip, -.12], [.215 * b.hip, -.42], [.205 * b.hip, -.46], [.18 * b.hip, -.45]], .007, 5).scale(1.05, 1, .8), M.top, skirt, [0, -.04, 0]);   // the coat's skirt, to the knee
   if (outfit === 'dress') add(turn([[.13 * b.hip, .06], [.15 * b.hip, -.06], [.22 * b.hip, -.4], [.235 * b.hip, -.47], [.2 * b.hip, -.46]], .007, 5).scale(1.05, 1, .85), M.top, skirt, [0, -.04, 0]);   // a dress, to below the knee                 // the kangaroo pocket: a flat panel                          // the kangaroo pocket
   if (o.hood !== false) { add(lump(new THREE.TorusGeometry(.074, .05, 12, 24).scale(1.18, 1, .95), .007, 6), M.top, chest, [0, .485, -.014], [Math.PI / 2 + .38, 0, 0]);   // the hood: soft, bunched, low at the front
-    sec.hood = G(chest, [0, .49, -.07]); add(S(.095, 1.1, .7, .45, .008, 5), M.top, sec.hood, [0, -.065, -.025], [.5, 0, 0]);   // the hood hanging down the back (swings a little)
+    sec.hood = G(chest, [0, .49, -.07]); add(S(.1, 1.15, .95, .5, .008, 5), M.top, sec.hood, [0, -.2, -.035], [.25, 0, 0]);   // the hood hanging down the back (swings a little)
     for (const x of [-1, 1]) add(S(.04, 1.2, .8, .9, .005, 7), M.top, chest, [x * .062, .455, .045], [0, 0, x * .4]);       // loose folds either side of the opening
     for (const x of [-.028, .028]) { const g = G(chest, [x, .425, .128]); sec.strings.push(g);                              // drawstrings hang from the hood and swing
-      add(Cp(.005, .09, .0008, 24), M.lace, g, [0, -.045, .002]); add(S(.008, 1, 1.4, 1, .0008, 24), M.lace, g, [0, -.1, .006]); } }
+      add(Cp(.008, .1, .0008, 24), M.top, g, [0, -.05, .002]); add(S(.012, 1, 1.3, 1, .0008, 24), M.top, g, [0, -.112, .006]); } }
   const neck = G(chest, [0, .49, 0]);
   add(Cp(.038, .07, .002, 16), M.skin, neck, [0, .035, 0]);
   const head = G(neck, [0, o.neckLen ?? .155, 0]); head.scale.setScalar(o.headScale || 1);
@@ -226,14 +227,15 @@ export function makePerson(o = {}) {
     // wide on her left (tucked behind the ear, by the braid), narrower on her right, where the hair comes forward over the shoulder.
     sec.hair = G(head, [0, .06, -.012]);
     const gapR = o.hairGap ?? 1.05, gapL = gapR + .85;
-    const hg = turn([[.05, .118], [.088, .1], [.11, .066], [.12, .01], [.126, -.08], [.138, -.16], [.162, -.225], [.172, -.26], [.16, -.29], [.13, -.288], [.112, -.2], [.1, -.08], [.096, .02], [.082, .07], [.05, .105]], .004, 7, Math.PI, Math.PI * 2, 72);   // rests over the shoulders
+    const hg = turn([[.05, .118], [.088, .1], [.11, .066], [.12, .01], [.124, -.07], [.128, -.13], [.13, -.18], [.126, -.215], [.112, -.235], [.098, -.232], [.098, -.17], [.096, -.08], [.094, .02], [.082, .07], [.05, .105]], .004, 7, Math.PI, Math.PI * 2, 72);   // rests over the shoulders
     { const hp = hg.attributes.position, sm = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
       for (let i = 0; i < hp.count; i++) { let x = hp.getX(i), y = hp.getY(i), z = hp.getZ(i); const r = Math.hypot(x, z), phi = Math.atan2(x, z);
         const a = phi >= 0 ? phi / gapL : -phi / gapR, open = (1 - sm(.72, 1.02, a)) * sm(.07, .035, y);                  // 1 inside the face opening, below the hairline
         const rr = r + ((y > -.11 ? .062 : .02) - r) * open, k = rr / (r || 1); x *= k; z *= k;
         if (y < -.09) z -= .07 * open * sm(-.09, -.14, y);                                                      // under the chin the opening goes back behind the neck
         if (phi < 0) z += .04 * sm(-.07, -.2, y) * (1 - sm(1.0, 1.7, a));                                              // her right: the hair falls forward over the shoulder
-        hp.setXYZ(i, x * (o.hairThick || 1), y, z * (z < 0 ? 1.1 : 1.02)); }                                 // a fuller back, so the hood never shows through
+        const gr = 1 - .035 * Math.max(0, Math.sin(phi * 34)) ** 3 * sm(.0, -.06, y);                     // strands pressed into the clay with a tool
+        hp.setXYZ(i, x * gr * (o.hairThick || 1), y, z * gr * (z < 0 ? 1.1 : 1.02)); }                                 // a fuller back, so the hood never shows through
       hg.computeVertexNormals(); }
     add(hg, M.hair, sec.hair, [0, -.06, 0]); }
   if (style === 'long') {
@@ -278,24 +280,25 @@ export function makePerson(o = {}) {
   const teeth = [add(new THREE.BoxGeometry(.026, .006, .004), M.tooth, mOpen, [0, .0075, .005]), add(new THREE.BoxGeometry(.022, .005, .004), M.tooth, mOpen, [0, -.008, .005])];
   // arms and legs
   const arms = [-1, 1].map(sd => {                     // fitted tops: the arm hangs from a lower, sloping shoulder
-    const up = G(chest, outfit === 'hoodie' ? [sd * .175 * b.sh, .44, 0] : [sd * .165 * b.sh, .405, 0]); const pf = (o.puffy || (outfit === 'hoodie' ? 1.1 : 1)) * b.limb; add(turn([[0, .035], [.04, .028], [.06 * pf, 0], [.066 * pf, -.06], [.064 * pf, -.16], [.056 * pf, -.25], [.05, -.29]], .006, 6), M.top, up);
-    const fo = G(up, [0, -.27, 0]); add(turn([[.05, .035], [.054 * pf, -.02], [.06 * pf, -.1], [.066 * pf, -.16], [.064 * pf, -.2], [.048, -.222], [.03, -.226], [0, -.227]], .006, 6), M.top, fo); add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]);
-    add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]);
+    const up = G(chest, outfit === 'hoodie' ? [sd * .175 * b.sh, .44, 0] : [sd * .165 * b.sh, .405, 0]); const pf = (o.puffy || (outfit === 'hoodie' ? 1.1 : 1)) * b.limb; add(turn([[0, .035], [.04, .028], [.06 * pf, 0], [.066 * pf, -.06], [.065 * pf, -.16], [.062 * pf, -.25], [.06 * pf, -.29]], .006, 6), M.top, up);
+    const fo = G(up, [0, -.27, 0]); add(turn([[.06 * pf, .035], [.062 * pf, -.02], [.063 * pf, -.1], [.062 * pf, -.16], [.058 * pf, -.2], [.046, -.222], [.03, -.226], [0, -.227]], .006, 6), M.top, fo);
+    if (outfit !== 'hoodie') { add(fold(.046, .013), M.top, fo, [0, .012, 0], [Math.PI / 2 + .3, 0, 0]); add(fold(.047, .011), M.top, fo, [0, -.03, 0], [Math.PI / 2 - .25, 0, 0]); }
+    else add(S(.03, 1, 1.15, .32, .002, 12), M.top, fo, [0, .0, -.058 * pf]);          // a round elbow patch on the back of the sleeve
     add(fold(.052, .013), M.top, fo, [0, -.215, 0], [Math.PI / 2, 0, 0]);              // sleeve cuff
-    const hand = G(fo, [0, -.25, 0]); hand.scale.setScalar(b.hand || 1); add(S(.027, .85, 1.0, .5, .002, 18), M.skin, hand, [0, -.022, 0]);
-    for (const fx of [-.012, 0, .012]) add(Cp(.0078, .024 - Math.abs(fx) * .25, .0008, 22), M.skin, hand, [fx, -.056, .003], [.25, 0, 0]);
-    add(Cp(.011, .03, .001, 20), M.skin, hand, [-sd * .022, -.015, .014], [0, 0, sd * .5]);
+    const hand = G(fo, [0, -.228, 0]); hand.scale.setScalar(b.hand || 1); const hp = G(hand); hp.rotation.y = sd * Math.PI / 2;   // the palm faces the leg, the thumb forward
+    add(S(.027, .85, 1.0, .5, .002, 18), M.skin, hp, [0, -.022, 0]);
+    for (const fx of [-.012, 0, .012]) add(Cp(.0078, .024 - Math.abs(fx) * .25, .0008, 22), M.skin, hp, [fx, -.056, .003], [.25, 0, 0]);
+    add(Cp(.011, .03, .001, 20), M.skin, hp, [-sd * .022, -.015, .014], [0, 0, sd * .5]);
     return {up, fo, hand};
   });
   const legs = [-1, 1].map(sd => {
-    const lb = b.limb, th = G(hips, [sd * .075 * b.hip, -.02, 0]); add(turn([[0, .04], [.05 * lb, .035], [.074 * lb, .005], [.076 * lb, -.08], [.069 * lb, -.25], [.062 * lb, -.36], [.06 * lb, -.4]], .006, 6), M.pants, th);
-    const sh = G(th, [0, -.37, 0]); add(turn([[.06 * lb, .035], [.062 * lb, -.04], [.059 * lb, -.15], [.061 * lb, -.26], [.065 * lb, -.31], [.058 * lb, -.335]], .006, 6), M.pants, sh); if (outfit !== 'dress') add(fold(.058, .012), M.pants, sh, [0, -.02, .005], [Math.PI / 2 - .3, 0, 0]);
+    const lb = b.limb * (b.legW || 1), th = G(hips, [sd * .075 * b.hip, -.02, 0]); add(turn([[0, .04], [.05 * lb, .035], [.074 * lb, .005], [.076 * lb, -.08], [.069 * lb, -.25], [.062 * lb, -.36], [.06 * lb, -.4]], .006, 6), M.pants, th);
+    const sh = G(th, [0, -.37, 0]); add(turn([[.06 * lb, .035], [.062 * lb, -.04], [.059 * lb, -.15], [.061 * lb, -.26], [.065 * lb, -.31], [.058 * lb, -.335]], .006, 6), M.pants, sh); 
     const trousers = outfit !== 'dress';
     if (trousers) add(S(.034, 1.1, .9, .55, .003, 10), M.pants, sh, [0, -.015, .045]);             // the knee, showing through the trousers
-    if (trousers) { add(fold(.06, .011), M.pants, sh, [0, -.27, 0], [Math.PI / 2 + .15, 0, 0]);
-    add(fold(.06, .013), M.pants, sh, [0, -.315, 0], [Math.PI / 2, 0, 0]); }          // trouser hem
-    const ft = G(sh, [0, -.37, 0]), shoes = o.shoes || (b === BUILDS.child ? 'sneaker' : outfit === 'dress' ? 'heel' : b === BUILDS.woman ? 'flat' : 'shoe');
-    if (shoes === 'sneaker') { add(S(.058, 1, .66, 2.2, .003), M.shoe, ft, [0, -.01, .05]); add(S(.061, 1.02, .22, 2.25, .002), M.sole, ft, [0, -.042, .05]);
+    if (trousers) add(fold(.062 * lb, .009), M.pants, sh, [0, -.3, 0], [Math.PI / 2 + .12, 0, 0]);          // a soft fold where the trousers bunch on the shoe
+    const ft = G(sh, [0, -.37, 0]); ft.scale.setScalar(b.foot || 1); const shoes = o.shoes || (b === BUILDS.child ? 'sneaker' : outfit === 'dress' ? 'heel' : b === BUILDS.woman ? 'flat' : 'shoe');
+    if (shoes === 'sneaker') { add(S(.058, 1, .5, 2.25, .003), M.shoe, ft, [0, -.016, .05]); add(S(.061, 1.02, .2, 2.3, .002), M.sole, ft, [0, -.042, .05]);
       for (let k = 0; k < 3; k++) add(Cp(.0035, .05, .0005, 30), M.lace, ft, [0, .025, .06 + k * .022], [0, 0, Math.PI / 2]); }
     else if (shoes === 'heel') { add(S(.045, .92, .52, 2.45, .002), M.shoe, ft, [0, -.012, .06], [-.12, 0, 0]); add(Cp(.008, .045, .001, 20), M.shoe, ft, [0, -.04, -.035]); }   // a pointed shoe on a heel
     else { add(S(.052, 1, .56, 2.15, .002), M.shoe, ft, [0, -.016, .052]); add(S(.054, 1.02, .16, 2.18, .002), M.sole, ft, [0, -.042, .052]);           // a leather shoe (or a flat)
@@ -303,7 +306,7 @@ export function makePerson(o = {}) {
       if (shoes === 'boot') add(turn([[.058, -.02], [.06, .06], [.058, .13]], .003, 10), M.shoe, ft, [0, 0, 0]); }
     return {th, sh, ft};
   });
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, M, faceLight, sec, neckLen: o.neckLen ?? .155, s0: o.scale || 1};   // s0: the character's size (scenes reset to it)
+  const P = {root, hips, chest, neck, head, back, face, arms, legs, M, faceLight, sec, neckLen: o.neckLen ?? .155, s0: (o.scale || 1) * (b.fit || 1)};   // s0: the character's size (scenes reset to it)
   const eyeBase = eyes.map(e => e.position.clone());
   const tears = [-1, 1].map(x => { const t = add(S(.0055, 1, 1.6, .8, .0005, 20), M.tear, face, [x * .038, -.024, .004]); t.visible = false; return t; });
   P.eyes = s => {                 // 'open' | 'closed' | 'wide' | 'squeeze'
@@ -511,14 +514,14 @@ export function followFrame(frame, people, {samples = 5, dt = 1 / 12} = {}) {
   };
 }
 export const BUILDS = {                     // sh shoulders, hip, chest depth, limb thickness, belly, bust, stoop
-  child: {sh: 1, hip: 1, chest: 1, limb: 1, belly: 0, bust: 0, stoop: 0, hand: 1},
+  child: {sh: 1, hip: 1, chest: 1, limb: 1, belly: 0, bust: 0, stoop: 0, hand: 1.35, foot: 1.12, upper: 1.25, legW: 1.22, fit: .914},   // fit: the bigger upper body makes a child taller; this keeps each scene's scale numbers giving the same height   // upper: the whole body above the hips, bigger (short legs, like the sheet)
   woman: {sh: .98, hip: 1.1, chest: .95, limb: .92, belly: 0, bust: 1, stoop: 0, hand: .96},
   man:   {sh: 1.16, hip: .96, chest: 1.08, limb: 1.08, belly: .015, bust: 0, stoop: 0, hand: 1.2},
   old:   {sh: .94, hip: 1.06, chest: 1, limb: .9, belly: .025, bust: 0, stoop: .3, hand: 1},
 };
-export const haruOpts = {hairStyle: 'sweep', scale: .71, headScale: 1.24, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
-  puffy: 1.22, hairThick: 1.1, hairGap: 1.12, hairTop: false, hairline: .06, neckLen: .195,
-  skin: 0xe8a27c, top: 0xc8963c, pants: 0x55555c, shoe: 0xe8e6e0, hair: 0x26262c};       // matched to the Artlist sheets
+export const haruOpts = {hairStyle: 'sweep', scale: .71, headScale: 1.55, sculpt: .35, faceShape: [.95, 1.04, 1.05], eyeSize: .0072, lids: false, brow: 'dash', blush: false, eyeLines: false, nose: 'button',
+  puffy: 1.12, hairThick: 1.0, hairGap: 1.12, hairTop: false, hairline: .06, neckLen: .15,
+  skin: 0xe8a27c, top: 0xc8963c, pants: 0x6a6a72, shoe: 0xe8e6e0, hair: 0x3a3a42};       // matched to the Artlist sheets
 export const mumOpts = {build: 'woman', outfit: 'sweater', headScale: 1.05, top: 0x3e3040, pants: 0x26252c, shoe: 0x2a2424, longHair: false, bun: true, pocket: false, hood: false, scale: 1.07, hair: 0x2c2420};
 
 // ---------------------------------------------------------------- the Tooth Fairy
