@@ -6,7 +6,7 @@
 //   travel(P, t, path)                          // walk / run along a path of moves: see below
 // Every function starts from the joints as reset() leaves them (all zero) and adds to them, so look(), expr() etc. still go on top.
 import * as THREE from 'three';
-import {walk, look, groundFeet} from './clay.js';
+import {walk as clayWalk, look, groundFeet} from './clay.js';
 
 const sm = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -35,13 +35,32 @@ export function idle(P, t, k = 1, seed = 0, side = 1) {
   P.hips.rotation.z += Math.sin((t + seed) * .7) * .008 * k; P.head.rotation.y += Math.sin((t + seed) * .43) * .03 * k;
 }
 
+// run(P, t, {amp, speed}): a sprint, not a fast walk: the body leans into it, the knees drive up in front, the back foot kicks up behind,
+// the arms pump bent at 90 degrees, and both feet leave the ground between steps (the hips rise and drop twice a cycle).
+export function run(P, t, {amp = 1, speed = 1} = {}) {
+  const ph = t * Math.PI * 2 * 1.45 * speed, sw = Math.sin(ph), a = amp;
+  const fl = Math.max(0, Math.sin(ph * 2 - .9));                              // flight: twice a cycle, just after each push off
+  P.hips.position.y = .82 - .055 * a + fl * .045 * a;
+  P.hips.rotation.x = .12 * a; P.hips.rotation.y = sw * .14 * a;
+  P.chest.rotation.x = .2 * a; P.chest.rotation.y = -sw * .22 * a; P.neck.rotation.x = -.08 * a; P.head.rotation.x = -.2 * a;
+  P.legs.forEach(({th, sh, ft}, i) => { const q = i ? -sw : sw, c = Math.cos(ph + (i ? Math.PI : 0));
+    th.rotation.x = -(q * .62 + .12) * a;                                       // swing, a little forward overall
+    sh.rotation.x = (.35 + Math.max(0, c) * 1.45 + Math.max(0, -q) * .25) * a;   // the kick behind and the bent leg coming through
+    ft.rotation.x = (-.25 * Math.max(0, c) + q * .25) * a; });
+  P.arms.forEach(({up, fo, hand}, i) => { const q = i ? sw : -sw;
+    up.rotation.x = -q * .6 * a - Math.max(0, q) * .15 * a + .05; up.rotation.z -= (i ? -1 : 1) * .06; fo.rotation.x = -1.45 - Math.max(0, q) * .25; if (hand) hand.rotation.x = -.2; });
+  if (P.clothes) P.clothes();
+}
+export const walk = clayWalk;
+const gait = (P, t, o) => o.run ? run(P, t, o) : clayWalk(P, t, o);
+
 // The length of one full walk cycle (two steps) for this puppet at amp a, measured from its own legs, so travelling speed = stride * cycles/s.
 const STRIDE = new WeakMap();
 export function stride(P, {run = false, amp = 1} = {}) {
   const key = (run ? 'r' : 'w') + amp, m = STRIDE.get(P) || {}; if (m[key]) return m[key];
   const v = new THREE.Vector3(), r0 = P.root.position.clone(), q0 = P.root.quaternion.clone(); let lo = Infinity, hi = -Infinity;
   P.root.position.set(0, 0, 0); P.root.quaternion.identity();
-  for (let i = 0; i < 24; i++) { walk(P, i / 24, {run, amp}); P.root.updateMatrixWorld(true); P.legs[0].ft.getWorldPosition(v); lo = Math.min(lo, v.z); hi = Math.max(hi, v.z); }
+  for (let i = 0; i < 24; i++) { gait(P, i / (run ? 24 * 1.45 : 24), {run, amp}); P.root.updateMatrixWorld(true); P.legs[0].ft.getWorldPosition(v); lo = Math.min(lo, v.z); hi = Math.max(hi, v.z); }
   P.root.position.copy(r0); P.root.quaternion.copy(q0); m[key] = 2 * (hi - lo) * .92; STRIDE.set(P, m); return m[key];
 }
 
@@ -58,14 +77,14 @@ export function travel(P, t, moves) {
     const mv = moves[i], kind = Object.keys(mv).find(k => ['walk', 'run', 'turn', 'idle', 'look'].includes(k));
     let dur, apply;
     if (kind === 'walk' || kind === 'run') {
-      const run = kind === 'run', to = new THREE.Vector2(...mv[kind]), d = to.clone().sub(pos), L = d.length(), cps = (mv.speed || 1) * (run ? 1.7 : 1);
+      const run = kind === 'run', to = new THREE.Vector2(...mv[kind]), d = to.clone().sub(pos), L = d.length(), cps = (mv.speed || 1) * (run ? 1.45 : 1);
       const amp = mv.amp || 1, sp = stride(P, {run, amp}) * cps;                                   // metres per second
       const ramp = .35;                                     // seconds to get going and to stop (the stride grows and shrinks)
       dur = L / sp + ramp; const h1 = Math.atan2(d.x, d.y), p0 = pos.clone(), h0 = head, ph0 = phase;
       apply = u => { const tt = u * dur, k = sm(tt / ramp) * sm((dur - tt) / ramp);       // u: 0..1 through this move
         const along = Math.min(1, Math.max(0, (tt - ramp / 2) / (dur - ramp))), dh = Math.atan2(Math.sin(h1 - h0), Math.cos(h1 - h0));
         const hd = h0 + dh * sm(tt / .45);
-        walk(P, ph0 + tt * (mv.speed || 1), {run, amp: amp * (.25 + .75 * k)}); P.root.rotation.y = hd;
+        gait(P, ph0 + tt * (mv.speed || 1), {run, amp: amp * (.25 + .75 * k)}); P.root.rotation.y = hd;
         return {pos: p0.clone().lerp(to, along), heading: hd, phase: ph0 + tt * (mv.speed || 1)}; };
       head = h1; pos = to.clone(); phase += dur * (mv.speed || 1);
     } else if (kind === 'turn') {
@@ -92,6 +111,6 @@ export function travel(P, t, moves) {
 // how long a travel() list takes
 export function travelTime(P, moves) { let T = 0, pos = new THREE.Vector2(...moves[0].from), head = moves[0].heading || 0;
   for (const mv of moves.slice(1)) {
-    if (mv.walk || mv.run) { const run = !!mv.run, to = new THREE.Vector2(...(mv.walk || mv.run)), cps = (mv.speed || 1) * (run ? 1.7 : 1); T += to.distanceTo(pos) / (stride(P, {run, amp: mv.amp || 1}) * cps) + .35; pos = to; }
+    if (mv.walk || mv.run) { const run = !!mv.run, to = new THREE.Vector2(...(mv.walk || mv.run)), cps = (mv.speed || 1) * (run ? 1.45 : 1); T += to.distanceTo(pos) / (stride(P, {run, amp: mv.amp || 1}) * cps) + .35; pos = to; }
     else if (mv.turn !== undefined) T += mv.dur || .9; else if (mv.idle) T += mv.idle; else if (mv.look) T += mv.dur || 1.6; }
   return T; }

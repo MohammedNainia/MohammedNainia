@@ -41,6 +41,18 @@ export async function makeGlbPerson(name, o = {}) {
     ...arms.flatMap(({up, fo, hand, s}) => [{b: up, a: side(J.shoulder, s), e: side(J.elbow, s), arm: s}, {b: fo, a: side(J.elbow, s), e: side(J.wrist, s), arm: s}, {b: hand, a: side(J.wrist, s), e: side(J.fingerTip, s), arm: s}]),
     ...legs.flatMap(({th, sh, ft, s}) => [{b: th, a: side(J.hip, s), e: side(J.knee, s), leg: s}, {b: sh, a: side(J.knee, s), e: side(J.ankle, s), leg: s}, {b: ft, a: side(J.ankle, s), e: side(J.toe, s), leg: s}])];
   const bones = []; segs.forEach(sg => { if (!bones.includes(sg.b)) bones.push(sg.b); sg.i = bones.indexOf(sg.b); });
+  // ---- the hair: a bone hanging from the back of the head; long hair (found by its colour in the texture) below ear level follows it,
+  // more the lower it hangs, so followFrame() can swing it behind the head and let it settle (P.sec.hair)
+  const hairPivot = V(0, J.headBase.y + (J.headTop.y - J.headBase.y) * .3, -.04 * k), hairB = B(head, hairPivot, J.headBase); bones.push(hairB); const HI = bones.length - 1;
+  let isHair = null;
+  { const map0 = src.material.map, uv = geo.attributes.uv;
+    if (map0 && map0.image && uv && R.hair !== false) { const im = map0.image, W = 256, Hh = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = Hh;
+      const c2 = cv.getContext('2d'); c2.drawImage(im, 0, 0, W, Hh); const px = c2.getImageData(0, 0, W, Hh).data; isHair = new Uint8Array(geo.attributes.position.count);
+      const hc = R.hairColor ? new THREE.Color(R.hairColor) : null;
+      for (let v = 0; v < uv.count; v++) { let u = uv.getX(v) % 1, w2 = uv.getY(v) % 1; if (u < 0) u += 1; if (w2 < 0) w2 += 1; if (!map0.flipY) w2 = w2; else w2 = 1 - w2;
+        const i = (Math.min(Hh - 1, Math.floor(w2 * Hh)) * W + Math.min(W - 1, Math.floor(u * W))) * 4, r = px[i], g = px[i + 1], b = px[i + 2];
+        const lum = .3 * r + .59 * g + .11 * b, sat = Math.max(r, g, b) - Math.min(r, g, b);
+        isHair[v] = hc ? (Math.abs(r / 255 - hc.r) + Math.abs(g / 255 - hc.g) + Math.abs(b / 255 - hc.b) < .25) : (lum < 105 && sat < 40) ? 1 : 0; } } }
   const pos = geo.attributes.position, n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
   // blend zones instead of hard cuts: a vertex in the armpit or at the shoulder cap is part sleeve, part body; at the hem part leg, part hips
   const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -64,6 +76,9 @@ export async function makeGlbPerson(name, o = {}) {
       put(segs.filter(sg => sg.leg === sd), fl * (1 - fa));
       put(TORSO, (1 - fa) * (1 - fl) * (1 - fh));
     }
+    if (isHair && isHair[v] && p.y < hairPivot.y && p.y > J.shoulder.y - .35 * (J.headTop.y - J.headBase.y)) {   // long hair: from the head into the hair bone, more the lower it hangs
+      const wh = sm(hairPivot.y - .02, hairPivot.y - .22 * (J.headTop.y - J.headBase.y) / .5, p.y) * .95;
+      w.clear(); w.set(HI, wh); w.set(head.userData.i ?? bones.indexOf(head), 1 - wh); }
     const top = [...w.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4), tot = top.reduce((s, c) => s + c[1], 0) || 1;
     top.forEach((c, k2) => { si[v * 4 + k2] = c[0]; sw[v * 4 + k2] = c[1] / tot; });
   }
@@ -164,12 +179,12 @@ export async function makeGlbPerson(name, o = {}) {
     ftex.needsUpdate = true;
   }
   drawFace();
-  const neckLen = J.headBase.y - J.neckBase.y, s0 = (o.height || 1.26) / J.headTop.y;
+  const neckLen = J.headBase.y - J.neckBase.y - (R.neckDrop || 0) * k, s0 = (o.height || 1.26) / J.headTop.y;
   root.scale.setScalar(s0);
   const faceLight = new THREE.PointLight(0xffe8d8, 0, 1.2); head.add(faceLight); faceLight.position.set(0, .1, .4);
   const face = new THREE.Group(); head.add(face); const back = new THREE.Group(); head.add(back);
   // the makePerson face interface (the same calls drive it: P.expr('scared'), P.mouth('open', .6), P.eyes('closed'), P.brows(1)...)
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: []}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
+  const P = {root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: [], hair: isHair ? hairB : null}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
     eyes(s) { ST.eyes = s; drawFace(); }, lid(v) { ST.eyes = v >= .9 ? 'closed' : 'open'; ST.lid = v; drawFace(); },
     brows(kk) { ST.brows = [kk, kk, Math.abs(kk) * .004]; drawFace(); }, browPair(r, l, raise = 0) { ST.brows = [r, l, raise]; drawFace(); },
     mouth(s, amt = 1) { ST.mouth = s; ST.open = amt; drawFace(); }, tears(b) { ST.tears = !!b; drawFace(); },

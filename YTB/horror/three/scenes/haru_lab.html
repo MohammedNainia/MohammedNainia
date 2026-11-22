@@ -10,7 +10,7 @@ import {THREE, setup} from './lib.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {lib} from './library.js';
 import {relaxed, idle, travel, travelTime} from './moves.js';
-import {look} from './clay.js';
+import {look, followFrame} from './clay.js';
 const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1), mode = q.get('mode') || 'face', wide = mode === 'move' || !!q.get('wide');
 const {scene, cam, render, renderer, grade, grain} = setup({bloom: .15, w: Math.round((wide ? 1920 : 1080) * PS), h: Math.round((wide ? 1080 : 1920) * PS)});
 renderer.toneMapping = THREE.NeutralToneMapping; grade('none'); grain.uniforms.sat.value = 1.08; grain.uniforms.vig.value = .2; renderer.shadowMap.type = THREE.VSMShadowMap;
@@ -28,18 +28,21 @@ const reset = () => { P.root.rotation.set(0, 0, 0); P.hips.position.set(0, .82, 
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); };
 const H = 1.26 * (P.root.userData.k || 1);
 const PATH = [{from: [-3.2, 0], heading: Math.PI / 2}, {idle: 1.6}, {walk: [1.6, 0], speed: 1.15, amp: 1.2}, {turn: -Math.PI / 2, dur: 1.1}, {walk: [-.8, 0], speed: 1.15, amp: 1.2}, {look: 'L', dur: 1.8},
-  {turn: 0, dur: .8}, {idle: .5}, {run: [4.5, 1.2], speed: 1.25, amp: 1.25}, {turn: -Math.PI / 2, dur: .9}, {idle: 1.2}];
+  {turn: 0, dur: .8}, {idle: .5}, {run: [4.5, 1.2], speed: 1.1}, {turn: -Math.PI / 2, dur: .9}, {idle: 1.2}];
 import {stride} from "./moves.js"; window.STR = () => [stride(P), stride(P, {run: true})];
 window.DUR = mode === 'move' ? travelTime(P, PATH) : 7;
 let camX = 0;
-window.renderAt = t => { reset();
+let R0 = null;
+const frame = t => { reset();
+  if (mode === 'face') { const i = Math.floor(t); if (i < 6) relaxed(P); P.expr('neutral'); }
+  else { R0 = travel(P, t, PATH); if (R0.move !== 'look') P.expr(R0.move === 'run' ? 'scared' : 'neutral'); } };
+const frameFX = followFrame(frame, () => [P]);                        // the hair swings behind and settles
+window.renderAt = t => { frameFX(t);
   if (mode === 'face') { const i = Math.floor(t);
-    if (i < 6) relaxed(P); P.expr('neutral');
     P.root.updateMatrixWorld(true); const h = P.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, .1, 0));
     if (i < 3) { const a = [0, .7, 1.5708][i]; cam.position.set(h.x + Math.sin(a) * .85, h.y + .02, h.z + Math.cos(a) * .85); cam.lookAt(h); cam.fov = 26; }
     else { const a = [0, .6, 1.5708, 0][i - 3]; cam.position.set(Math.sin(a) * 4.2, .7, Math.cos(a) * 4.2); cam.lookAt(0, .62, 0); cam.fov = 24; } }
-  else { const r = travel(P, t, PATH); if (r.move !== 'look') P.expr(r.move === 'run' ? 'scared' : 'neutral');
-    const cx = THREE.MathUtils.clamp(r.pos.x * .85, -2.6, 3.6); cam.position.set(cx, .95, 4.6); cam.lookAt(cx, .62, .3); cam.fov = 30; }
+  else { const cx = THREE.MathUtils.clamp(R0.pos.x * .85, -2.6, 3.6); cam.position.set(cx, .95, 4.6); cam.lookAt(cx, .62, .3); cam.fov = 30; }
   cam.updateProjectionMatrix(); render(t); };
 window.renderAt(0); window.ready = true;
 </script></body></html>

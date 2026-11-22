@@ -98,5 +98,6 @@
   "skinTarget": "#e2a07e"
  },
  "clean": true,
- "skinDone": true
+ "skinDone": true,
+ "neckDrop": 0.035
 }
