@@ -14,13 +14,23 @@ const {scene, cam, render, renderer, grade, grain} = setup({bloom: .15, w: Math.
 // studio light, like the model sheet: a soft room all round (image-based light), one gentle key for shape, a neutral tone curve, no grade or vignette
 renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.0; grade('none'); grain.uniforms.sat.value = 1.08; if (grain.uniforms.vig) grain.uniforms.vig.value = 0;
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
-scene.background = new THREE.Color(0x00ff00);
-const key = new THREE.DirectionalLight(0xfff4e8, 1.1); key.position.set(1.5, 3, 4); scene.add(key);
+const GREEN = q.get('green') === '1';   // green=1: a green screen for the comparison script; otherwise a light grey studio sweep like the sheet
+scene.background = new THREE.Color(GREEN ? 0x00ff00 : 0xe6e4e0);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20).rotateX(-Math.PI / 2), GREEN ? new THREE.ShadowMaterial({opacity: 0}) : new THREE.MeshStandardMaterial({color: 0xb4b1ac, roughness: 1, envMapIntensity: .5})); floor.receiveShadow = true; scene.add(floor);
+if (!GREEN) { scene.fog = new THREE.Fog(0xe6e4e0, 5.6, 9); }   // the floor fades into the backdrop: a seamless studio sweep, no horizon line
+const key = new THREE.DirectionalLight(0xfff4e8, 1.2); key.position.set(1.5, 3, 4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 14; key.shadow.blurSamples = 24; key.shadow.bias = -.0006;
+Object.assign(key.shadow.camera, {left: -1.2, right: 1.2, top: 1.6, bottom: -.2, near: .5, far: 12}); scene.add(key);   // a big soft shadow, like a studio softbox
+renderer.shadowMap.type = THREE.VSMShadowMap;
 const rim = new THREE.DirectionalLight(0xe8f0ff, .6); rim.position.set(-2, 2.5, -3); scene.add(rim);
 const g = (await new GLTFLoader().loadAsync('/data/glb/' + (q.get('glb') || 'haru_rodin') + '.glb')).scene;
 const box = new THREE.Box3().setFromObject(g), size = box.getSize(new THREE.Vector3()), k = 1.26 / size.y;
 g.scale.setScalar(k); g.position.set(-(box.min.x + size.x / 2) * k, -box.min.y * k, -(box.min.z + size.z / 2) * k);
 const holder = new THREE.Group(), turnTo = new THREE.Group(); turnTo.rotation.y = +(q.get('rot') || 0); turnTo.add(g); holder.add(turnTo); scene.add(holder);   // rot: turn a model that came out facing sideways
+// clay is matte and never metallic: the generators' gloss and metal maps make it look like plastic; their AO (Tripo packs it in the ORM red channel) darkens the creases
+g.traverse(o => { if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; const m0 = o.material;
+  const m = new THREE.MeshPhysicalMaterial({map: m0.map, normalMap: m0.normalMap, normalScale: new THREE.Vector2(1, 1), roughness: .88, metalness: 0, sheen: .4, sheenRoughness: .8, sheenColor: new THREE.Color(0xfff0e0), envMapIntensity: .9, side: m0.side});
+  if (m0.metalnessMap && q.get('ao') !== '0') { m.aoMap = m0.metalnessMap; m.aoMapIntensity = .8; }   // glTF ORM: red = occlusion
+  o.material = m; });
 let tris = 0; g.traverse(o => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
 window.INFO = {tris: Math.round(tris), size: size.toArray().map(v => +v.toFixed(3))};
 window.renderAt = t => { holder.rotation.y = [0, -.6, -Math.PI / 2, Math.PI * .8, Math.PI][Math.floor(t) % 5];
