@@ -8,15 +8,19 @@
 // so tools/turncmp-style comparisons line up with the Artlist sheet.
 import {THREE, setup} from './lib.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 const q = new URLSearchParams(location.search), PS = +(q.get('s') || 1);
-const {scene, cam, render} = setup({bloom: .3, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+const {scene, cam, render, renderer, grade, grain} = setup({bloom: .15, w: Math.round(1080 * PS), h: Math.round(1920 * PS)});
+// studio light, like the model sheet: a soft room all round (image-based light), one gentle key for shape, a neutral tone curve, no grade or vignette
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.0; grade('none'); grain.uniforms.sat.value = 1.08; if (grain.uniforms.vig) grain.uniforms.vig.value = 0;
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
 scene.background = new THREE.Color(0x00ff00);
-const key = new THREE.DirectionalLight(0xfff0dc, 2.2); key.position.set(2, 4, 4); scene.add(key);
-scene.add(new THREE.HemisphereLight(0xc8d0e0, 0x302820, .7));
+const key = new THREE.DirectionalLight(0xfff4e8, 1.1); key.position.set(1.5, 3, 4); scene.add(key);
+const rim = new THREE.DirectionalLight(0xe8f0ff, .6); rim.position.set(-2, 2.5, -3); scene.add(rim);
 const g = (await new GLTFLoader().loadAsync('/data/glb/' + (q.get('glb') || 'haru_rodin') + '.glb')).scene;
 const box = new THREE.Box3().setFromObject(g), size = box.getSize(new THREE.Vector3()), k = 1.26 / size.y;
 g.scale.setScalar(k); g.position.set(-(box.min.x + size.x / 2) * k, -box.min.y * k, -(box.min.z + size.z / 2) * k);
-const holder = new THREE.Group(); holder.add(g); scene.add(holder);
+const holder = new THREE.Group(), turnTo = new THREE.Group(); turnTo.rotation.y = +(q.get('rot') || 0); turnTo.add(g); holder.add(turnTo); scene.add(holder);   // rot: turn a model that came out facing sideways
 let tris = 0; g.traverse(o => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
 window.INFO = {tris: Math.round(tris), size: size.toArray().map(v => +v.toFixed(3))};
 window.renderAt = t => { holder.rotation.y = [0, -.6, -Math.PI / 2, Math.PI * .8, Math.PI][Math.floor(t) % 5];
