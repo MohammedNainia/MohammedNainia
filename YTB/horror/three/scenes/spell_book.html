@@ -7,10 +7,10 @@
 // Timed to YTB/horror/spell_book/voice/layout.json (copied to three/data). Poses held on twos; the clay boils every other pose.
 // Places: the attic, the street (the backwards world at night, or the ordinary street in the morning), the kitchen.
 import {THREE, setup, ease, clamp01, lerp} from './lib.js';
-import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame} from './clay.js';
+import {clay, gloss, lump, boil, add, S, Cp, G, makePerson, haruOpts, mumOpts, followFrame, CLAY_RIM} from './clay.js';
 import * as K from './clay_sets.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
-const {scene, cam, renderer, render, dofPass} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true});
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 renderer.setClearColor(0x000000); scene.background = new THREE.Color(0x020203);
 cam.near = .01; cam.far = 60; cam.updateProjectionMatrix();
@@ -115,13 +115,11 @@ for (const z of [-1.62, 1.62]) add(box(30, .16, .08, .003, 4), M.kerb, SR, [0, 0
 for (let i = 0; i < 7; i++) add(box(.9, .012, .22, .002, 6), M.stripe, SR, [-.3, .005, -1.32 + i * .44]);   // the zebra crossing
 for (let i = -6; i <= 6; i++) add(box(.5, .01, .06, .001, 4), M.stripe, SR, [i * 1.6 + .8, .004, 0]);
 const sky = add(new THREE.PlaneGeometry(40, 16), M.sky, SR, [0, 6, -9]);
-for (let i = -7; i <= 7; i++) {                                       // the row of houses opposite
-  const h = 2.6 + (i % 3) * .3, x = i * 1.9, g = G(SR, [x, 0, -4.3]);
-  add(box(1.86, h, 1.2, .01, 2), M.brick[(i + 20) % 4], g, [0, h / 2, 0]); add(new THREE.ConeGeometry(1.45, .9, 4), M.roof, g, [0, h + .45, 0], [0, PI / 4, 0]);
-  add(box(.4, .85, .04, .002, 6), M.door, g, [-.4, .43, .61]);
-  for (const [wx, wy] of [[.35, .75], [-.4, 1.85], [.35, 1.85]]) { const on = rnd() < .35; const w = add(new THREE.PlaneGeometry(.42, .5), on ? M.winOn : M.winOff, g, [wx, wy, .61]); w.userData.on = on; }
-}
-for (let i = -5; i <= 5; i++) { const g = G(SR, [i * 2.6 + .6, 0, 3.3]); add(box(1.2, .9, .1, .006, 3), clay(0x3a4a34), g, [0, .45, 0]); }   // hedges on our side
+for (let i = -7; i <= 7; i++) {                                       // the row of houses opposite (the set kit)
+  const hs = K.house({h: 2.6 + (i % 3) * .3, color: [0x6a3a2e, 0x5a4a3e, 0x4a4a52, 0x6a5a40][(i + 20) % 4], lit: [rnd() < .3, rnd() < .4, rnd() < .3], door: [0x3a2a3e, 0x2a3a2e, 0x5a2a22][(i + 9) % 3]});
+  hs.position.set(i * 1.92, 0, -4.3); SR.add(hs); }
+[[-3.6, -3.45], [.9, -3.45], [5.2, -3.45]].forEach(([x, z]) => { const bn = K.bin(); bn.position.set(x, 0, z); bn.rotation.y = rnd() * .4; SR.add(bn); });
+for (let i = -5; i <= 5; i++) { const hd = K.hedge(1.4); hd.position.set(i * 2.6 + .6, 0, 3.3); SR.add(hd); const fn = K.fence(1.1); fn.position.set(i * 2.6 + 1.9, 0, 3.32); SR.add(fn); }   // hedges and fences on our side
 // the traffic light at the crossing (our side)
 const TL = G(SR, [.5, 0, 1.9]); add(Cp(.04, 2.3), M.pole, TL, [0, 1.15, 0]); add(box(.24, .66, .2, .004, 6), M.pole, TL, [0, 2.4, 0]);
 const RED = lamp(0xff2a1a), AMB = lamp(0xffa020), GRN = lamp(0x30ff70);
@@ -130,15 +128,7 @@ const tlGlow = new THREE.PointLight(0x30ff70, 0, 3, 1.6); tlGlow.position.set(.5
 function setLight(c) { RED.emissiveIntensity = c === 'r' ? 4 : 0; AMB.emissiveIntensity = c === 'a' ? 4 : 0; GRN.emissiveIntensity = c === 'g' ? 4 : 0;
   tlGlow.color.set(c === 'r' ? 0xff3020 : c === 'g' ? 0x30ff70 : 0xffa020); tlGlow.intensity = 1.2; }
 // cars
-function car(col) {
-  const g = new THREE.Group(), b = clay(col);
-  add(box(1.5, .36, .74, .012, 3), b, g, [0, .34, 0]); add(box(.82, .3, .66, .012, 3), b, g, [-.08, .66, 0]);
-  add(new THREE.PlaneGeometry(.6, .24), new THREE.MeshBasicMaterial({color: 0x0c1014}), g, [.34, .67, 0], [0, PI / 2, -.5]);
-  for (const [x, z] of [[-.48, .37], [.48, .37], [-.48, -.37], [.48, -.37]]) add(new THREE.CylinderGeometry(.15, .15, .1, 16), clay(0x141414), g, [x, .15, z], [PI / 2, 0, 0]);
-  for (const z of [.24, -.24]) add(S(.05, .5, 1, 1), new THREE.MeshBasicMaterial({color: 0xfff2c8}), g, [.76, .38, z]);
-  for (const z of [.26, -.26]) add(S(.04, .5, 1, 1), new THREE.MeshBasicMaterial({color: 0xff2010}), g, [-.76, .38, z]);
-  return g;
-}
+function car(col) { return K.car(col); }
 const cars = [car(0x8a2a24), car(0x2a4a7a), car(0xc8c0a8), car(0x3a5a3a)]; cars.forEach(c => SR.add(c));
 // the girl in the road
 const girlR = makePerson({build: 'child', headScale: 1.15, top: 0x8a6aa8, pants: 0x3a3a4a, hair: 0x6a3a1e, longHair: true, hood: false, pocket: false, scale: .85}); girlR.s0 = .85; SR.add(girlR.root);
@@ -212,6 +202,20 @@ const bookH = makeBook(); scene.add(bookH);                                    /
 const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
   dofPass.set(p.distanceTo(l), Math.min(2.2, Math.max(.4, 40 / fov - .3))); };   // focus on what the shot looks at; longer lenses blur more
 const show = place => { for (const g of [AT, SR, KI]) g.visible = g === place; };
+// light and air: a moonbeam through the attic's round window, morning sun through the kitchen window, haze, rim light, a grade per place
+const atBeam = K.windowBeam(AT, {from: [0, 1.45, -1.95], to: [.15, 0, .7], color: 0x9ab8d0, power: 3, width: .32});
+const kiBeam = K.windowBeam(KI, {from: [-2.3, 1.55, -.6], to: [-.6, 0, -.5], color: 0xffe2b8, power: 4, width: .4, beamOpacity: .022});
+const fog = K.haze(scene, 0x0e1614, .06);
+function atmosphere(t) {
+  atBeam.update(t); kiBeam.update(t);
+  const morningAttic = atMorning.intensity > 0;
+  let fc, fd, rim, rk, gr;
+  if (AT.visible) { fc = morningAttic ? 0x3a3024 : 0x0c0a08; fd = morningAttic ? .05 : .09; rim = morningAttic ? 0xffe2b8 : 0x9ab8d0; rk = .32; gr = morningAttic ? 'morning' : 'lamp';
+    atBeam.light.color.set(morningAttic ? 0xffe2b8 : 0x9ab8d0); atBeam.light.intensity = morningAttic ? 6 : 3; atBeam.beam.material.color.set(morningAttic ? 0xffe2b8 : 0x9ab8d0); }
+  else if (SR.visible) { const night = moon.intensity > 0; fc = night ? 0x0e1614 : 0x9ab8d8; fd = night ? .065 : .022; rim = night ? 0x9ad0c0 : 0xfff0d8; rk = night ? .38 : .15; gr = night ? 'backwards' : 'morning'; }
+  else { fc = 0x2e2620; fd = .02; rim = 0xffe8c8; rk = .15; gr = 'morning'; }
+  fog.color.set(fc); fog.density = fd; scene.background.set(fc); CLAY_RIM.color.value.set(rim); CLAY_RIM.k.value = rk; grade(gr);
+}
 const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0x000000);
 let black = false;
 function street(q, t) {                                               // the backwards world, always going on
@@ -289,11 +293,11 @@ function frame(t) {
     C(V(4.3, 1.3, -.2), V(4.0, .85, -2.5), 50);
   } else if (t < ST('g01') - .2) {                                    // Gran at the end of the table; the napkin; no knife, no fork
     show(SR); haru.root.visible = false; heads180(1);
-    const u = ease((t - ST('h11')) / (EN('h11') - ST('h11'))); keyS.intensity = 2.4; keyS.position.set(6.0, 1.6, -1.8);
+    const u = ease((t - ST('h11')) / (EN('h11') - ST('h11'))); keyS.intensity = 1.3; keyS.position.set(5.9, 1.5, -1.6);
     C(V(lerp(4.4, 6.1, u), lerp(1.3, 1.15, u), lerp(-1.2, -2.0, u)), V(6.75, lerp(.85, 1.0, u), -2.6), lerp(46, 34, u));
   } else if (t < ST('g02') - .2) {                                    // "Goodbye, sweetheart." Haru, then their hands
     show(SR); heads180(1); haru.root.position.set(6.72, .07, -1.82); haru.root.rotation.y = PI;
-    const gh = HEAD(gran); keyS.intensity = 2.4; keyS.position.set(6.0, 1.6, -1.8);
+    const gh = HEAD(gran); keyS.intensity = 1.3; keyS.position.set(5.9, 1.5, -1.6);
     if (t < ST('h12') - .1) { if (!talk(gran, 'g01', t)) gran.mouth('smile'); faceTo(gran, HEAD(haru), .8); C(gh.clone().add(V(-.6, .02, .38)), gh, 34); }
     else if (t < ST('h13') - .1) { haru.eyes('wide'); haru.brows(.7); faceTo(haru, gh, .5); const h = HEAD(haru); C(h.clone().add(V(-.3, .12, -.55)), h, 34); }
     else { const k = ease((t - ST('h13')) / 1.2); faceTo(gran, HEAD(haru), .8); faceTo(haru, gh, 1);
@@ -302,7 +306,7 @@ function frame(t) {
   } else if (t < ST('h15') - .2) {                                    // "Read it backwards now. And don't you let go of me." / "Hello, Gran."
     show(SR); heads180(1); haru.root.position.set(6.72, .07, -1.82); haru.root.rotation.y = PI;
     gran.arms[0].up.rotation.set(-.9, 0, .3); haru.arms[1].up.rotation.set(-.8, 0, -.2);
-    const gh = HEAD(gran), hh = HEAD(haru); faceTo(gran, hh, .8); faceTo(haru, gh, .5); keyS.intensity = 2.4; keyS.position.set(6.0, 1.6, -1.8);
+    const gh = HEAD(gran), hh = HEAD(haru); faceTo(gran, hh, .8); faceTo(haru, gh, .5); keyS.intensity = 1.3; keyS.position.set(5.9, 1.5, -1.6);
     if (t < ST('h14') - .1) { if (!talk(gran, 'g02', t)) gran.mouth('closed'); gran.brows(.4); C(gh.clone().add(V(-.6, 0, .38)), gh, 32); }
     else if (t < ST('h14b') - .1) { haru.brows(.8); haru.mouth('pressed'); C(hh.clone().add(V(-.3, .12, -.55)), hh, 32); }
     else { haru.brows(.9); haru.eyes(t > EN('h14b') - .4 ? 'closed' : 'open'); if (!(t > EN('h14b') - 1.2 && talk(haru, 'h14b', t))) haru.mouth('pressed');
@@ -354,6 +358,6 @@ function frame(t) {
 }
 
 const frameFX = followFrame(frame, () => [haru, mum, gran, girlR, ...mourners.map(m => m.P)]);   // hair, hoods and drawstrings swing and settle
-window.renderAt = t => { frameFX(t); if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt = t => { frameFX(t); atmosphere(t); if (black) renderer.render(emptyScene, cam); else render(t); };
 window.renderAt(0); window.ready = true;
 </script></body></html>

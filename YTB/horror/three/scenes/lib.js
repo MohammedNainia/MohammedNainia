@@ -10,7 +10,7 @@ import {BokehPass} from 'three/addons/postprocessing/BokehPass.js';
 export {THREE};
 export let W = 1080, H = 1920;
 
-export function setup({bloom = .45, ao = true, w = 1080, h = 1920, dof = false} = {}) {
+export function setup({bloom = .45, ao = true, w = 1080, h = 1920, dof = false, wobble = 0} = {}) {
   W = w; H = h;
   const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
   renderer.setPixelRatio(1); renderer.setSize(W, H);
@@ -29,15 +29,24 @@ export function setup({bloom = .45, ao = true, w = 1080, h = 1920, dof = false} 
   const dofPass = {set(dist, k = 1) { if (!bokeh) return; bokeh.enabled = k > 0; bokeh.uniforms.focus.value = dist; bokeh.uniforms.aperture.value = .0007 * k; }};
   composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), bloom, .6, .85));
   composer.addPass(new OutputPass());
-  const grain = new ShaderPass({uniforms: {tDiffuse: {value: null}, seed: {value: 0}, vig: {value: .55}},
+  // the finish: grain, vignette, and a colour grade (lift = colour pushed into the shadows, gain = into the highlights, sat = saturation)
+  const grain = new ShaderPass({uniforms: {tDiffuse: {value: null}, seed: {value: 0}, vig: {value: .55}, lift: {value: new THREE.Vector3(0, 0, 0)}, gain: {value: new THREE.Vector3(1, 1, 1)}, sat: {value: 1}},
     vertexShader: 'varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `uniform sampler2D tDiffuse; uniform float seed; uniform float vig; varying vec2 vUv;
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float seed; uniform float vig; uniform vec3 lift; uniform vec3 gain; uniform float sat; varying vec2 vUv;
       float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+seed*7.13)*43758.5453);}
-      void main(){ vec4 c=texture2D(tDiffuse,vUv); float d=distance(vUv,vec2(.5)); c.rgb*=1.-vig*smoothstep(.3,.85,d);
+      void main(){ vec4 c=texture2D(tDiffuse,vUv); c.rgb = c.rgb * gain + lift * (1. - c.rgb); float l = dot(c.rgb, vec3(.299,.587,.114)); c.rgb = mix(vec3(l), c.rgb, sat);
+        float d=distance(vUv,vec2(.5)); c.rgb*=1.-vig*smoothstep(.3,.85,d);
         c.rgb+=(h(vUv*1000.)-.5)*.05; gl_FragColor=c; }`});
   composer.addPass(grain);
-  const render = t => { grain.uniforms.seed.value = t; composer.render(); };
-  return {renderer, scene, cam, composer, grain, render, dofPass};
+  // stop-motion set wobble: the camera shifts a hair between poses, as if the animator touched the set (wobble = size, e.g. .0012)
+  const render = t => { grain.uniforms.seed.value = t;
+    if (wobble) { const k = Math.floor(t * 12), r = i => (Math.sin(k * 12.9898 + i * 78.233) * 43758.5453) % 1; cam.rotateX(r(1) * wobble); cam.rotateY(r(2) * wobble); composer.render(); cam.rotateY(-r(2) * wobble); cam.rotateX(-r(1) * wobble); }
+    else composer.render(); };
+  // one colour grade per reel or per place: grade('night' | 'backwards' | 'morning' | 'lamp' | 'dread' | 'none')
+  const GRADES = {none: [[0, 0, 0], [1, 1, 1], 1], night: [[0, .035, .05], [.95, 1, 1.05], .85], backwards: [[.02, .045, .03], [.95, 1.04, .94], .8],
+    morning: [[.03, .02, 0], [1.05, 1.0, .93], 1.05], lamp: [[.04, .02, 0], [1.08, .98, .86], .95], dread: [[0, .02, .04], [.92, .95, 1.0], .7]};
+  const grade = name => { const g = GRADES[name] || GRADES.none; grain.uniforms.lift.value.set(...g[0]); grain.uniforms.gain.value.set(...g[1]); grain.uniforms.sat.value = g[2]; };
+  return {renderer, scene, cam, composer, grain, render, dofPass, grade};
 }
 
 export const ease = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };

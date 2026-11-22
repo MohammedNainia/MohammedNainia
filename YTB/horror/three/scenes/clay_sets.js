@@ -159,3 +159,71 @@ export function cobweb(size = .5) {                           // a few sagging t
     add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, .0012, 3), m, g).castShadow = false; }
   return g;
 }
+
+// ================================================================ lighting and atmosphere
+// lampPool(parent, [x,y,z], {color, power, dist, shade}): a practical lamp: a bulb you can see, a shade, a warm pool of light with shadows
+export function lampPool(parent, pos, {color = 0xffc878, power = 2.5, dist = 4, shade = true, shadows = true} = {}) {
+  const g = G(parent, pos), l = new THREE.PointLight(color, power, dist, 1.6); l.castShadow = shadows; l.shadow.mapSize.set(512, 512); g.add(l);
+  add(S(.035), new THREE.MeshBasicMaterial({color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .6)}), g).castShadow = false;
+  if (shade) add(turn([[.16, -.02], [.14, .03], [.07, .14], [.05, .16]], .002, 10), clay(0x3a3430, {side: THREE.DoubleSide}), g, [0, -.02, 0]).castShadow = false;
+  return {group: g, light: l};
+}
+// windowBeam(parent, {from, to, color, power, width}): light through a window: a spot with shadows, a visible beam in the air, dust drifting in it.
+// Call beam.update(t) each frame (the dust moves with time, the same at any frame).
+export function windowBeam(parent, {from = [0, 2, -2], to = [0, 0, 0], color = 0xdfe8ff, power = 6, width = .5, dust = 160, beamOpacity = .07} = {}) {
+  const g = new THREE.Group(); parent.add(g); const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), dir = b.clone().sub(a), L = dir.length();
+  const sp = new THREE.SpotLight(color, power, L * 1.6, Math.atan(width / L) * 1.6, .6, 1.2); sp.position.copy(a); sp.target.position.copy(b); sp.castShadow = true; sp.shadow.mapSize.set(1024, 1024); g.add(sp, sp.target);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(width * .45, width * 1.1, L, 24, 1, true).translate(0, -L / 2, 0),
+    new THREE.MeshBasicMaterial({color, transparent: true, opacity: beamOpacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide}));
+  cone.position.copy(a); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir.clone().normalize()); cone.castShadow = cone.receiveShadow = false; g.add(cone);
+  const n = dust, seeds = Array.from({length: n}, () => [rnd(), rnd(), rnd(), rnd()]), pos = new Float32Array(n * 3);
+  const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3)),
+    new THREE.PointsMaterial({color: 0xfff6e0, size: .012, transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending}));
+  g.add(pts); const side = new THREE.Vector3(), up2 = new THREE.Vector3();
+  side.crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize(); if (side.lengthSq() < .1) side.set(1, 0, 0); up2.crossVectors(side, dir).normalize();
+  const update = t => { seeds.forEach(([u, v, w, s], i) => { const along = (u + t * .012 * (.5 + s)) % 1, r = width * (.45 + .65 * along) * Math.sqrt(v), an = w * 6.28 + t * .15 * (s - .5);
+      const p = a.clone().addScaledVector(dir, along).addScaledVector(side, Math.cos(an) * r).addScaledVector(up2, Math.sin(an) * r + Math.sin(t * .7 + s * 9) * .01);
+      pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z; }); pts.geometry.attributes.position.needsUpdate = true; };
+  update(0); return {group: g, light: sp, beam: cone, update};
+}
+// haze(scene, color, density): air you can see: far things fade into it (set the scene background to the same colour)
+export function haze(scene, color = 0x0a0c10, density = .06) { scene.fog = new THREE.FogExp2(color, density); return scene.fog; }
+
+// ================================================================ the street
+// house({w, h, color, roof, lit}): a terraced house front: brick or render, framed windows (some lit), a panelled door on steps, a chimney, a gutter
+export function house({w = 1.9, h = 2.7, color = 0x6a3a2e, roof = 0x2a2224, lit = [false, true, false], door = 0x3a2a3e} = {}) {
+  const g = new THREE.Group(), wallM = clay(color, {bumpScale: 1.4});
+  add(rbox(w, h, 1.2, .03, .006, 3), wallM, g, [0, h / 2, 0]);
+  const rf = add(turn([[w * .76, 0], [w * .72, .06], [.02, .85]], .006, 4, Math.PI / 4, Math.PI * 2, 4), clay(roof), g, [0, h, 0]); rf.scale.set(1, 1, .7);   // the roof
+  add(rbox(.22, .5, .22, .02), clay(color), g, [w * .3, h + .5, -.1]); add(rbox(.26, .05, .26, .01), clay(0x3a3632), g, [w * .3, h + .76, -.1]);   // chimney
+  add(Cp(.025, w), clay(0x2a2a2a), g, [0, h - .02, .62], [0, 0, Math.PI / 2]);                                                       // gutter
+  const winAt = [[.4, .78], [-.4, 1.85], [.4, 1.85]];
+  winAt.forEach(([x, y], i) => { const on = lit[i]; const fr = clay(0xe8e2d6);
+    const wp = add(new THREE.PlaneGeometry(.42, .52), new THREE.MeshBasicMaterial({color: on ? 0xd8a860 : 0x0a0c12}), g, [x, y, .605]); wp.castShadow = false; wp.userData.on = on;
+    for (const [dx, dy, ww, hh] of [[0, .27, .5, .05], [0, -.27, .5, .05], [-.23, 0, .05, .56], [.23, 0, .05, .56], [0, 0, .025, .52], [0, .05, .44, .025]]) add(rbox(ww, hh, .04, .01), fr, g, [x + dx, y + dy, .615]);
+    add(rbox(.56, .04, .1, .01), fr, g, [x, y - .3, .64]); });
+  const d = G(g, [-.42, 0, .6]); add(rbox(.42, .88, .05, .01), clay(door), d, [0, .5, .02]); add(S(.018), clay(0xc8a860), d, [.15, .5, .055]);
+  add(rbox(.6, .06, .25, .01), clay(0x8a847a), g, [-.42, .03, .72]);                                                                 // the step
+  g.userData.lit = lit; return g;
+}
+export function streetLamp(h = 3.1, color = 0xd8f0c8, power = 3) {
+  const g = new THREE.Group(), m = clay(0x2a2c2a); add(turn([[.07, 0], [.06, .2], [.035, .25], [.032, h - .1], [.02, h]], .002, 10), m, g);
+  add(Cp(.02, .35), m, g, [0, h - .02, .16], [Math.PI / 2, 0, 0]); add(turn([[.12, -.06], [.1, .02], [.04, .08]], .002, 10), m, g, [0, h - .05, .33]);
+  add(S(.06, 1, .5, 1), new THREE.MeshBasicMaterial({color}), g, [0, h - .1, .33]).castShadow = false;
+  const l = new THREE.PointLight(color, power, 6, 1.4); l.position.set(0, h - .2, .33); g.add(l); g.userData.light = l; return g;
+}
+export function car(color = 0x8a2a24) {                       // a small rounded car, nose towards +x
+  const g = new THREE.Group(), b = clay(color), glass = gloss(0x1a2430, {roughness: .15});
+  add(rbox(1.55, .4, .76, .12, .004, 4), b, g, [0, .36, 0]); add(rbox(.9, .34, .7, .14, .004, 4), b, g, [-.08, .68, 0]);
+  for (const z of [.351, -.351]) add(new THREE.PlaneGeometry(.75, .22), glass, g, [-.08, .7, z], [0, z > 0 ? 0 : Math.PI, 0]);
+  add(new THREE.PlaneGeometry(.62, .24), glass, g, [.37, .7, 0], [0, Math.PI / 2, -.45]); add(new THREE.PlaneGeometry(.62, .24), glass, g, [-.53, .7, 0], [0, -Math.PI / 2, .45]);
+  for (const [x, z] of [[-.48, .37], [.48, .37], [-.48, -.37], [.48, -.37]]) { add(lump(new THREE.TorusGeometry(.11, .055, 10, 20), .003, 10), clay(0x141414), g, [x, .16, z]); add(new THREE.CylinderGeometry(.07, .07, .1, 16), METAL, g, [x, .16, z], [Math.PI / 2, 0, 0]); }
+  for (const z of [.24, -.24]) { add(S(.05, .5, 1, 1), new THREE.MeshBasicMaterial({color: 0xfff2c8}), g, [.77, .4, z]); add(S(.04, .5, 1, 1), new THREE.MeshBasicMaterial({color: 0xff2010}), g, [-.77, .4, z]); }
+  add(rbox(.08, .1, .7, .03), clay(0x3a3a3a), g, [.8, .24, 0]); add(rbox(.08, .1, .7, .03), clay(0x3a3a3a), g, [-.8, .24, 0]);   // bumpers
+  return g;
+}
+export function bin(color = 0x2a4a2e) { const g = new THREE.Group(); add(rbox(.5, .85, .5, .04), clay(color), g, [0, .44, 0]); add(rbox(.54, .06, .56, .02), clay(color), g, [0, .9, 0], [-.05, 0, 0]);
+  for (const x of [-.18, .18]) add(lump(new THREE.TorusGeometry(.06, .025, 8, 14), .001, 20), clay(0x141414), g, [x, .06, -.25], [0, Math.PI / 2, 0]); return g; }
+export function fence(len = 2, color = 0xd8d2c4) { const g = new THREE.Group(), m = clay(color); const n = Math.round(len / .14);
+  for (let i = 0; i < n; i++) add(rbox(.08, .7 + (i % 2) * .04, .03, .01), m, g, [-len / 2 + i * .14, .35, 0]); for (const y of [.18, .52]) add(rbox(len, .06, .025, .01), m, g, [0, y, -.025]); return g; }
+export function hedge(len = 1.4) { const g = new THREE.Group(); for (let i = 0; i < Math.round(len / .3); i++) add(S(.24, 1, .9, .8, .03, 3), clay(0x2e4a2e, {bumpScale: 2}), g, [-len / 2 + .15 + i * .3, .38, 0]); return g; }

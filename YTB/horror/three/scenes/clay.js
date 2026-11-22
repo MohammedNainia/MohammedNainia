@@ -18,20 +18,25 @@ export const bump = new THREE.CanvasTexture(bc); bump.wrapS = bump.wrapT = THREE
 // ?flat=1 on the page turns both off (to compare, or for a quick test render).
 export const CLAY_FX = !/[?&]flat=1/.test(typeof location !== 'undefined' ? location.search : '');
 const PRINT = 7.5;                                                                   // fingerprint marks per metre of clay
+// Rim light for characters (materials with userData.rim): a soft glow on their outline, so they stand out from a dark set.
+// Set per scene or per shot: CLAY_RIM.color.value.set(0x9ab8ff); CLAY_RIM.k.value = .5   (0 = off)
+export const CLAY_RIM = {color: {value: new THREE.Color(0xa8c0ff)}, k: {value: 0}};
 function clayShader(m) {
   if (!CLAY_FX) return m;
   m.onBeforeCompile = sh => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float clayShade; varying float vClayShade; varying vec3 vClayPos; varying vec3 vClayNrm;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvClayPos = transformed; vClayNrm = objectNormal; vClayShade = clayShade;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vClayShade; varying vec3 vClayPos; varying vec3 vClayNrm;')
+    if (m.userData.rim) { sh.uniforms.clayRimColor = CLAY_RIM.color; sh.uniforms.clayRimK = CLAY_RIM.k; }
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vClayShade; varying vec3 vClayPos; varying vec3 vClayNrm;' + (m.userData.rim ? ' uniform vec3 clayRimColor; uniform float clayRimK;' : ''))
       .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 + vClayShade;')
+      .replace('#include <opaque_fragment>', m.userData.rim ? 'outgoingLight += clayRimColor * clayRimK * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.6) * (0.25 + 0.75 * diffuseColor.rgb) * (1.0 - 0.5 * smoothstep(0.6, 0.9, dot(diffuseColor.rgb, vec3(.333))));\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       .replace('#include <bumpmap_pars_fragment>', THREE.ShaderChunk.bumpmap_pars_fragment.replace(/vec2 dHdxy_fwd\(\) \{[\s\S]*?return vec2\( dBx, dBy \);\s*\}/, `
         float clayH(vec3 p) { vec3 w = pow(abs(normalize(vClayNrm)), vec3(4.0)); w /= (w.x + w.y + w.z + 1e-5); p *= ${PRINT.toFixed(2)};
           return w.x * texture2D(bumpMap, p.yz).x + w.y * texture2D(bumpMap, p.zx + .37).x + w.z * texture2D(bumpMap, p.xy + .71).x; }
         vec2 dHdxy_fwd() { float H = 1.8 * bumpScale * clayH(vClayPos);
           return vec2(1.8 * bumpScale * clayH(vClayPos + dFdx(vClayPos)) - H, 1.8 * bumpScale * clayH(vClayPos + dFdy(vClayPos)) - H); }`));
   };
-  m.customProgramCacheKey = () => 'clay-fx-1';
+  m.customProgramCacheKey = () => 'clay-fx-1' + (m.userData.rim ? 'r' : '');
   return m;
 }
 export const clay = (c, o = {}) => clayShader(new THREE.MeshPhysicalMaterial(Object.assign({color: c, roughness: .9, metalness: 0, sheen: .35, sheenRoughness: .9,
@@ -117,6 +122,7 @@ export function makePerson(o = {}) {
     mouth: clay(0x2a0c10, {bumpScale: 0}), gum: clay(0xd86a78, {bumpScale: .2}), tooth: gloss(0xfaf6ee),
     blush: clay(0xd89080, {bumpScale: 0, transparent: true, opacity: .22}), sole: clay(0x3a3532, {bumpScale: .6}), lace: clay(0xd8d2c8, {bumpScale: 0}),
     shine: new THREE.MeshBasicMaterial({color: 0xffffff}), tear: gloss(0xa8d0f0, {transparent: true, opacity: .85}), lip: clay(new THREE.Color(o.skin || 0xefc09c).lerp(new THREE.Color(0xb86a5e), .45).getHex(), {bumpScale: .1})};
+  for (const k of ['skin', 'top', 'pants', 'shoe', 'hair', 'lip']) if (M[k]) M[k].userData.rim = true;   // characters catch the rim light
   M.crease = clay(new THREE.Color(o.skin || 0xefc09c).multiplyScalar(.66).getHex(), {bumpScale: .2});   // age lines: the skin pressed in
   const root = new THREE.Group(); root.scale.setScalar(o.scale || 1);
   const sec = {hair: null, hood: null, strings: []};                                          // the loose parts that swing behind the body (follow-through)
