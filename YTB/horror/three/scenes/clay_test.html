@@ -16,7 +16,7 @@ const P = [makePerson(haruOpts), makePerson(mumOpts), makePerson({build: 'old', 
   makePerson({build: 'man', outfit: 'shirt', top: 0x5a7a9a, pants: 0x3a3a44, shoe: 0x2a2220, hair: 0x2a2018, longHair: false, hood: false, scale: 1.1}),
   makePerson({build: 'woman', outfit: 'dress', top: 0x6a2a3a, pants: 0xd8b09a, shoe: 0x2a1a1a, hair: 0x6a3a1e, longHair: true, hood: false}),
   makePerson({build: 'man', outfit: 'coat', top: 0x2a2a30, pants: 0x2a2a30, shoe: 0x141414, hair: 0x8a8478, longHair: false, hood: false, scale: 1.08, age: .8})];
-P.forEach((p, i) => { p.root.position.x = (i - 2.5) * .5; scene.add(p.root); });
+P.forEach((p, i) => { p.root.position.x = (i - 2.5) * .5; scene.add(p.root); }); P[0].root.position.x = -.85; P[1].root.position.x = -.45;   // Haru beside Mum
 window.renderAt = t => {
   const k = Math.floor(t); boil(k);
   P.forEach(p => { p.root.rotation.y = k === 1 ? -.6 : 0; p.hips.rotation.set(0,0,0); p.hips.position.x = 0; p.chest.rotation.set(0,0,0); p.neck.rotation.set(0,0,0); p.head.rotation.set(0,0,0); p.arms.forEach(({hand}) => hand.rotation.set(0,0,0)); p.legs.forEach(({th, sh, ft}) => { th.rotation.set(0,0,0); sh.rotation.set(0,0,0); ft.rotation.set(0,0,0); }); p.arms.forEach(({up, fo}, i) => { up.rotation.set(k === 3 ? (i ? .4 : -.4) : 0, 0, (i ? 1 : -1) * .06); fo.rotation.set(-.15 - (k === 3) * .5, 0, 0); });
@@ -28,5 +28,6 @@ window.renderAt = t => {
   else { cam.position.set(0, 1.0, 6.4); cam.lookAt(0, .85, 0); cam.fov = 42; }
   cam.updateProjectionMatrix(); render(t);
 };
+window.MEAS = () => { const b = new THREE.Box3().setFromObject(P[0].root); P[1].root.updateMatrixWorld(true); return {haruTop: b.max.y.toFixed(3), mumChest: P[1].chest.localToWorld(new THREE.Vector3(0, .3, .1)).y.toFixed(3), mumTop: new THREE.Box3().setFromObject(P[1].root).max.y.toFixed(3)}; };
 window.renderAt(0); window.ready = true;
 </script></body></html>
