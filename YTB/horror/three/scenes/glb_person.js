@@ -102,7 +102,7 @@ export async function makeGlbPerson(name, o = {}) {
 
   // ---- the 2D face: a thin skin layer over the face (covering the painted features), with eyes, brows and a mouth DRAWN on it,
   // redrawn when the expression changes. It is cut from the mesh's own face triangles, so it follows every bump, and skinned like them.
-  const FS = 512, fcv = document.createElement('canvas'); fcv.width = fcv.height = FS; const fx = fcv.getContext('2d');
+  const FS = 512, fcv = document.createElement('canvas'); fcv.width = fcv.height = FS; const fx = fcv.getContext("2d");
   const ftex = new THREE.CanvasTexture(fcv); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 4;
   let faceMesh = null;
   if (F && F.plate) {
@@ -153,6 +153,9 @@ export async function makeGlbPerson(name, o = {}) {
     for (const s of [-1, 1]) {                       // s: the character's right (-1) and left (+1), as seen from the front: right is on the image's left
       const ex = cX(s * F.eyes[0]), ey = cY(F.eyes[1]);
       const lid = ST.eyes === 'closed' ? 1 : ST.eyes === 'squeeze' ? 1 : ST.eyes === 'wide' ? 0 : Math.max(0, ST.lid - .2) * 1.3;   // a calm face has open eyes: only sad, sleepy, sly faces lower the lids
+      if (ST.eyes === 'white') {                     // the thing wearing her face: huge white eyes, a pinprick pupil, no brows
+        fx.fillStyle = '#f8f6f0'; fx.strokeStyle = ink; fx.lineWidth = er * .16; fx.beginPath(); fx.ellipse(ex + s * er * .15, ey - er * .2, er * 2.3, er * 2.7, -s * .12, 0, 7); fx.fill(); fx.stroke();
+        fx.fillStyle = ink; fx.beginPath(); fx.arc(ex + s * er * .1, ey - er * .1, er * .22, 0, 7); fx.fill(); continue; }
       if (lid >= .9) { fx.strokeStyle = ink; fx.lineWidth = er * .45; fx.lineCap = 'round'; fx.beginPath();
         if (ST.eyes === 'squeeze') { fx.moveTo(ex - er * 1.2, ey - er * .5); fx.lineTo(ex, ey); fx.lineTo(ex - er * 1.2 * -1, ey - er * .5); }
         else fx.arc(ex, ey - er * .3, er * 1.1, Math.PI * .15, Math.PI * .85); fx.stroke(); }
@@ -164,12 +167,19 @@ export async function makeGlbPerson(name, o = {}) {
           fx.strokeStyle = ink; fx.lineWidth = er * .18; fx.beginPath(); fx.moveTo(ex - er * 1.05, ey - er * 1.17 + er * (.2 + 2.3 * lid)); fx.lineTo(ex + er * 1.05, ey - er * 1.17 + er * (.2 + 2.3 * lid)); fx.stroke(); } }   // the upper lid comes down
       // the brow: a thick soft dash; worried tilts the inner end up, angry tilts it down
       const k2 = s < 0 ? ST.brows[0] : ST.brows[1], bx = cX(s * F.brows[0]), by = cY(F.brows[1]) - ST.brows[2] * sc * 2;
-      fx.save(); fx.translate(bx, by - Math.abs(k2) * er * .4); fx.rotate(-s * k2 * .45); fx.fillStyle = '#2a2026'; fx.beginPath(); fx.ellipse(0, 0, er * 1.7, er * .42, 0, 0, 7); fx.fill(); fx.restore();
+      fx.save(); fx.translate(bx, by - Math.abs(k2) * er * .4); fx.rotate(s * k2 * .45); fx.fillStyle = '#2a2026'; fx.beginPath(); fx.ellipse(0, 0, er * 1.7, er * .42, 0, 0, 7); fx.fill(); fx.restore();
       if (ST.tears) { fx.fillStyle = 'rgba(160,210,240,.85)'; fx.beginPath(); fx.ellipse(ex + s * er * .4, ey + er * 2.2, er * .35, er * .6, 0, 0, 7); fx.fill(); }
     }
     // the mouth
     const mx = cX(F.mouth[0]), my = cY(F.mouth[1]), mw = F.mouth[2] * sc * .5, s2 = ST.mouth, amt = ST.open;
     fx.lineCap = 'round'; fx.strokeStyle = '#5a1e22'; fx.lineWidth = mw * .16;
+    if (s2 === 'grin') {                               // ear to ear, packed with teeth
+      const w = mw * 2.5, up = mw * .75 * amt; fx.fillStyle = '#2a080c'; fx.beginPath(); fx.moveTo(mx - w, my - up);
+      fx.quadraticCurveTo(mx, my + mw * 1.15, mx + w, my - up); fx.quadraticCurveTo(mx, my + mw * .35, mx - w, my - up); fx.fill();
+      fx.save(); fx.clip(); fx.fillStyle = '#f4efe2'; fx.fillRect(mx - w, my - up, w * 2, mw * .75); fx.strokeStyle = '#8a7a6a'; fx.lineWidth = mw * .04;
+      for (let i = -9; i <= 9; i++) { fx.beginPath(); fx.moveTo(mx + i * w / 9.5, my - up); fx.lineTo(mx + i * w / 9.5, my + mw * 1.2); fx.stroke(); } fx.restore();
+      fx.strokeStyle = ink; fx.lineWidth = mw * .07; fx.beginPath(); fx.moveTo(mx - w, my - up); fx.quadraticCurveTo(mx, my + mw * 1.15, mx + w, my - up); fx.stroke();
+      ftex.needsUpdate = true; return; }
     const shape = {open: [.9, .35 + .65 * amt], gums: [.9, .35 + .65 * amt], o: [.45, .55 + .3 * amt], grimace: [1.25, .35 + .15 * amt], scream: [.85, 1 + .7 * amt]}[s2];
     if (!shape) { fx.beginPath(); const c = s2 === 'smile' ? -.45 : s2 === 'frown' ? .5 : s2 === 'pressed' ? .05 : .2;   // a line: curved up (smile) or down
       fx.moveTo(mx - mw * .7, my + c * mw * .4); fx.quadraticCurveTo(mx, my - c * mw * .5, mx + mw * .7, my + c * mw * .4); fx.stroke(); }

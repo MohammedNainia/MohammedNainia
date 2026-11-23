@@ -42,6 +42,12 @@
    "desc": "Girl, about 8: pigtails, pink sweater, navy skirt",
    "height": 1.2,
    "made": "Nano Banana 2 blank-face image + Rodin Fast"
+  },
+  "man_tired": {
+   "file": "man_tired.glb",
+   "desc": "tired middle-aged man, beige raincoat, grey hair, holding a suitcase",
+   "height": 1.74,
+   "made": "Nano Banana 2 edit of the blank-face Haru, then Rodin v2.5 Fast"
   }
  },
  "props": {
@@ -440,6 +446,26 @@
    "length": 1.9,
    "tags": [
     "playground"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "motel": {
+   "file": "motel.glb",
+   "desc": "two-storey roadside motel with an upstairs walkway and railing",
+   "length": 24.0,
+   "tags": [
+    "motel",
+    "building"
+   ],
+   "made": "Rodin Fast, text-to-3D"
+  },
+  "motel_sign": {
+   "file": "motel_sign.glb",
+   "desc": "tall retro MOTEL sign on a pole",
+   "height": 6.5,
+   "tags": [
+    "motel",
+    "street"
    ],
    "made": "Rodin Fast, text-to-3D"
   }

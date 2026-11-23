@@ -54,3 +54,7 @@ prop rocks           01a204a2-6b6c-73d3-bdff-a4f8b127f48e
 prop swings          01a204a2-6dfc-7332-9e9c-e8a924988296
 prop slide           01a204a2-716d-7ce9-9643-a6c7c7f54821
 prop roundabout      01a204a2-7450-7d28-bc6f-b3aaa5d51d25
+# the vacancy reel
+prop motel           01a20599-76da-73f9-8623-98dc0d827933
+prop motel_sign      01a20599-79f7-7e51-ac9c-628de324866f
+char_img man_tired   01a20599-7d77-715c-9b8a-41662bc72e0f

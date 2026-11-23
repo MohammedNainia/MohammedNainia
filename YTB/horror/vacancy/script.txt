@@ -1,0 +1,22 @@
+THE VACANCY (draft 1, approved)  9:16, voices 1.5x in post (pitch kept), target ~75 s
+Hook text at frame 0: THREE OF US CHECKED IN. / THREE OF US LEFT. / I WASN'T ONE OF THEM.
+Rule: in the dark they are wrong; in the lamplight they are people.  Flaw: Haru's curiosity (she goes down into the dark to see).
+Twist: the thing that took her place is already standing there, wearing her.  Ending: black, the sign clicks to NO VACANCY. Loop to the hook.
+Voices: Haru = Samara X (stability .5); the other Haru = the same voice, slowed and doubled in post.
+
+h01  HARU   Three of us checked into that motel. Three of us left. I wasn't one of them.
+h02  HARU   We'd been driving for hours when Dad saw the sign. Vacancy. Nothing else for fifty miles.
+h03  HARU   Nobody was at the desk. Our key was already on the counter, with our name on the tag.
+h04  HARU   The bed in our room was still warm. Mom said it was the heater. There was no heater.
+h05  HARU   I couldn't breathe in there, so I went out on the balcony.
+h06  HARU   Something came out of the trees on all fours. Its legs bent in too many places.
+h07  HARU   It walked into the lamplight, and it was a man. A tired man with a suitcase.
+h08  HARU   Then a woman, her head hanging sideways off her neck, until the light set it straight.
+h09  HARU   Then a little boy. He looked up at me and waved.
+h10  HARU   They all had keys. There were no other cars.
+h11  HARU   I gripped the railing until the paint flaked off on my palms. I should have gone inside.
+h12  HARU   I went down into the dark instead. I had to see what they really looked like.
+h13  HARU   Behind the motel, the ground was open. Something was climbing out, still choosing a face.
+h14  HARU   I turned to run back to Mom and Dad.
+h15  HARU   I was already there.
+d01  DOUBLE Don't worry. I'll tell them.

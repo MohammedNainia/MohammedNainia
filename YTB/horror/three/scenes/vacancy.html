@@ -1,0 +1,374 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE VACANCY (9:16, ~74 s): the clay library (lib.char / lib.prop, moves.js), timed to vacancy/voice/layout.json.
+// Places (each its own group, only one shown):  RD the night road   MT the motel and its car park (the balcony, the lamps, the trees, the hole behind)
+//   OF the office counter   RM the room
+// The rule on screen: in the dark the guests are wrong (a crawler on zigzag limbs, a woman with her head hanging off her neck, a stretched boy);
+// where a lamp's pool of light reaches them they snap into ordinary people (the lamp flickers as they cross).
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, add, S, Cp, G, boil, makeFairy, curl, CLAY_RIM, followFrame, look, walk as kitWalk, pose} from './clay.js';
+import * as K from './clay_sets.js';
+import {lib} from './library.js';
+import {relaxed, idle, run as runCycle, stride} from './moves.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .6, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+scene.background = new THREE.Color(0x070a12); cam.near = .02; cam.far = 160; cam.updateProjectionMatrix();
+const LAY = Object.fromEntries((await (await fetch('/data/vacancy_layout.json')).json()).map(l => [l.name, l]));
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+const fog = K.haze(scene, 0x070a12, .03);
+const u01 = (t, a, b) => clamp01((t - a) / (b - a));
+const sm = x => ease(clamp01(x));
+let rs = 11; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+
+// ================================================================ materials
+const M = {asphalt: clay(0x26262a, {bumpScale: 1.6}), line: clay(0xb8b2a0), grass: clay(0x1e2a1c, {bumpScale: 2.2}), dirt: clay(0x3a2e26, {bumpScale: 2.5}),
+  carpet: clay(0x5a3e3a, {bumpScale: 1.2}), wall: clay(0x8a7e62, {bumpScale: 1}), wood: clay(0x5a3a26), white: clay(0xe0d8c8), dark: clay(0x18161a),
+  crawl: clay(0x5a5664, {bumpScale: 1.4}), black: new THREE.MeshBasicMaterial({color: 0x000000}), bulb: new THREE.MeshBasicMaterial({color: 0xfff0c8})};
+
+// ================================================================ places
+const RD = G(scene, [0, 0, 0]), MT = G(scene, [200, 0, 0]), OF = G(scene, [400, 0, 0]), RM = G(scene, [500, 0, 0]);
+const PLACES = [RD, MT, OF, RM];
+
+// ---------------------------------------------------------------- RD: a straight road through black trees (along -z), the moon
+add(new THREE.PlaneGeometry(300, 300).rotateX(-PI / 2), M.grass, RD).receiveShadow = true;
+add(K.rbox(6, .05, 260, .01, .002, 2), M.asphalt, RD, [0, .02, -100]);
+for (let z = 20; z > -220; z -= 6) add(K.rbox(.14, .02, 2.6, .005), M.line, RD, [0, .05, z]);
+for (let i = 0; i < 90; i++) { const s = i % 2 ? 1 : -1, z = 20 - i * 2.7 - rnd() * 2, x = s * (6 + rnd() * 9);
+  lib.prop(rnd() > .35 ? 'tree' : 'dead_tree', {height: 7 + rnd() * 5}).then(g => { g.position.set(x, 0, z); g.rotation.y = rnd() * 6; g.scale.x *= .6; g.scale.z *= .6; RD.add(g); }); }
+RD.add(new THREE.HemisphereLight(0x3a4a70, 0x050508, .5));
+const rdMoon = new THREE.DirectionalLight(0x8aa0d8, .8); rdMoon.position.set(-20, 30, 10); rdMoon.target.position.set(0, 0, -30); RD.add(rdMoon, rdMoon.target);
+// the family car (library car; its nose points along +x in its own frame, see carFace below) with headlights
+async function makeCar(parent) {
+  const g = new THREE.Group(), body = await lib.prop('car', {length: 4.2}); g.add(body); parent.add(g);
+  const hl = new THREE.SpotLight(0xfff0d0, 0, 40, .45, .5, 1.2); hl.castShadow = true; hl.shadow.mapSize.set(1024, 1024); g.add(hl, hl.target);
+  const tail = new THREE.PointLight(0xff2010, 0, 5, 2); g.add(tail);
+  const lamps = [-1, 1].map(s => add(new THREE.SphereGeometry(.07, 10, 8), new THREE.MeshBasicMaterial({color: 0xfff4d8}), g));
+  const reds = [-1, 1].map(s => add(new THREE.SphereGeometry(.06, 10, 8), new THREE.MeshBasicMaterial({color: 0xff2a14}), g));
+  g.userData = {body, hl, tail, lamps, reds}; return g;
+}
+const rdCar = await makeCar(RD), mtCar = await makeCar(MT);
+// which way the library car faces: measured once from its shape (the end with the lower bonnet is the front); fixed here after a look: nose along -x
+function carFace(car, dir) {                       // dir: heading angle (0 = driving towards +z); lights placed at the nose / tail
+  const U = car.userData; U.body.rotation.y = dir + PI / 2 + CAR_ROT;
+  const f = V(Math.sin(dir), 0, Math.cos(dir)), r = V(Math.cos(dir), 0, -Math.sin(dir));
+  U.hl.position.copy(f.clone().multiplyScalar(2.0).add(V(0, .7, 0))); U.hl.target.position.copy(f.clone().multiplyScalar(14).add(V(0, 0, 0)));
+  U.tail.position.copy(f.clone().multiplyScalar(-2.2).add(V(0, .8, 0)));
+  U.lamps.forEach((m, i) => m.position.copy(f.clone().multiplyScalar(2.05).add(r.clone().multiplyScalar(i ? .62 : -.62)).add(V(0, .62, 0))));
+  U.reds.forEach((m, i) => m.position.copy(f.clone().multiplyScalar(-2.1).add(r.clone().multiplyScalar(i ? .65 : -.65)).add(V(0, .75, 0))));
+}
+const CAR_ROT = +(new URLSearchParams(location.search).get('carrot') || 0);
+
+// ---------------------------------------------------------------- MT: the motel (front to +z), the car park, the lamps, the road beyond, the trees
+add(new THREE.PlaneGeometry(300, 300).rotateX(-PI / 2), M.grass, MT).receiveShadow = true;
+add(K.rbox(26, .05, 18, .01, .002, 2), M.asphalt, MT, [0, .02, 12]);                                   // the car park z 3 .. 21
+for (let x = -10; x <= 10; x += 2.6) add(K.rbox(.1, .02, 4.2, .005), M.line, MT, [x, .05, 6.5]);       // bays in front of the doors
+add(K.rbox(200, .05, 6, .01, .002, 2), M.asphalt, MT, [0, .02, 24.5]);                                 // the road
+for (let x = -96; x < 100; x += 6) add(K.rbox(2.6, .02, .14, .005), M.line, MT, [x, .05, 24.5]);
+const motel = await lib.prop('motel', {length: 18}); MT.add(motel);
+const mBox = new THREE.Box3().setFromObject(motel);
+const sign = await lib.prop('motel_sign', {height: 6.5}); sign.position.set(12.5, 0, 21.2); sign.rotation.y = -PI / 2 + .35; MT.add(sign);
+// the neon under the sign: VACANCY, and NO in front of it (lit only at the very end)
+function neonTex(word, on) { return K.canvasTex(512, 128, (g, w, h) => { g.fillStyle = '#120808'; g.fillRect(0, 0, w, h);
+  g.font = 'bold 84px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = on ? '#ff3020' : 'transparent'; g.shadowBlur = on ? 28 : 0;
+  g.fillStyle = on ? '#ff5a40' : '#3a1410'; g.fillText(word, w / 2, h / 2 + 4); }); }
+const neon = G(sign, [0, 2.15, .32]); add(K.rbox(2.3, .62, .14, .02), clay(0x2a1e1a), neon, [0, 0, 0]);
+const vacOn = new THREE.MeshBasicMaterial({map: neonTex('VACANCY', true), toneMapped: false}), vacOff = new THREE.MeshBasicMaterial({map: neonTex('VACANCY', false)});
+const noOn = new THREE.MeshBasicMaterial({map: neonTex('NO', true), toneMapped: false}), noOff = new THREE.MeshBasicMaterial({map: neonTex('NO', false)});
+const vacPlate = add(new THREE.PlaneGeometry(1.9, .48), vacOn, neon, [.18, 0, .075]); vacPlate.castShadow = false;
+const noPlate = add(new THREE.PlaneGeometry(.62, .48), noOff, neon, [-.95, 0, .075]); noPlate.castShadow = false; noPlate.scale.x = .9;
+[vacPlate, noPlate].forEach(p => { const b = p.clone(); b.rotation.y = PI; b.position.z = -.075; neon.add(b); p.userData.back = b; });
+const neonL = new THREE.PointLight(0xff3020, 6, 9, 1.6); neonL.position.set(0, 2.2, .8); sign.add(neonL);
+// the lamps: pools of light in the car park, black between them. The rule: inside a pool, the guests are people.
+const LAMPS = [[-6, 14.5], [3.5, 16.5], [9, 9.5]].map(([x, z]) => {
+  const L = new THREE.SpotLight(0xffd8a0, 40, 16, .62, .55, 1.4); L.position.set(x, 4.4, z); L.target.position.set(x, 0, z); L.castShadow = true; L.shadow.mapSize.set(1024, 1024); MT.add(L, L.target);
+  lib.prop('street_lamp', {height: 4.6}).then(g => { g.position.set(x - .55, 0, z); MT.add(g); });
+  return {x, z, r: 2.9, L};
+});
+const roadL = new THREE.SpotLight(0x6a80b8, 240, 60, .5, .8, 1.2); roadL.position.set(0, 18, 46); roadL.target.position.set(0, 0, 22); MT.add(roadL, roadL.target);   // moonlight on the road and the tree line
+const inLight = (x, z) => LAMPS.some(l => Math.hypot(x - l.x, z - l.z) < l.r);
+const lampAt = (x, z) => LAMPS.reduce((a, l) => Math.hypot(x - l.x, z - l.z) < Math.hypot(x - a.x, z - a.z) ? l : a);
+for (let i = 0; i < 70; i++) { const a = rnd() * PI * 2, side = rnd(); let x, z;
+  if (side < .55) { x = -30 + rnd() * 60; z = 29 + rnd() * 14; } else if (side < .8) { x = -(16 + rnd() * 12); z = -10 + rnd() * 38; } else { x = 16 + rnd() * 12; z = -10 + rnd() * 30; }
+  lib.prop(rnd() > .4 ? 'tree' : 'dead_tree', {height: 7 + rnd() * 5}).then(g => { g.position.set(x, 0, z); g.rotation.y = a; g.scale.x *= .6; g.scale.z *= .6; MT.add(g); }); }
+// behind the motel: bare ground, dead trees, the hole
+add(new THREE.CircleGeometry(9, 40).rotateX(-PI / 2), M.dirt, MT, [2, .03, -14]);
+for (const [x, z, h] of [[-4, -17, 7], [7.5, -19, 6], [-1, -22, 8], [10, -12, 5.5]]) lib.prop('dead_tree', {height: h}).then(g => { g.position.set(x, 0, z); g.rotation.y = x; MT.add(g); });
+const HOLE = V(2, 0, -15);
+const hole = G(MT, [HOLE.x, 0, HOLE.z]); add(new THREE.CircleGeometry(1.15, 40).rotateX(-PI / 2), M.black, hole, [0, .045, 0]);
+for (let i = 0; i < 26; i++) { const a = i / 26 * PI * 2 + rnd() * .2; add(S(.16 + rnd() * .14, 1, .55, 1), M.dirt, hole, [Math.cos(a) * (1.22 + rnd() * .15), .05, Math.sin(a) * (1.22 + rnd() * .15)]); }
+const holeGlow = new THREE.PointLight(0x9ab8a0, 0, 7, 1.3); holeGlow.position.set(HOLE.x, .5, HOLE.z); MT.add(holeGlow);
+const sideL = new THREE.PointLight(0xffc888, 6, 10, 1.6); sideL.position.set(mBox.max.x + 1.2, 3.2, 0); MT.add(sideL);
+const dblL = new THREE.SpotLight(0xd8e4ff, 0, 6, .5, .6, 1.4); MT.add(dblL, dblL.target);
+const bkMoon = new THREE.DirectionalLight(0x8aa0d8, 0); bkMoon.position.set(14, 22, -45); bkMoon.target.position.set(2, 0, -14); bkMoon.castShadow = true; bkMoon.shadow.mapSize.set(1024, 1024);
+Object.assign(bkMoon.shadow.camera, {left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 90}); MT.add(bkMoon, bkMoon.target);
+const backL = new THREE.PointLight(0xffc888, 0, 9, 1.6); backL.position.set(1, 2.6, mBox.min.z - .4); MT.add(backL);      // one bulb over the back door
+const mtHemi = new THREE.HemisphereLight(0x4a5a88, 0x06060a, .6); MT.add(mtHemi);
+const mtMoon = new THREE.DirectionalLight(0x8aa4e0, 1.1); mtMoon.position.set(-12, 22, 55); mtMoon.target.position.set(0, 0, 8); mtMoon.castShadow = true; mtMoon.shadow.mapSize.set(2048, 2048);
+Object.assign(mtMoon.shadow.camera, {left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 100}); MT.add(mtMoon, mtMoon.target);
+// the walkway upstairs: find its floor (and the front edge of the building) from the model itself
+const ray = new THREE.Raycaster(); MT.updateMatrixWorld(true);
+function floorAt(x, z, from = 6) { ray.set(V(x, from, z).add(MT.position), V(0, -1, 0)); const h = ray.intersectObject(motel, true)[0]; return h ? h.point.y : 0; }
+const WALK_Z = mBox.max.z - .55, WALK_Y = floorAt(2, WALK_Z, 5.2);
+const doorLights = [-6, -1.5, 3, 7.5].map(x => { const L = new THREE.PointLight(0xffc070, 4, 5, 1.8); L.position.set(x, WALK_Y + 2.2, WALK_Z - .1); MT.add(L); return L; });
+const groundDoorL = [-4, 5].map(x => { const L = new THREE.PointLight(0xffc070, 3, 4.5, 1.8); L.position.set(x, 2.3, mBox.max.z - .3); MT.add(L); return L; });
+// our own railing at Haru's spot (her hands hold it in close-ups) and the stairs down at the east end
+const rail = G(MT, [0, WALK_Y, mBox.max.z - .12]); add(K.rbox(5, .06, .08, .01), clay(0x6a7a72), rail, [2, 1.0, 0]);
+for (const x of [-.4, .9, 3.1, 4.4]) add(K.rbox(.06, 1.0, .06, .01), clay(0x6a7a72), rail, [x, .5, 0]);
+const FLAKES = []; for (let i = 0; i < 26; i++) { const f = add(new THREE.PlaneGeometry(.025, .018), clay(0x9aac9e, {side: THREE.DoubleSide}), rail, [0, 0, 0]); f.castShadow = false; FLAKES.push({f, sx: rnd(), sd: rnd(), sp: rnd()}); }
+const STAIR_X = mBox.max.x + .9; const stairs = G(MT, [STAIR_X, 0, mBox.max.z - 1.2]);
+for (let i = 0; i < 14; i++) add(K.rbox(1.3, .12, .32, .01), clay(0x5a5a56), stairs, [0, (i + 1) * WALK_Y / 14 - .06, 1.2 - i * .3]);
+
+// ---------------------------------------------------------------- OF: the office counter, a bell, a key on its tag, one desk lamp
+add(K.rbox(6, .1, 5, .01), M.carpet, OF, [0, -.05, 0]); for (const [w, d, x, z] of [[6, .12, 0, -2.5], [.12, 5, -3, 0], [.12, 5, 3, 0]]) add(K.rbox(w, 2.8, d, .01), M.wall, OF, [x, 1.4, z]);
+add(K.rbox(2.6, 1.05, .7, .02), M.wood, OF, [0, .52, -.6]); add(K.rbox(2.7, .05, .8, .01), clay(0x3a2618), OF, [0, 1.07, -.6]);
+const bell = G(OF, [-.7, 1.1, -.5]); add(new THREE.SphereGeometry(.07, 16, 10, 0, PI * 2, 0, PI / 2), clay(0xb89a50), bell); add(S(.012), clay(0x8a7a40), bell, [0, .075, 0]);
+const keyG = G(OF, [.25, 1.11, -.42]); add(K.rbox(.035, .01, .11, .004), clay(0x9a9a92), keyG, [0, 0, 0]); add(new THREE.TorusGeometry(.03, .006, 6, 16), clay(0x9a9a92), keyG, [0, 0, .07], [PI / 2, 0, 0]);
+const tag = add(new THREE.PlaneGeometry(.14, .2), new THREE.MeshStandardMaterial({map: K.canvasTex(256, 360, (g, w, h) => { g.fillStyle = '#c8a060'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#2a1a10'; g.textAlign = 'center'; g.font = 'bold 110px Georgia'; g.fillText('6', w / 2, 150); g.font = 'italic 40px Georgia'; g.fillText('family', w / 2, 240); g.fillText('of three', w / 2, 295); }), roughness: .9}), keyG, [0, .006, .19], [-PI / 2, 0, 0]);
+const ofLamp = K.lampPool(OF, [.9, 1.55, -.7], {power: 6, dist: 7}); add(Cp(.012, .4), clay(0x2a2a2a), OF, [.9, 1.3, -.7]);
+OF.add(new THREE.HemisphereLight(0x6a5a50, 0x140e0a, .5));
+const pegs = G(OF, [0, 1.8, -2.42]); for (let i = 0; i < 8; i++) { add(Cp(.008, .05), clay(0x8a7a5a), pegs, [-.7 + i * .2, 0, .03], [PI / 2, 0, 0]); if (i !== 5) add(K.rbox(.05, .1, .01, .004), clay(0x9a9a92), pegs, [-.7 + i * .2, -.07, .05]); }   // every key hangs on its peg; one peg empty
+
+// ---------------------------------------------------------------- RM: the room (a bed, a lamp, a window with the car park beyond, the door)
+add(K.rbox(4.6, .1, 6, .01), M.carpet, RM, [0, -.05, 0]); add(K.rbox(4.6, .1, 6, .01), clay(0x3a3430), RM, [0, 2.65, 0]);
+for (const [w, d, x, z] of [[4.6, .12, 0, -3], [.12, 6, -2.3, 0], [.12, 6, 2.3, 0]]) add(K.rbox(w, 2.7, d, .01), M.wall, RM, [x, 1.35, z]);
+const rmBed = await lib.prop('bed', {length: 2.1}); rmBed.position.set(-.8, 0, -1.8); rmBed.rotation.y = 0; RM.add(rmBed);
+const rmLamp = await lib.prop('floor_lamp', {height: 1.5}); rmLamp.position.set(1.0, 0, -2.6); RM.add(rmLamp);
+const rmLampL = new THREE.PointLight(0xffc080, 14, 9, 1.5); rmLampL.position.set(1.0, 1.4, -2.5); rmLampL.castShadow = true; rmLampL.shadow.mapSize.set(1024, 1024); RM.add(rmLampL);
+const rmWin = G(RM, [2.24, 1.45, -.4]); const winView = add(new THREE.PlaneGeometry(1.2, 1.1), new THREE.MeshBasicMaterial({color: 0x101828}), rmWin, [-.02, 0, 0], [0, -PI / 2, 0]);
+for (const z of [-.75, .75]) add(K.rbox(.08, 1.6, .5, .01), clay(0x6a4a3a, {bumpScale: 1.5}), rmWin, [-.1, -.1, z]);   // curtains
+add(K.rbox(.12, 2.1, .95, .01), clay(0x4a3a2e), RM, [2.22, 1.05, 1.8]);                                        // the door
+RM.add(new THREE.HemisphereLight(0x6a5a50, 0x140e0a, .6));
+const corner = V(1.95, 0, -2.92);                                                                                 // the empty corner where a heater would be: a socket, nothing plugged in
+add(K.rbox(.12, .14, .02, .005), M.white, RM, [corner.x, .3, corner.z + .02]); for (const dx of [-.025, .025]) add(K.rbox(.01, .03, .01, .002), M.dark, RM, [corner.x + dx, .3, corner.z + .035]);
+
+// ================================================================ the cast (the clay library) and the things in the dark
+const haru = await lib.char('haru'), dbl = await lib.char('haru'), mum = await lib.char('mum'), dad = await lib.char('dad');
+const man = await lib.char('man_tired'), woman = await lib.char('woman_red'), boy = await lib.char('boy');
+const PEOPLE = [haru, dbl, mum, dad, man, woman, boy];
+PEOPLE.forEach(P => { scene.add(P.root); P.faceLight.visible = true; P.faceLight.intensity = 0; });
+const S0 = new Map(PEOPLE.map(P => [P, P.root.scale.x]));
+const headUp = P => (P.J.headTop.y - P.J.headBase.y);
+// the crawler: what the tired man is in the dark: a long low body on four long limbs that bend the wrong way, two joints each, a head hung under
+function makeCrawler() {
+  const root = new THREE.Group(), body = G(root, [0, 1.0, 0]); add(Cp(.2, 1.1), M.crawl, body, [0, 0, 0], [PI / 2, 0, 0]);
+  const neck = G(body, [0, .05, .7]); add(Cp(.07, .45), M.crawl, neck, [0, -.1, .2], [1.1, 0, 0]); const head = G(neck, [0, -.3, .38]); add(S(.17, .9, 1.1, 1.15), M.crawl, head);
+  const limbs = [[-1, .55], [1, .55], [-1, -.5], [1, -.5]].map(([s, z]) => { const a = G(body, [s * .18, 0, z]), b = G(a, [0, 0, 0]), c = G(b, [0, 0, 0]);
+    add(Cp(.055, .7), M.crawl, a, [0, .35, 0]); b.position.set(0, .78, 0); add(Cp(.045, .75), M.crawl, b, [0, .38, 0]); c.position.set(0, .82, 0); add(Cp(.035, .5), M.crawl, c, [0, .25, 0]);
+    return {a, b, c, s, z}; });
+  root.traverse(m => { if (m.isMesh) m.castShadow = true; }); return {root, body, neck, head, limbs};
+}
+const crawler = makeCrawler(); MT.add(crawler.root);
+const shineM = new THREE.MeshBasicMaterial({color: 0xdfe8c8, toneMapped: false});
+function eyeshine(parent, x, y, z, r) { const g = new THREE.Group(); parent.add(g); for (const s of [-1, 1]) { const m = add(new THREE.SphereGeometry(r, 8, 6), shineM, g, [s * x, y, z]); m.castShadow = false; } return g; }
+const SHINE = {crawl: eyeshine(crawler.head, .06, .02, .16, .026)};
+for (const [k, P] of [['wom', woman], ['boy', boy]]) { const hu = (P.J.headTop.y - P.J.headBase.y); SHINE[k] = eyeshine(P.head, hu * .16, hu * .5, hu * .55, hu * .045); }
+function crawl(t, x, z, ry) {                         // stop-motion crawl: limbs up in zigzags (knees above the back), moving in a diagonal gait
+  const C2 = crawler; C2.root.visible = true; C2.root.position.set(x, 0, z); C2.root.rotation.set(0, ry, 0);
+  C2.body.position.y = .95 + Math.sin(t * 9) * .03; C2.body.rotation.z = Math.sin(t * 4.5) * .06;
+  C2.limbs.forEach(({a, b, c, s, z: lz}, i) => { const ph = t * 4.5 + (i === 0 || i === 3 ? 0 : PI), sw = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
+    a.rotation.set(-.4 * Math.sign(lz) + sw * .35, 0, s * (2.3 - lift * .25)); b.rotation.set(0, 0, -s * 2.2); c.rotation.set(sw * .2, 0, s * 1.5 + lift * .3); });
+  C2.neck.rotation.x = .2 + Math.sin(t * 2.2) * .1; C2.head.rotation.z = Math.sin(t * 1.7) * .4;
+}
+// the thing in the hole: the grey demon (makeFairy, faceless), with a face drawn on that keeps changing: eyes sliding, a mouth trying shapes
+const demon = makeFairy({wings: false, crown: false, skin: 0x8a857a, skinD: 0x4a463e}); MT.add(demon.root); demon.root.visible = false;
+demon.mouth.visible = false; demon.head.children.forEach((c, i) => { if (i > 0) c.visible = false; });
+const dfCv = document.createElement('canvas'); dfCv.width = dfCv.height = 256; const dfx = dfCv.getContext('2d'); const dfTex = new THREE.CanvasTexture(dfCv); dfTex.colorSpace = THREE.SRGBColorSpace;
+const dFace = add(new THREE.CircleGeometry(.085, 32), new THREE.MeshStandardMaterial({map: dfTex, alphaTest: .5, roughness: .9}), demon.head, [0, .03, .121]); dFace.castShadow = false; dFace.receiveShadow = false;
+let dfSeed = -1;
+function drawDemonFace(seed) { if (seed === dfSeed) return; dfSeed = seed; let r = seed * 9301 + 49297; const R = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  dfx.clearRect(0, 0, 256, 256); const n = 2 + Math.floor(R() * 3);
+  for (let i = 0; i < n; i++) { const x = 60 + R() * 136, y = 60 + R() * 70, w = 10 + R() * 26; dfx.fillStyle = '#f0ece2'; dfx.beginPath(); dfx.ellipse(x, y, w, w * (.6 + R() * .8), R() - .5, 0, 7); dfx.fill();
+    dfx.fillStyle = '#100808'; dfx.beginPath(); dfx.arc(x + (R() - .5) * w * .6, y, w * .3, 0, 7); dfx.fill(); }
+  dfx.strokeStyle = '#2a0808'; dfx.lineWidth = 7; dfx.lineCap = 'round'; dfx.beginPath(); const my = 170 + R() * 40, mw = 30 + R() * 70; dfx.moveTo(128 - mw, my);
+  dfx.quadraticCurveTo(128, my + (R() - .3) * 90, 128 + mw, my + (R() - .5) * 30); dfx.stroke(); dfTex.needsUpdate = true; }
+
+// ================================================================ helpers
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0.get(P)); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  if (P.restPos) { P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck); }
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); P.faceLight.intensity = 0;
+}
+const place = (P, parent, x, z, ry, y = 0) => { if (P.root.parent !== parent) parent.add(P.root); P.root.visible = true; P.root.position.set(x, y, z); P.root.rotation.y = ry; };
+let OFF = V(0, 0, 0);
+const show = g => { PLACES.forEach(p => p.visible = p === g); OFF = g.position.clone(); };
+const W = (x, y, z) => V(x, y, z).add(OFF);
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const CL = (p, l, fov) => C(p.clone().add(OFF), l.clone().add(OFF), fov);
+const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };   // the middle of the face (the head joint sits at the chin)
+const HAND = (P, i) => { P.root.updateMatrixWorld(true); return P.arms[i].hand.getWorldPosition(V(0, 0, 0)); };
+// walk a character from a to b starting at t0, feet planted (the speed comes from its stride); returns how far along (0..1)
+function walkLine(P, parent, t, t0, a, b, {speed = 1, run = false} = {}) {
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]), sp = stride(P, {run}) * speed * (run ? 1.45 : 1), tt = Math.max(0, t - t0), k = Math.min(1, tt * sp / d);
+  place(P, parent, lerp(a[0], b[0], k), lerp(a[1], b[1], k), Math.atan2(b[0] - a[0], b[1] - a[1]));
+  if (k < 1) { if (run) runCycle(P, tt * speed, {}); else kitWalk(P, tt * speed, {}); } else relaxed(P);
+  return k;
+}
+function air(where) {
+  const A = {RD: [0x0e1424, .02, 0x9ab4f0, .7, 'night'], MT: [0x0e1424, .028, 0x9ab4f0, .8, 'night'], BK: [0x0a0e12, .04, 0x9ab8a0, .8, 'dread'],
+    OF: [0x0a0806, .02, 0xffc8a0, .3, 'lamp'], RM: [0x0a0806, .02, 0xffc8a0, .3, 'lamp']}[where];
+  fog.color.set(A[0]); fog.density = A[1]; scene.background.set(A[0]); CLAY_RIM.color.value.set(A[2]); CLAY_RIM.k.value = A[3]; grade(A[4]); }
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+// a guest's walk from the trees, across the road, through a lamp's pool, to the motel. Returns {x, z, lit, k}
+function guestPath(t, t0, path, sp) {
+  let segs = [], tot = 0; for (let i = 1; i < path.length; i++) { const d = Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]); segs.push(d); tot += d; }
+  let s = Math.max(0, t - t0) * sp; const k = Math.min(1, s / tot); s = Math.min(s, tot); let i = 0; while (i < segs.length - 1 && s > segs[i]) { s -= segs[i]; i++; }
+  const f = segs[i] ? s / segs[i] : 1, x = lerp(path[i][0], path[i + 1][0], f), z = lerp(path[i][1], path[i + 1][1], f);
+  return {x, z, ry: Math.atan2(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1]), lit: inLight(x, z), k};
+}
+// the three guests' paths (through the three pools) and when each starts
+const P_MAN = [[-8.5, 26.8], [-7.5, 22], [-6, 14.5], [-4.5, 8.5], [-4, 5.2]], P_WOM = [[5.2, 28], [4.5, 22], [3.5, 16.5], [1.5, 8.5], [.5, 5.2]], P_BOY = [[13, 22], [11, 15], [9, 9.5], [7.2, 6.5], [6.5, 5.2]];
+const flickerAt = (t, tc) => Math.abs(t - tc) < .18 ? (Math.floor(t * 12) % 2 ? .05 : .4) : 1;   // the lamp stutters as a guest crosses into it
+// the moment each guest first steps into the light (found once from its path)
+function firstLit(path, t0, sp) { for (let t = t0; t < t0 + 40; t += 1 / 24) if (guestPath(t, t0, path, sp).lit) return t; return 1e9; }
+const SP_CRAWL = 1.6, SP_WALK = 1.0;
+const litAfter = (path, sp) => firstLit(path, 0, sp);                 // seconds from its start to the light
+const X_MAN = ST('h07') + .5, X_WOM = ST('h08') + 2.7, X_BOY = ST('h09') + .5;   // into the light on "lamplight", "set it straight", "a little boy"
+const T_MAN = X_MAN - litAfter(P_MAN, SP_CRAWL), T_WOM = X_WOM - litAfter(P_WOM, SP_WALK * .8), T_BOY = X_BOY - litAfter(P_BOY, SP_WALK * 1.2);
+// a guest past the light: after the pool it walks on, normal, to its door. Before it: its dark shape.
+function guests(t, q, {man: sM = true, wom: sW = true, boy: sB = true} = {}) {
+  LAMPS.forEach(l => l.L.intensity = 40);
+  if (sM) { const g = guestPath(t, T_MAN, P_MAN, t < X_MAN ? SP_CRAWL : SP_WALK);
+    if (t < X_MAN) { crawl(q, g.x, g.z, g.ry); }
+    else { const gm = guestPath(X_MAN, T_MAN, P_MAN, SP_CRAWL); const path = [[gm.x, gm.z], ...P_MAN.filter(p => p[1] < gm.z)];
+      const h = guestPath(t, X_MAN, path, SP_WALK); place(man, MT, h.x, h.z, h.ry); if (h.k < 1) kitWalk(man, q * .9, {}); else relaxed(man); man.expr('sad'); }
+    lampAt(g.x, g.z).L.intensity *= flickerAt(t, X_MAN); }
+  if (sW) { const sp = SP_WALK * .8, g = guestPath(t, T_WOM, P_WOM, sp); place(woman, MT, g.x, g.z, g.ry); if (g.k < 1) kitWalk(woman, q * .8, {}); else relaxed(woman);
+    const k = t < X_WOM ? 0 : sm((t - X_WOM) / .35);                                                   // the head hangs off the side of her neck, until the light sets it straight
+    const hang = 1 - k, wob = Math.sin(q * 3) * .08 * hang; woman.neck.rotation.z = (1.25 + wob) * hang + Math.sin(k * PI) * -.25; woman.head.rotation.z = .9 * hang; woman.head.rotation.x = .3 * hang;
+    woman.arms.forEach(a => { a.up.rotation.x += .5 * hang; a.fo.rotation.x -= .2 * hang; });
+    woman.expr(k > .5 ? 'smile' : 'neutral'); if (k > .5) woman.mouth('smile', .6);
+    SHINE.wom.visible = t < X_WOM; lampAt(g.x, g.z).L.intensity *= flickerAt(t, X_WOM); }
+  if (sB) { const g = guestPath(t, T_BOY, P_BOY, SP_WALK * 1.2); place(boy, MT, g.x, g.z, g.ry); if (g.k < 1) kitWalk(boy, q * 1.1, {}); else relaxed(boy);
+    const k = t < X_BOY ? 0 : sm((t - X_BOY) / .3), s0 = S0.get(boy); boy.root.scale.set(s0 * lerp(.62, 1, k), s0 * lerp(1.95, 1, k), s0 * lerp(.62, 1, k));
+    boy.arms.forEach(a => { a.up.rotation.z += (1 - k) * .1; }); boy.expr('neutral');
+    SHINE.boy.visible = t < X_BOY; lampAt(g.x, g.z).L.intensity *= flickerAt(t, X_BOY); }
+}
+// Haru at the railing upstairs (her spot on the walkway, facing the car park)
+const RAIL_X = 2, HARU_Z = mBox.max.z - .55;
+function haruAtRail(q, {grip = 0, lean = 0} = {}) {
+  place(haru, MT, RAIL_X, HARU_Z, 0, WALK_Y); idle(haru, q);
+  haru.chest.rotation.x += lean; haru.arms.forEach((a, i) => { a.up.rotation.x = lerp(a.up.rotation.x, -.95, grip); a.up.rotation.z += (i ? -1 : 1) * .15 * grip; a.fo.rotation.x = lerp(a.fo.rotation.x, -.5, grip); });
+}
+
+// ================================================================ the timeline
+const q12 = t => Math.floor(t * 12) / 12;
+function frame(t) {
+  const q = q12(t);
+  boil(Math.floor(t * 6));
+  black = false; PEOPLE.forEach(P => { reset(P); P.root.visible = false; }); crawler.root.visible = false; demon.root.visible = false;
+  vacPlate.material = vacOn; vacPlate.userData.back.material = vacOn; noPlate.material = noOff; noPlate.userData.back.material = noOff; neonL.intensity = 6;
+  holeGlow.intensity = 0; backL.intensity = 0; dblL.intensity = 0; bkMoon.intensity = 0; FLAKES.forEach(o => o.f.visible = false);
+  [rdCar, mtCar].forEach(c => { c.userData.hl.intensity = 0; c.userData.tail.intensity = 0; });
+  // the car parked in the bay in front of their room (after it arrives)
+  const parkX = -1.2, parkZ = 7.5;
+  if (t < ST('h02') - .3) {                                            // the road: the car alone between black trees, headlights, then over the roof towards a red glow far ahead
+    show(RD); air('RD'); const z = -t * 9; rdCar.position.set(-1.4, 0, z); carFace(rdCar, PI); rdCar.userData.hl.intensity = 60; rdCar.userData.tail.intensity = 3;
+    const k = u01(t, 0, ST('h02') - .3);
+    if (t < 2.6) CL(V(-6, 3.2 - k * 1.2, z + 6 - k * 2), V(-1.4, .8, z - 3), 46);
+    else CL(V(-.6, 3.4, z + 9), V(-1.4, 1.0, z - 30), 50);
+  } else if (t < ST('h03') - .5) {                                     // the sign: VACANCY buzzing on; headlights come down the road; the car turns in under it
+    show(MT); air('MT'); const u = t - (ST('h02') - .3), fl = (u < .6 && Math.floor(u * 12) % 3 === 0) ? vacOff : vacOn; vacPlate.material = fl; vacPlate.userData.back.material = fl;
+    guests(-99, q, {man: false, wom: false, boy: false});
+    const drive = u01(t, ST('h02') - .3, ST('h03') - 1.0), x = lerp(-40, 12, Math.min(1, drive / .7)), turn = u01(drive, .7, 1);
+    const cx = turn > 0 ? lerp(12, parkX, sm(turn)) : x, cz = turn > 0 ? lerp(24.5, parkZ, sm(turn)) : 24.5;
+    mtCar.position.set(cx, 0, cz); carFace(mtCar, turn > 0 ? lerp(PI / 2, PI, sm(turn * 1.5)) : PI / 2); mtCar.userData.hl.intensity = 60; mtCar.userData.tail.intensity = 3;
+    if (t < ST('h02') + 2.4) CL(V(13.6, 1.8, 19.2), V(-6, 1.4, 24.5), 46);                                  // behind the sign, looking down the road: the lights coming
+    else if (t < ST('h02') + 3.6) CL(V(12.2, 2.0, 24.4), V(12.5, 2.15, 21.2), 34);                          // the neon: VACANCY
+    else CL(V(11, 7.5, 31), V(1, 1, 8), 48);                                                               // high over the road: the car turns in, the motel, the empty car park
+  } else if (t < ST('h04') - .5) {                                     // the office: nobody; the bell; the key already out on the counter; her hand takes it
+    show(OF); air('OF'); const u = t - (ST('h03') - .5);
+    place(haru, OF, .75, .35, PI + .3); idle(haru, q); haru.expr('worried');
+    const reach = u01(t, ST('h03') + 2.2, ST('h03') + 3.0); haru.arms[1].up.rotation.x = -1.3 * reach; haru.arms[1].up.rotation.z = -.3 * reach; haru.arms[1].fo.rotation.x = -.2 * reach; haru.chest.rotation.x = .2 * reach;
+    keyG.visible = t < ST('h03') + 3.0;
+    if (t < ST('h03') + 1.4) CL(V(-.3, 1.5, 1.6), V(0, 1.15, -1.2), 44);                                    // the empty counter, the pegs behind: one empty
+    else if (t < ST('h03') + 2.2) CL(V(.05, 1.42, .05), V(.25, 1.1, -.36), 30);                              // the key, the tag: 6, family of three
+    else CL(V(1.9, 1.45, .5), V(.3, 1.05, -.4), 40);                                                         // her hand takes it
+  } else if (t < ST('h05') - .4) {                                     // the room: her palm on the bed; Mum at the window; the corner, empty
+    show(RM); air('RM'); place(mum, RM, 1.6, -.2, -PI / 2 - .3); idle(mum, q, 1, 2); mum.expr('neutral');
+    place(dad, RM, 1.3, 1.5, -PI / 2 - .8); idle(dad, q, 1, 5); dad.expr('sleepy');
+    place(haru, RM, .25, -1.45, -PI / 2); idle(haru, q); haru.expr('worried');
+    const press = u01(t, ST('h04'), ST('h04') + .8); haru.arms[0].up.rotation.x = -.9 * press; haru.chest.rotation.x = .35 * press; haru.arms[0].fo.rotation.x = -.1;
+    if (t > ST('h04') + 1.7 && t < ST('h04') + 2.8) { mum.mouth('open', .5 + .3 * Math.sin(q * 20)); }
+    if (t < ST('h04') + 1.5) CL(V(-.1, 1.7, .3), V(-.3, .55, -1.5), 42);                                           // her palm flat on the cover
+    else if (t < ST('h04') + 2.9) { const h = HEAD(mum); C(h.clone().add(V(-1.3, -.05, .5)), h, 34); }        // Mum, by the window
+    else { const k = u01(t, ST('h04') + 2.9, EN('h04') + .4); CL(V(lerp(.9, 1.3, k), lerp(1.0, .55, k), lerp(-.7, -1.6, k)), V(corner.x, .3, corner.z), lerp(46, 36, k)); }   // down to the floor: the empty corner, a socket, nothing plugged in
+  } else if (t < ST('h06') - .7) {                                     // out of the door, onto the walkway; the car park below, three pools of light, black between
+    show(MT); air('MT'); guests(-99, q, {man: false, wom: false, boy: false}); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI);
+    const k = u01(t, ST('h05'), ST('h05') + 1.4); place(haru, MT, lerp(RAIL_X - 1.2, RAIL_X, k), lerp(HARU_Z - .9, HARU_Z, k), .6 * (1 - k), WALK_Y);
+    if (k < 1) kitWalk(haru, q, {amp: .7}); else idle(haru, q); haru.expr('worried');
+    if (t < EN('h05') + .2) CL(V(RAIL_X + 1.5, 1.4, 12), V(RAIL_X, WALK_Y + 1.1, HARU_Z), 34);               // from the car park, up at her in the door light
+    else { const h = HEAD(haru); C(h.clone().add(V(-.55, .25, -1.2)), h.clone().add(V(.5, -1.6, 7)), 48); }  // over her shoulder: the lot
+  } else if (t < ST('h10') - .4) {                                     // the guests come out of the trees, one after another, and become people in the light
+    show(MT); air('MT'); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI);
+    guests(t, q); haruAtRail(q, {grip: .5}); haru.expr(t < ST('h08') ? 'scared' : 'terrified'); look(haru, {nod: .25});
+    if (t > ST('h09') + 1.2 && t < ST('h09') + 2.8) { boy.arms[1].up.rotation.set(0, 0, 2.6); boy.arms[1].fo.rotation.set(-.6, 0, 0); look(boy, {nod: -.5}); boy.expr('smile'); boy.mouth('smile', .7); }   // he looks up, and waves
+    const gm = guestPath(t, T_MAN, P_MAN, SP_CRAWL);
+    if (t < ST('h06') + 1.4) { const h = HEAD(haru); C(h.clone().add(V(-.5, .2, -1.3)), W(-7.5, .5, 22), 40); }                    // over her shoulder: the dark under the trees
+    else if (t < X_MAN - .3) { const g = guestPath(t, T_MAN, P_MAN, SP_CRAWL); CL(V(g.x + 3.2, 1.3, g.z - 5.2), V(g.x, .7, g.z), 40); }   // low: it comes on all fours across the road
+    else if (t < ST('h07') + 2.4) { man.root.updateMatrixWorld(true); const h = man.root.visible ? HEAD(man) : W(-6, 1.4, 14.5); C(h.clone().add(V(1.6, .2, -2.4)), h.clone().add(V(0, -.2, 0)), 34); }   // under the lamp: a man
+    else if (t < ST('h08') - .3) { const h = HEAD(haru); C(h.clone().add(V(.3, .55, 1.15)), h.clone(), 30); }                                     // Haru's face, above the rail
+    else if (t < X_WOM + .9) { const g = guestPath(t, T_WOM, P_WOM, SP_WALK * .8); CL(V(g.x + 1.9, 1.3, g.z - 3.2), V(g.x, 1.3, g.z), 38); }   // the woman, head hanging, into the light
+    else if (t < ST('h09') - .2) { const h = HEAD(woman); C(h.clone().add(V(-.7, .1, -2.0)), h.clone().add(V(0, -.1, 0)), 32); }                             // her face, set straight, smiling
+    else if (t < ST('h09') + 1.2) { const g = guestPath(t, T_BOY, P_BOY, SP_WALK * 1.2); CL(V(g.x + 2.6, 1.6, g.z - 3.6), V(g.x, 1.1, g.z), 42); }   // the stretched boy shrinks into a boy
+    else { const h = HEAD(haru); C(h.clone().add(V(.45, .45, -.75)), HEAD(boy).add(V(0, -.4, 0)), 44); }                                         // over her shoulder: he waves up at her
+  } else if (t < ST('h11') - .3) {                                     // they all had keys: doors open, lights on behind them; only one car in the whole car park
+    show(MT); air('MT'); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI); guests(t, q); haruAtRail(q, {grip: .6}); haru.expr('terrified');
+    groundDoorL.forEach(L => L.intensity = 5);
+    CL(V(-2, 10, 26), V(0, 0, 9), 46);
+  } else if (t < ST('h12') - .2) {                                     // her hands on the rail, gripping; the green paint flakes off and falls; her face
+    show(MT); air('MT'); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI); haruAtRail(q, {grip: 1, lean: .1}); haru.expr('terrified');
+    const u = t - (ST('h11') - .3); FLAKES.forEach((o, i) => { const tt = u - o.sd * 2; if (tt < 0) return; o.f.visible = true;
+      o.f.position.set(RAIL_X + (o.sx - .5) * .7, 1.0 - tt * (.5 + o.sp * .4), .1 + tt * .15 * o.sp); o.f.rotation.set(tt * 6 * o.sp, tt * 4, i); });
+    if (t < ST('h11') + 2.6) { const h = HAND(haru, 0); C(h.clone().add(V(.5, .15, .55)), h.clone().add(V(-.2, -.1, 0)), 32); }
+    else { const h = HEAD(haru); C(h.clone().add(V(-.2, .55, 1.1)), h.clone(), 30); }
+  } else if (t < ST('h13') - .5) {                                     // down the stairs and round the side of the motel, into the dark
+    show(MT); air('MT'); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI); haru.expr('worried');
+    const t0 = ST('h12') - .2, k1 = u01(t, t0, t0 + 1.8), sx = STAIR_X, sz0 = mBox.max.z - 1.2 + 1.2, sz1 = sz0 - 4.2;
+    if (k1 < 1) { place(haru, MT, sx, lerp(sz1, sz0, k1), 0, lerp(WALK_Y, 0, k1)); kitWalk(haru, q, {amp: .8}); haru.root.rotation.y = PI;
+      haru.root.position.z = lerp(sz1 + 4.2, sz1, k1); CL(V(sx + 3.5, 1.6, sz0 + 3), V(sx, lerp(WALK_Y, 0, k1) + 1, haru.root.position.z), 42); }
+    else { walkLine(haru, MT, t, t0 + 1.8, [sx, sz1], [sx + .5, mBox.min.z - 2], {speed: .9}); haru.expr('scared');
+      const p = haru.root.position; CL(V(p.x + .3, 1.3, p.z + 2.6), V(p.x - .2, 1.0, p.z - 4), 46); }
+  } else if (t < ST('h14') - .2) {                                     // behind the motel: the ground open; something pulling itself out, its face still trying shapes
+    show(MT); air('BK'); bkMoon.intensity = 1.4; holeGlow.intensity = 3.5; backL.intensity = 5;
+    const u = u01(t, ST('h13') - .5, EN('h13') + 1.0); demon.root.visible = true; demon.root.position.set(HOLE.x, lerp(-1.6, -.55, u), HOLE.z); demon.root.rotation.set(0, .2, 0); demon.root.scale.setScalar(1.15);
+    demon.pelvis.position.set(0, .95, 0); demon.spine.rotation.set(.6, 0, 0); demon.neck.rotation.set(.2, 0, 0); demon.head.rotation.set(-.4, Math.sin(q * 2) * .3, Math.sin(q * 1.3) * .25);
+    demon.arms.forEach((a, i) => { a.up.rotation.set(-1.9 + Math.sin(q * 3 + i) * .2, 0, a.sd * .5); a.fo.rotation.set(-.5, 0, 0); curl(a, .6, .2, q); });
+    demon.head.scale.set(1 + Math.sin(q * 7) * .08, 1.15 + Math.sin(q * 5) * .1, 1); drawDemonFace(Math.floor(t * 6));
+    place(haru, MT, HOLE.x - 1.4, HOLE.z + 4.2, PI + .3); idle(haru, q); haru.expr('terrified'); haru.chest.rotation.x = -.1;
+    dblL.intensity = 6; dblL.position.set(HOLE.x - .4, 2.6, HOLE.z + 5.6); dblL.target.position.set(HOLE.x - 1.4, .8, HOLE.z + 4.2);
+    if (t < ST('h13') + 1.6) CL(V(HOLE.x + .7, 1.7, HOLE.z + 6.6), V(HOLE.x - .2, .3, HOLE.z), 42);
+    else { demon.root.updateMatrixWorld(true); const h = demon.head.getWorldPosition(V(0, 0, 0)); C(h.clone().add(V(.3, .12, 1.6)), h, 34); }
+  } else if (t < ST('h15')) {                                          // she turns and runs for the motel
+    show(MT); air('BK'); bkMoon.intensity = 1.4; holeGlow.intensity = 3.5; backL.intensity = 5;
+    const t0 = ST('h14') - .2, k = u01(t, t0, t0 + .5); place(haru, MT, HOLE.x - 1.4, HOLE.z + 4.2, lerp(PI + .3, 0, sm(k))); haru.expr('terrified');
+    if (k < 1) relaxed(haru); else { const d = (t - t0 - .5) * 2.2; haru.root.position.z += d; runCycle(haru, t - t0, {}); }
+    const p = haru.root.position; CL(V(p.x + .2, 1.0, p.z + 2.8), V(p.x, .9, p.z), 44);
+  } else if (t < EN('h15') + 1.3) {                                    // she was already there: the other one, in her way, under the back-door bulb. Hold. Cut.
+    show(MT); air('BK'); bkMoon.intensity = 1.4; backL.intensity = 2.5;
+    const p = V(HOLE.x - 1.4, 0, HOLE.z + 4.2 + (ST('h15') - ST('h14') - .3) * 2.2);
+    place(haru, MT, p.x, p.z, 0); relaxed(haru); haru.expr('terrified'); haru.chest.rotation.x = -.15; look(haru, {jut: -.02, nod: -.2});
+    place(dbl, MT, p.x + .1, p.z + 1.1, PI); relaxed(dbl, 1, -1); dbl.eyes('white'); dbl.mouth('grin', 1); look(dbl, {tilt: .22, nod: .05});
+    dbl.faceLight.intensity = 0; dblL.intensity = 9; dblL.position.set(p.x + .6, 2.4, p.z + .2); dblL.target.position.set(p.x + .1, 1.0, p.z + 1.1);
+    const k = u01(t, ST('h15'), ST('h15') + .6), h = HEAD(dbl);
+    if (t < ST('h15') + .45) { const hh = HEAD(haru); C(hh.clone().add(V(.45, .25, -.7)), h, 40); }      // over Haru's shoulder: someone there
+    else { haru.root.visible = false; C(h.clone().add(V(.05, .02, -lerp(1.7, 1.15, k))), h.clone().add(V(0, -.04, 0)), 30); }          // the face: her own, wrong
+  } else if (t < ST('END') - 1.6) { black = true; }                   // black. "Don't worry. I'll tell them."
+  else {                                                               // the sign: NO clicks on
+    show(MT); air('MT'); guests(-99, q, {man: false, wom: false, boy: false}); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI);
+    const on = t > ST('END') - 1.1; noPlate.material = on ? noOn : noOff; noPlate.userData.back.material = noPlate.material; neonL.intensity = on ? 9 : 5;
+    CL(V(10.4, 2.4, 26.6), V(11.8, 2.2, 21.5), 46);
+  }
+}
+const frameFX = followFrame(frame, () => [haru, dbl, mum, woman]);
+window.DUR = DUR; window.DBGV = t => ({T_MAN, X_MAN, T_WOM, X_WOM, T_BOY, X_BOY, g: guestPath(t, T_MAN, P_MAN, SP_CRAWL), cr: crawler.root.position, vis: crawler.root.visible, par: crawler.root.parent === MT});
+const QC = new URLSearchParams(location.search).get('cam');   // &cam=x,y,z,lx,ly,lz,fov: a free camera in the shown place's coordinates, for checking
+window.renderAt = t => { frameFX(t); if (QC) { const c = QC.split(',').map(Number); CL(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

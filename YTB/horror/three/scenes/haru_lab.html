@@ -34,7 +34,7 @@ window.DUR = mode === 'move' ? travelTime(P, PATH) : 7;
 let camX = 0;
 let R0 = null;
 const frame = t => { reset();
-  if (mode === 'face') { const i = Math.floor(t); if (i < 6) relaxed(P); P.expr('neutral'); }
+  if (mode === 'face') { const i = Math.floor(t); if (i < 6) relaxed(P); P.expr('neutral'); if (q.get('double')) { P.eyes('white'); P.mouth('grin', 1); } }
   else { R0 = travel(P, t, PATH); if (R0.move !== 'look') P.expr(R0.move === 'run' ? 'scared' : 'neutral'); } };
 const frameFX = followFrame(frame, () => [P]);                        // the hair swings behind and settles
 window.renderAt = t => { frameFX(t);
