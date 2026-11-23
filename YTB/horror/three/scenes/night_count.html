@@ -1,0 +1,183 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE NIGHT COUNT (9:16, ~60 s): one hospital room, night to morning. The clay library (lib.char / lib.prop, moves.js). Timed to night_count/voice/layout.json.
+// The room (x across, z toward the camera; the back wall at z -3): Grandma's bed left, the empty bed right behind a curtain screen, Haru's chair between,
+// the door in the right wall near the front, a clock over the beds, a window in the back wall (night blue, then morning).
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, add, S, Cp, G, boil, CLAY_RIM, followFrame, look, pose} from './clay.js';
+import * as K from './clay_sets.js';
+import {lib} from './library.js';
+import {relaxed, idle} from './moves.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+cam.near = .02; cam.far = 60; cam.updateProjectionMatrix();
+const LAY = Object.fromEntries((await (await fetch('/data/night_count_layout.json')).json()).map(l => [l.name, l]));
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+const fog = K.haze(scene, 0x06080a, .03); scene.background = new THREE.Color(0x06080a);
+const u01 = (t, a, b) => clamp01((t - a) / (b - a)), sm = x => ease(clamp01(x));
+
+// ================================================================ the room
+const R = new THREE.Group(); scene.add(R);
+const RW = 5.6, RD = 6.4, RH = 2.8;
+add(K.rbox(RW, .1, RD, .01), clay(0x8a948c, {bumpScale: .6}), R, [0, -.05, -.2]);
+add(K.rbox(RW, .1, RD, .01), clay(0x5a605c), R, [0, RH + .05, -.2]);
+const wallM = clay(0x9aaa9c, {bumpScale: .9});
+add(K.rbox(.12, RH, RD, .01), wallM, R, [-RW / 2, RH / 2, -.2]);
+add(K.rbox(RW, RH, .12, .01), wallM, R, [0, RH / 2, -3.4]);
+// the right wall, with the door opening near the front (z 1.0 .. 1.95)
+add(K.rbox(.12, RH, 4.4, .01), wallM, R, [RW / 2, RH / 2, -1.2]); add(K.rbox(.12, RH, .9, .01), wallM, R, [RW / 2, RH / 2, 2.55]); add(K.rbox(.12, .7, 1.0, .01), wallM, R, [RW / 2, RH - .35, 1.5]);
+add(K.rbox(RW, .7, .06, .005), clay(0x6a8478), R, [0, .35, -3.33]);                       // the darker band along the back wall
+const door = G(R, [RW / 2, 0, 1.0]); add(K.rbox(.06, 2.08, .95, .01), clay(0xd8d4c4), door, [0, 1.04, .475]); add(K.rbox(.04, .3, .2, .005), new THREE.MeshBasicMaterial({color: 0xcfe8f0}), door, [-.03, 1.6, .5]);
+const corridor = new THREE.SpotLight(0xdff0ff, 0, 9, .55, .5, 1.3); corridor.position.set(RW / 2 + 1.5, 2.0, 1.45); corridor.target.position.set(0, 0, .6); corridor.castShadow = true; corridor.shadow.mapSize.set(1024, 1024); R.add(corridor, corridor.target);
+const corridorWall = add(new THREE.PlaneGeometry(1.0, 2.1), new THREE.MeshBasicMaterial({color: 0xcfe0e8}), R, [RW / 2 + .9, 1.05, 1.47], [0, -PI / 2, 0]);   // the bright corridor beyond the door
+// the window: night, then morning
+const winM = new THREE.MeshBasicMaterial({color: 0x182438}); add(new THREE.PlaneGeometry(1.4, 1.0), winM, R, [1.2, 1.7, -3.33]);
+for (const x of [.48, 1.92]) add(K.rbox(.05, 1.1, .06, .005), clay(0xe0dcd0), R, [x, 1.7, -3.31]); add(K.rbox(1.5, .05, .08, .005), clay(0xe0dcd0), R, [1.2, 1.17, -3.3]);
+const sun = new THREE.SpotLight(0xffe8c0, 0, 14, .6, .6, 1.2); sun.position.set(1.2, 2.0, -3.6); sun.target.position.set(-.5, 0, .5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); R.add(sun, sun.target);
+// the strip light (on in the evening and the morning; a dim night light the rest)
+const stripM = new THREE.MeshBasicMaterial({color: 0xeaffff}); const strip = add(K.rbox(1.3, .05, .22, .01), stripM, R, [0, RH - .03, -.8]);
+const stripL = new THREE.PointLight(0xdff8f0, 0, 9, 1.4); stripL.position.set(0, RH - .25, -.8); stripL.castShadow = true; stripL.shadow.mapSize.set(1024, 1024); R.add(stripL);
+const nightL = new THREE.PointLight(0x8aa8d0, 2.2, 5, 1.6); nightL.position.set(-2.4, .6, .2); R.add(nightL);   // the night light by the floor
+const hemi = new THREE.HemisphereLight(0x4a5a6a, 0x080a0a, .35); R.add(hemi);
+const moon = new THREE.SpotLight(0x8aa8e0, 0, 9, .45, .6, 1.3); moon.position.set(1.2, 1.9, -3.2); moon.target.position.set(1.55, .6, -1.6); moon.castShadow = true; moon.shadow.mapSize.set(1024, 1024); R.add(moon, moon.target);
+const fill = new THREE.PointLight(0xffe0c8, 0, 4, 1.8); R.add(fill);                     // a soft light on whoever the close-up is on
+// the clock over the beds: a face and two hands set to any time
+const clockG = G(R, [0, 2.2, -3.32]); add(new THREE.CylinderGeometry(.24, .24, .05, 32), new THREE.MeshStandardMaterial({color: 0xf0ece0, emissive: 0x6a6a60, roughness: .9}), clockG, [0, 0, 0], [PI / 2, 0, 0]); add(new THREE.TorusGeometry(.24, .022, 8, 32), clay(0x2a2a2a), clockG, [0, 0, .02]);
+for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2; add(K.rbox(.012, .04, .01, .002), clay(0x2a2a2a), clockG, [Math.sin(a) * .19, Math.cos(a) * .19, .03], [0, 0, -a]); }
+const hourH = G(clockG, [0, 0, .035]); add(K.rbox(.02, .12, .01, .003), clay(0x1a1a1a), hourH, [0, .055, 0]);
+const minH = G(clockG, [0, 0, .04]); add(K.rbox(.012, .18, .01, .003), clay(0x1a1a1a), minH, [0, .085, 0]);
+const setClock = (h, m) => { hourH.rotation.z = -((h % 12) + m / 60) / 12 * PI * 2; minH.rotation.z = -m / 60 * PI * 2; };
+// the beds, the screen, the drip, Haru's chair
+const bedG = await lib.prop('hospital_bed', {length: 2.1}); bedG.position.set(-1.45, 0, -2.0); bedG.rotation.y = PI / 2; R.add(bedG);
+const bedE = await lib.prop('hospital_bed', {length: 2.1}); bedE.position.set(1.55, 0, -2.0); bedE.rotation.y = PI / 2; R.add(bedE);
+const screen = await lib.prop('screen', {height: 1.75}); screen.position.set(.55, 0, -1.05); screen.rotation.y = -.35; R.add(screen);
+const drip = await lib.prop('drip_stand', {height: 1.85}); drip.position.set(-2.4, 0, -2.6); R.add(drip);
+const chair = await lib.prop('chair', {height: .9}); chair.position.set(-.35, 0, -1.3); chair.rotation.y = -PI / 2; R.add(chair);
+const chair2 = await lib.prop('chair', {height: .9}); chair2.position.set(.05, 0, -1.05); chair2.rotation.y = -PI / 2 - .35; R.add(chair2);
+const lampP = await lib.prop('floor_lamp', {height: 1.4}); lampP.position.set(-2.5, 0, -.4); R.add(lampP);
+// the bed top (where a sleeper lies): measured from the bed
+const bb = new THREE.Box3().setFromObject(bedE), BED_TOP = bb.max.y * .78;
+// the thing on the empty bed: a body under a sheet, breathing
+const thing = G(R, [1.55, BED_TOP, -2.05]); const sheetM = clay(0xe4e0d6, {bumpScale: 1.2});
+const tBody = add(S(.32, 1, .45, 2.3), sheetM, thing, [0, .1, .15]); const tHead = add(S(.17, 1, .9, 1.05), sheetM, thing, [0, .12, -.72]);
+add(K.rbox(.95, .05, 1.9, .03), sheetM, thing, [0, .02, .05]);
+// the sheet over Haru in the morning (to her chin)
+const hSheet = add(K.rbox(.9, .14, 1.55, .06), sheetM, R, [1.55, BED_TOP + .12, -1.85]);
+
+// ================================================================ the cast
+const haru = await lib.char('haru'), dbl = await lib.char('haru'), gran = await lib.char('grandma'), nurse = await lib.char('woman_red');
+const PEOPLE = [haru, dbl, gran, nurse]; PEOPLE.forEach(P => { scene.add(P.root); P.faceLight.intensity = 0; });
+const S0 = new Map(PEOPLE.map(P => [P, P.root.scale.x]));
+// the nurse: the red coat turned to pale blue scrubs (her texture's reds shifted)
+{ const m = nurse.mesh.material, img = m.map.image, cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const c2 = cv.getContext('2d'); c2.drawImage(img, 0, 0);
+  const d = c2.getImageData(0, 0, cv.width, cv.height), a = d.data;
+  for (let i = 0; i < a.length; i += 4) { const r = a[i], g = a[i + 1], b = a[i + 2]; if (r > 90 && r - g > 55 && r - b > 45) { const l = .55 + .45 * r / 255; a[i] = 150 * l; a[i + 1] = 185 * l; a[i + 2] = 205 * l; } }
+  c2.putImageData(d, 0, 0); const tx = new THREE.CanvasTexture(cv); tx.flipY = m.map.flipY; tx.colorSpace = THREE.SRGBColorSpace; m.map = tx; m.needsUpdate = true; }
+
+// ================================================================ helpers
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0.get(P)); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  if (P.restPos) { P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck); }
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); P.faceLight.intensity = 0;
+}
+const place = (P, x, z, ry, y = 0) => { P.root.visible = true; P.root.position.set(x, y, z); P.root.rotation.y = ry; };
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };
+function FACE(P, dist = 1.0, up = .03, side = 0, fov = 30) { const h = HEAD(P), f = new THREE.Vector3(); P.head.getWorldDirection(f); f.y = 0; f.normalize();
+  const r = V(f.z, 0, -f.x); C(h.clone().addScaledVector(f, dist).addScaledVector(r, side).add(V(0, up, 0)), h, fov); fill.position.copy(h).addScaledVector(f, 1.2).add(V(.5, .6, 0)); fill.intensity = 1.1; }
+const HAND = (P, i) => { P.root.updateMatrixWorld(true); return P.arms[i].hand.getWorldPosition(V(0, 0, 0)); };
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+function night() { grade('dread'); fog.color.set(0x06080a); scene.background.set(0x06080a); fog.density = .03; CLAY_RIM.color.value.set(0x8aa8d0); CLAY_RIM.k.value = .45;
+  stripL.intensity = 0; stripM.color.set(0x3a4440); nightL.intensity = 5; hemi.intensity = .8; sun.intensity = 0; winM.color.set(0x24345a); moon.intensity = 22; }
+function morning() { grade('none'); fog.color.set(0x8a8a80); scene.background.set(0x8a8a80); fog.density = .004; CLAY_RIM.k.value = .15;
+  stripL.intensity = 2.5; stripM.color.set(0xeaffff); nightL.intensity = 0; hemi.intensity = .55; sun.intensity = 14; winM.color.set(0xf8f0d8); moon.intensity = 0; }
+// lying in a bed on her back, looking at the ceiling (the bed top, head toward the back wall)
+function lie(P, x, z) { place(P, x, z + .8, PI, BED_TOP + .12); P.root.rotation.set(-PI / 2, 0, 0); P.root.rotation.order = 'YXZ'; P.root.position.z = z + .75; }
+// Grandma sitting up in her bed (head toward the back wall, facing the room)
+function granInBed(q, {up = .6} = {}) { place(gran, -1.45, -2.05, 0, BED_TOP - .5); pose(gran, 'sitFloor'); gran.root.position.y = BED_TOP - .38; gran.chest.rotation.x -= up * .5; idle(gran, q, .3, 3); }
+// Haru on the chair, turned to Grandma, her hand on the blanket
+function haruOnChair(P, q) { place(P, -.35, -1.25, -PI / 2); pose(P, 'sitChair'); P.root.position.y = .03; P.arms[0].up.rotation.set(-1.0, 0, .1); P.arms[0].fo.rotation.x = -.3; idle(P, q, .2); }
+// the girl in Haru's hoodie on the chair between the beds, turned to Grandma, holding her hand
+function dblOnChair(q) { place(dbl, .05, -1.05, -PI / 2 - .35); pose(dbl, 'sitChair'); dbl.root.position.y = .03; dbl.arms[1].up.rotation.set(-1.1, 0, .25); dbl.arms[1].fo.rotation.x = -.2; idle(dbl, q, .2); }
+function nurseAtDoor(open, k = 1) { door.rotation.y = open * 1.3; corridor.intensity = open * 40; place(nurse, RW / 2 + .55 - k * .45, 1.45, -PI / 2); relaxed(nurse); nurse.expr('neutral'); }
+const q12 = t => Math.floor(t * 12) / 12;
+
+// ================================================================ the timeline
+function frame(t) {
+  const q = q12(t);
+  boil(Math.floor(t * 6));
+  black = false; fill.intensity = 0; PEOPLE.forEach(P => { reset(P); P.root.visible = false; }); thing.visible = false; hSheet.visible = false; door.rotation.y = 0; corridor.intensity = 0;
+  screen.visible = true; tBody.scale.y = 1;
+  const breathe = () => { thing.visible = true; const b = Math.sin(t * 2 * PI / 2.6); tBody.scale.y = 1 + .08 * b; tHead.position.y = .12 + .01 * b; };
+  if (t < ST('h02') - .3) {                                            // morning: a girl lying in the empty bed, eyes open; slow in
+    morning(); screen.visible = false; lie(haru, 1.55, -2.05); hSheet.visible = true; haru.expr('neutral'); haru.eyes('wide');
+    granInBed(q); dblOnChair(q);
+    const k = u01(t, 0, ST('h02') - .3), h = HEAD(haru); C(h.clone().add(V(lerp(-.6, -.25, k), lerp(.9, .4, k), lerp(1.8, 1.0, k))), h, 38);
+  } else if (t < ST('n1a') - .2) {                                     // night: Haru on the chair holding Grandma's hand; the made-up empty bed beyond
+    night(); setClock(11, 0); granInBed(q, {up: .3}); gran.eyes('closed'); haruOnChair(haru, q); haru.expr('worried');
+    const k = u01(t, ST('h02') - .3, ST('n1a') - .2); C(V(lerp(-1.6, .4, k), 1.5, 1.9), V(lerp(-1.2, 1.2, k), .8, -2.0), 44);
+  } else if (t < ST('h03') - .3) {                                     // the door opens: the corridor light; the nurse. Grandma, without looking: "Two."
+    night(); setClock(11, 0); granInBed(q, {up: .3}); haruOnChair(haru, q); look(haru, {turn: -1.0}); haru.expr('worried');
+    nurseAtDoor(1, u01(t, ST('n1a') - .6, ST('n1a') + .2)); if (t < EN('n1a')) nurse.mouth(Math.floor(t * 8) % 2 ? 'open' : 'closed', .4);
+    if (t < ST('g01') - .2) FACE(nurse, 1.5, 0, .3, 34);
+    else { gran.eyes('closed'); gran.mouth(t < EN('g01') ? 'open' : 'closed', .3); FACE(gran, 1.1, .05, .3, 32); }
+  } else if (t < ST('h04') - .3) {                                     // every hour: the clock jumps; the door's light sweeps in and out
+    night(); const k = u01(t, ST('h03') - .3, ST('h04') - .3), hr = 12 + Math.floor(k * 3.99), on = (k * 4) % 1 < .45;
+    setClock(hr, 0); granInBed(q, {up: .2}); gran.eyes('closed'); haruOnChair(haru, q); haru.expr('sleepy'); door.rotation.y = on ? 1.3 : 0; corridor.intensity = on ? 40 : 0;
+    if (on) { place(nurse, RW / 2 + .2, 1.45, -PI / 2); relaxed(nurse); }
+    if ((k * 4) % 2 < 1) C(V(0, 2.05, -2.4), V(0, 2.2, -3.32), 34); else C(V(1.2, 1.4, 2.6), V(RW / 2, 1.1, 1.4), 40);
+  } else if (t < ST('h05') - .4) {                                     // her hand in Grandma's; Grandma squeezes; then her eyes, wide awake: "Always two, Haru."
+    night(); setClock(2, 0); granInBed(q, {up: .3}); haruOnChair(haru, q); haru.expr('worried');
+    const sq = Math.sin(u01(t, ST('h04') + .8, ST('h04') + 1.6) * PI); gran.arms[0].up.rotation.set(-.6 - .2 * sq, 0, -.6); gran.arms[0].fo.rotation.x = -.5;
+    if (t < ST('g02') - .1) { gran.eyes('closed'); const h = HAND(haru, 0); C(h.clone().add(V(.25, .45, .55)), h, 30); }
+    else { gran.eyes('wide'); gran.expr('scared'); gran.mouth(t < EN('g02') ? 'open' : 'closed', .4); look(gran, {turn: -.5}); FACE(gran, .95, .03, 0, 30); }
+  } else if (t < ST('h06') - .3) {                                     // three in the morning: Grandma snoring; behind the screen, a shape breathing
+    night(); setClock(3, 0); granInBed(q, {up: 0}); gran.eyes('closed'); gran.mouth('open', .3); haruOnChair(haru, q); haru.expr('scared'); look(haru, {turn: 1.2});
+    breathe(); nightL.intensity = 1.4;
+    const back = new THREE.PointLight(0x8aa8d0, 0); const k = u01(t, ST('h05') - .4, ST('h06') - .3);
+    if (t < ST('h05') + 1.2) C(V(0, 2.05, -2.2), V(0, 2.2, -3.32), 32); else C(V(lerp(.7, 1.0, k), 2.62, .0), V(1.55, BED_TOP, -2.05), 46);   // over the top of the screen: the shape on the bed, breathing
+  } else if (t < ST('n1b') - .2) {                                     // she edges round the screen: a body under a sheet on the empty bed, breathing
+    night(); setClock(3, 5); granInBed(q, {up: 0}); gran.eyes('closed'); breathe(); screen.rotation.y = -.35;
+    const k = u01(t, ST('h06') - .3, ST('n1b') - .2); place(haru, lerp(.1, .55, k), lerp(-.5, -.2, k), PI * .75); idle(haru, q); haru.expr('terrified');
+    if (t < ST('h06') + 1.2) { const h = HEAD(haru); C(V(-.5, 1.35, .9), h, 36); fill.position.set(-.3, 1.8, .6); fill.intensity = 1.2; }   // Haru edging toward the screen else { screen.visible = false; C(V(.5, 1.55, -.3), V(1.5, BED_TOP + .1, -2.1), 40); }        // round the screen: the sheet, breathing
+  } else if (t < ST('h08')) {                                          // the door: "How many people are in this room?" Haru: "Three." The nurse smiles: "Then one of you has to leave." The light dies.
+    night(); setClock(3, 5); granInBed(q, {up: 0}); gran.eyes('closed'); breathe();
+    place(haru, .55, -.2, PI * .25); idle(haru, q); haru.expr('terrified'); look(haru, {turn: .9});
+    nurseAtDoor(1, 1); if (t >= ST('n1b') && t < EN('n1b')) nurse.mouth(Math.floor(t * 8) % 2 ? 'open' : 'closed', .4);
+    if (t > ST('n02') - .3) { nurse.expr('creepySmile'); nurse.mouth('smile', 1); if (t >= ST('n02') && t < EN('n02')) nurse.mouth('open', .5); }
+    if (t < ST('h07') - .2) FACE(nurse, 1.5, 0, .3, 34);
+    else if (t < ST('n02') - .3) { haru.mouth(t < EN('h07') + .1 ? 'open' : 'closed', .4); FACE(haru, .9, .03, -.15, 30); }
+    else { FACE(nurse, 1.0, .02, .1, 30); if (t > EN('n02') + .2) { corridor.intensity = 0; nightL.intensity = 0; hemi.intensity = .05; door.rotation.y = 0; } }
+  } else if (t < ST('h09') - .4) { black = true;                       // "The lights went out."
+  } else if (t < ST('h10') - .3) {                                     // morning: she's in the empty bed, can't move; her eyes go right and left
+    morning(); screen.visible = false; lie(haru, 1.55, -2.05); hSheet.visible = true; haru.expr('terrified'); haru.eyes('wide');
+    const h = HEAD(haru); C(h.clone().add(V(-.25, .38, .95)), h, 34);
+  } else if (t < ST('n1c') - .3) {                                     // across the room: Grandma laughing with a girl in Haru's hoodie, holding her hand; the girl turns and smiles at her
+    morning(); screen.visible = false; lie(haru, 1.55, -2.05); hSheet.visible = true; haru.expr('terrified');
+    granInBed(q, {up: .6}); gran.expr('smile'); gran.mouth(Math.floor(t * 4) % 2 ? 'smile' : 'open', .5); gran.arms[0].up.rotation.set(-.7, 0, -.6);
+    dblOnChair(q); dbl.expr('smile');
+    const tk = u01(t, ST('h11'), ST('h11') + 1.8); look(dbl, {turn: -1.5 * sm(tk), nod: -.05}); dbl.chest.rotation.y -= .45 * sm(tk); if (tk > .6) { dbl.mouth('smile', 1); dbl.lid(.35); }
+    if (t < ST('h11')) { const hh = HEAD(haru); C(hh.clone().add(V(-.3, .95, .5)), V(-.7, .95, -1.5), 42); }                        // from her pillow: the two of them across the room
+    else { const hd = HEAD(dbl), hh = HEAD(haru), d = hh.clone().add(V(-.3, .95, .5)).sub(hd).normalize(); C(hd.clone().addScaledVector(d, lerp(1.9, 1.1, tk)), hd, lerp(34, 26, tk)); fill.position.copy(hd).addScaledVector(d, 1.0).add(V(0, .5, 0)); fill.intensity = 1.0; }   // from Haru's pillow, the girl's face turning to her
+  } else if (t < EN('d01') + .5) {                                     // the door: "How many people are in this room?" The girl: "Two."
+    morning(); screen.visible = false; lie(haru, 1.55, -2.05); hSheet.visible = true; granInBed(q, {up: .6}); gran.expr('smile');
+    dblOnChair(q); dbl.expr('smile'); look(dbl, {turn: 1.2}); dbl.chest.rotation.y += .3; dbl.mouth('smile', 1); dbl.lid(.35); nurseAtDoor(1, 1);
+    if (t < ST('d01') - .2) C(V(-1.4, 1.5, 1.6), V(RW / 2, 1.3, 1.4), 42);
+    else { if (t < EN('d01')) dbl.mouth('open', .3); FACE(dbl, 1.0, .03, 0, 28); }
+  } else black = true;
+  if (t > DUR - .1) black = true;
+}
+const frameFX = followFrame(frame, () => [haru, dbl, gran, nurse]);
+// shadow acne (rings of self-shadow on the clay at a low light angle): offset every shadow a little
+scene.traverse(o => { if (o.isLight && o.castShadow) { o.shadow.bias = -.0015; o.shadow.normalBias = .03; } });
+window.DUR = DUR;
+const QC = new URLSearchParams(location.search).get('cam');
+window.renderAt = t => { frameFX(t); if (haru.root.rotation.x < -1 && haru.sec.hair) haru.sec.hair.rotation.set(0, 0, 0); if (QC) { const c = QC.split(',').map(Number); C(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>

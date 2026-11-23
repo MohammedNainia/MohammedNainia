@@ -1,0 +1,26 @@
+THE NIGHT COUNT (draft 1, approved)  9:16, voices 1.5x in post (pitch kept), target ~75 s
+Hook text at frame 0: I TOLD THE NIGHT NURSE THE TRUTH. / NOW I'M IN THE EMPTY BED.
+Rule: when the night nurse asks how many people are in the room, the answer is always two. Never explained.
+Flaw: Haru counts, and tells the truth.  Twist: "two" kept the room full; "three" made a space, and the thing under the sheet took hers.
+Ending: the other Haru, holding Grandma's hand, answers the nurse: "Two." Black. Loop to the hook.
+Voices: Haru = Samara X (stability .5); the nurse = Zara, soft and professional; Grandma = Grounded; the other Haru = Samara X (stability .3).
+The narration (h01-h06, h08-h11) waits for the Artlist credits (renew 28 Nov); the dialogue is recorded.
+
+h01  HARU    I told the night nurse the truth. That's how I ended up in the empty bed.
+h02  HARU    Grandma was in hospital, so I stayed the night with her. Ward four. Two beds. One of them empty.
+n01  NURSE   How many people are in this room?
+g01  GRANDMA Two.
+h03  HARU    Every hour, the same question. Every hour, Grandma said two. Even half asleep.
+h04  HARU    I asked her why. She just squeezed my hand.
+g02  GRANDMA Always two, Haru. Promise me.
+h05  HARU    At three in the morning, Grandma was snoring. And something behind the curtain was breathing.
+h06  HARU    I counted again. Grandma. Me. And someone under the sheet.
+n01  NURSE   How many people are in this room?          (the same recording)
+h07  HARU    Three.
+n02  NURSE   Then one of you has to leave.
+h08  HARU    The lights went out.
+h09  HARU    In the morning, I was in the empty bed. I couldn't move. I couldn't make a sound.
+h10  HARU    Grandma was laughing with a girl in my hoodie. In my chair. Holding her hand.
+h11  HARU    The girl looked over at me, and smiled with my face.
+n01  NURSE   How many people are in this room?          (the same recording)
+d01  OTHER   Two.

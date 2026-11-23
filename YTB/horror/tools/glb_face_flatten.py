@@ -32,11 +32,11 @@ def profile(Z, label):
 profile(z, 'before')
 
 # the front surface as a height map over the face (x, y): the furthest-forward clay in each cell
-NX, NY = 64, 80; x0, x1, y0, y1 = -hw, hw, chin - .08, brow + .06
+NX, NY = 96, 120; x0, x1, y0, y1 = -hw, hw, chin - .08, brow + .06
 fr = (z > 0) & (x > x0) & (x < x1) & (y > y0) & (y < y1)
 ix = np.clip(((x[fr] - x0) / (x1 - x0) * (NX - 1)).round().astype(int), 0, NX - 1); iy = np.clip(((y[fr] - y0) / (y1 - y0) * (NY - 1)).round().astype(int), 0, NY - 1)
 H = np.full((NY, NX), -np.inf); np.maximum.at(H, (iy, ix), z[fr]); bad = ~np.isfinite(H)
-H = H[tuple(distance_transform_edt(bad, return_distances=False, return_indices=True))]; H = gaussian_filter(H, .8)
+H = H[tuple(distance_transform_edt(bad, return_distances=False, return_indices=True))]; H = gaussian_filter(H, 2.0)   # smooth: the per-cell max is noisy
 gx = np.linspace(x0, x1, NX); gy = np.linspace(y0, y1, NY); GX, GY = np.meshgrid(gx, gy)
 # the target front: a rounded dome as deep as the forehead (no muzzle), the cheeks curving back like a ball
 fz = arg('--front', float(np.median(H[(np.abs(GY - (brow - .02)) < .02) & (np.abs(GX) < .03)])))
@@ -44,7 +44,7 @@ dome = fz * np.sqrt(np.clip(1 - (GX / (hw * 1.25)) ** 2, 0, 1)) - .012 * ((GY - 
 nose = H - gaussian_filter(H, 4)                                                  # the nose: the small sharp bump on top of the broad shape
 nmask = gaussian_filter(((np.abs(GX) < .05) & (GY > chin + .06) & (GY < (chin + brow) / 2 + .04)).astype(float), 2)
 target = np.minimum(H, dome + np.maximum(nose, 0) * nmask * arg('--nose', .4))
-D = gaussian_filter(target - H, 1.5)                                               # how far each cell moves (<= 0: back)
+D = gaussian_filter(target - H, 4.0)                                               # how far each cell moves (<= 0: back), smooth so the face stays smooth
 # fade the move out at the edges of the face (hair, ears, under the chin) and through the head's depth (only the front skin moves)
 ey = np.clip((GY - (chin - .06)) / .06, 0, 1) * np.clip(((brow + .05) - GY) / .05, 0, 1); ex = np.clip((hw - np.abs(GX)) / (hw * .3), 0, 1)
 D *= ey * ex
@@ -58,10 +58,18 @@ z2 = z.copy(); z2[sel] += d * depth
 profile(z2, 'after ')
 if '--dry' in sys.argv: sys.exit()
 
+# relax: a few passes of neighbour-averaging on the vertices that moved (only their depth), so the new front is smooth clay
+sel_idx = np.where(sel)[0]; movedv = np.zeros(len(z2), bool); movedv[sel_idx[np.abs(d * depth) > 1e-5]] = True
+E = np.concatenate([I[:, [0, 1]], I[:, [1, 2]], I[:, [2, 0]]]); E = E[movedv[E[:, 0]] | movedv[E[:, 1]]]
+for it in range(int(arg('--relax', 6))):
+    acc = np.zeros(len(z2)); cnt = np.zeros(len(z2))
+    np.add.at(acc, E[:, 0], z2[E[:, 1]]); np.add.at(cnt, E[:, 0], 1); np.add.at(acc, E[:, 1], z2[E[:, 0]]); np.add.at(cnt, E[:, 1], 1)
+    m = movedv & (cnt > 0); z2[m] = .5 * z2[m] + .5 * acc[m] / cnt[m]
+profile(z2, 'relaxed')
 # normals again (area-weighted), then write positions and normals back in place
 P2 = np.stack([x, y, z2], 1); tri = P2[I]; fn = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
 N2 = np.zeros_like(P2); [np.add.at(N2, I[:, k], fn) for k in range(3)]; N2 /= np.maximum(np.linalg.norm(N2, axis=1, keepdims=True), 1e-12)
-moved = np.zeros(len(P2), bool); moved[np.where(sel)[0][np.abs(d * depth) > 1e-6]] = True
+moved = movedv
 grow = np.zeros(len(P2), bool); grow[I[moved[I].any(1)].reshape(-1)] = True      # only touch normals on and next to what moved
 Nout = N.astype(np.float32).copy(); Nout[grow] = N2[grow]
 def write(arr, o, st):
