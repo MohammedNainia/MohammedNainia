@@ -11,7 +11,7 @@ import {clay, add, S, Cp, G, boil, CLAY_RIM, followFrame, look, pose} from './cl
 import * as K from './clay_sets.js';
 import {lib} from './library.js';
 import {relaxed, idle} from './moves.js';
-import {sitOn, lieOn, sitUpIn, seatOf, turnToward, sinkCheck, bodyPoints, drape} from './contact.js';
+import {sitOn, lieOn, sitUpIn, seatOf, turnToward, sinkCheck, bodyPoints, drape, solidOf} from './contact.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
 const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -107,10 +107,10 @@ function reset(P) {
   P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); P.faceLight.intensity = 0;
 }
 const place = (P, x, z, ry, y = 0) => { P.root.visible = true; P.root.position.set(x, y, z); P.root.rotation.y = ry; };
-const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const C = (p, l, fov = 40, up = null) => { cam.up.copy(up || V(0, 1, 0)); cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
 const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };
 function FACE(P, dist = 1.0, up = .03, side = 0, fov = 30) { const h = HEAD(P), f = new THREE.Vector3(); P.head.getWorldDirection(f);
-  if (Math.hypot(f.x, f.z) < .6) { const r = V(1, 0, 0); C(h.clone().addScaledVector(f, dist * .8).add(V(side, 0, dist * .5)), h, fov); fill.position.copy(h).addScaledVector(f, 1.2).add(V(.4, 0, .5)); fill.intensity = 1.1; return; }   // lying down: from above her face, a little toward her feet
+  if (Math.hypot(f.x, f.z) < .6) { const hu = V(0, 1, 0).transformDirection(P.head.matrixWorld), r = f.clone().cross(hu); C(h.clone().addScaledVector(f, dist).addScaledVector(r, side).addScaledVector(hu, up), h, fov, hu); fill.position.copy(h).addScaledVector(f, 1.2).add(V(.4, 0, .5)); fill.intensity = 1.1; return; }   // lying down: from above her face, a little toward her feet
   f.y = 0; f.normalize();
   const r = V(f.z, 0, -f.x); C(h.clone().addScaledVector(f, dist).addScaledVector(r, side).add(V(0, up, 0)), h, fov); fill.position.copy(h).addScaledVector(f, 1.2).add(V(.5, .6, 0)); fill.intensity = 1.1; }
 const HAND = (P, i) => { P.root.updateMatrixWorld(true); return P.arms[i].hand.getWorldPosition(V(0, 0, 0)); };
@@ -207,8 +207,13 @@ scene.traverse(o => { if (o.isLight && o.castShadow) { o.shadow.bias = -.0015; o
 window.DUR = DUR;
 // the contact check (check_contact.js runs it over the whole reel before a render): how much of each person is inside the furniture
 const FURN = [bedG, bedE, chair, screen];
-window.contactAt = t => { frameFX(t); return PEOPLE.filter(P => P.root.visible).map(P => { const r = sinkCheck(P, FURN.filter(o => o.visible), bodyPoints(P, 6)); return {who: P.root.userData.lib + (P === dbl ? '(double)' : ''), n: r.n, depth: +r.depth.toFixed(3)}; }); };
+// the frame's poses exactly as rendered (the contact check uses this too)
+const poseAt = t => { frameFX(t); PEOPLE.forEach(P => { if (P.root.rotation.x < -1 && P.sec.hair) P.sec.hair.rotation.set(0, 0, 0); }); };   // lying down: the hair rests on the pillow, no swing
+window.contactWhere = t => { poseAt(t); const out = {}; for (const P of PEOPLE.filter(P => P.root.visible)) for (const o of FURN.filter(o => o.visible)) { const S = solidOf(o); o.updateMatrixWorld(true); const inv = o.matrixWorld.clone().invert();
+  for (const p of bodyPoints(P, 6)) { const lp = p.clone().applyMatrix4(inv), i = Math.round((lp.x - S.box.min.x) / .025), k = Math.round((lp.z - S.box.min.z) / .025); const c = i >= 0 && k >= 0 && i < S.nx && k < S.nz ? S.cells[i * S.nz + k] : null;
+    if (c && c.some(([b, tt]) => lp.y > b + .006 && lp.y < tt - .006)) { const key = P.root.userData.lib + ' ' + o.userData.lib + ' ' + [lp.x, lp.y, lp.z].map(v => (Math.round(v * 10) / 10).toFixed(1)) + ' slabs ' + c.map(x => x.map(v => v.toFixed(2)).join('-')).join(','); out[key] = (out[key] || 0) + 1; } } } return out; };
+window.contactAt = t => { poseAt(t); return PEOPLE.filter(P => P.root.visible).map(P => { const r = sinkCheck(P, FURN.filter(o => o.visible), bodyPoints(P, 6)); return {who: P.root.userData.lib + (P === dbl ? '(double)' : ''), n: r.n, depth: +r.depth.toFixed(3)}; }); };
 const QC = new URLSearchParams(location.search).get('cam');
-window.renderAt = t => { frameFX(t); PEOPLE.forEach(P => { if (P.root.rotation.x < -1 && P.sec.hair) P.sec.hair.rotation.set(0, 0, 0); });   /* lying down: the hair rests on the pillow, no swing */ if (QC) { const c = QC.split(',').map(Number); C(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt = t => { poseAt(t); if (QC) { const c = QC.split(',').map(Number); C(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } if (black) renderer.render(emptyScene, cam); else render(t); };
 window.renderAt(0); window.ready = true;
 </script></body></html>

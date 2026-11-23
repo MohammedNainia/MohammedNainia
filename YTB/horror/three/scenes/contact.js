@@ -136,12 +136,14 @@ export function lieOn(P, bed, {along = 0, fix, key = ''} = {}) {
   const {centre, end} = seatOf(bed), yaw = Math.atan2(-head.x, -head.z); let best = null;
   for (let a = 0; a <= .5; a += .05) {                                           // tilt the head up, a little at a time; keep the lowest-lying fit
     P.root.rotation.set(-Math.PI / 2 + a, yaw, 0); P.root.position.set(0, at.y + .4, 0); P.root.updateMatrixWorld(true);
-    const top = P.head.localToWorld(V(0, P.J ? P.J.headTop.y - P.J.headBase.y : .25, 0)), want = centre.clone().addScaledVector(head, end - .1 - along);   // the top of her head just short of the head end
+    const top = P.head.localToWorld(V(0, P.J ? P.J.headTop.y - P.J.headBase.y : .25, 0)), want = centre.clone().addScaledVector(head, end - .17 - along);   // the top of her head just short of the head end
     P.root.position.x += want.x - top.x; P.root.position.z += want.z - top.z;
     settleOn(P, bed, {reach: .6, soft: .35}); P.root.updateMatrixWorld(true); const hy = P.hips.getWorldPosition(V()).y;
     if (!best || hy < best.hy - .004) best = {hy, p: P.root.position.clone(), r: P.root.rotation.clone()};
   }
-  P.root.position.copy(best.p); P.root.rotation.copy(best.r); P.root.userData.lie = {k, p: best.p.clone(), r: best.r.clone()};
+  P.root.position.copy(best.p); P.root.rotation.copy(best.r);
+  clearOf(P, [bed], head.clone().negate(), {max: .3, allow: 0}); best.p.copy(P.root.position);   // nothing through the headboard
+  P.root.userData.lie = {k, p: best.p.clone(), r: best.r.clone()};
 }
 // sit up in a bed: back to the head end, facing the foot, on the mattress, nothing through the head section or the rails
 export function sitUpIn(P, bed, {from = .12, poseName = 'sitBed', fix, key = ''} = {}) {
