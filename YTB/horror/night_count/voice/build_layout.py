@@ -8,7 +8,9 @@ W.update({k: v for k, v in json.load(open('raw_words_dialogue.json')).items() if
 FIX = {'2': 'Two.', '3': 'Three.', 'too.': 'Two.', 'to,': 'two,'}
 def words(name):
     src = 'n01' if name.startswith('n1') else name
-    if src in W: return [[FIX.get(w, w), a, b] for w, a, b in W[src]]
+    if src in W:
+        ws = [[FIX.get(w, w), a, b] for w, a, b in W[src]]; sw = TXT[src].split()
+        return [[sw[i], a, b] for i, (w, a, b) in enumerate(ws)] if len(sw) == len(ws) else ws   # the script's own words when the count matches
     ws = TXT[src].split(); d = len(ws) / 4.4; return [[w, round(i * d / len(ws), 2), round((i + .85) * d / len(ws), 2)] for i, w in enumerate(ws)]
 ORDER = [('h01', .3), ('h02', 1.2), ('n1a', .9), ('g01', .5), ('h03', 1.0), ('h04', 1.0), ('g02', .5), ('h05', 1.6), ('h06', 1.2), ('n1b', 1.2), ('h07', .9),
          ('n02', .9), ('h08', .6), ('h09', 2.0), ('h10', 1.2), ('h11', 1.2), ('n1c', 1.2), ('d01', .8)]

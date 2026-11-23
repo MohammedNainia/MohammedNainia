@@ -78,6 +78,12 @@ const S0 = new Map(PEOPLE.map(P => [P, P.root.scale.x]));
   for (let i = 0; i < a.length; i += 4) { const r = a[i], g = a[i + 1], b = a[i + 2]; if (r > 90 && r - g > 55 && r - b > 45) { const l = .55 + .45 * r / 255; a[i] = 150 * l; a[i + 1] = 185 * l; a[i + 2] = 205 * l; } }
   c2.putImageData(d, 0, 0); const tx = new THREE.CanvasTexture(cv); tx.flipY = m.map.flipY; tx.colorSpace = THREE.SRGBColorSpace; m.map = tx; m.needsUpdate = true; }
 
+// her mask: a pale blue surgical mask over the lower face (her model's painted mouth is a dark patch)
+const maskG = new THREE.Group(); { nurse.root.updateMatrixWorld(true); const fb = new THREE.Box3().setFromObject(nurse.faceMesh || nurse.head), c = fb.getCenter(V()), sz = fb.getSize(V());
+  const mk = add(new THREE.SphereGeometry(.5, 24, 12, PI * .08, PI * .84, PI * .4, PI * .28), clay(0xa8c8d8, {side: THREE.DoubleSide}), maskG); mk.scale.set(sz.x * 1.05, sz.y * 1.7, sz.z * 3.2 + .05);
+  for (const sx of [-1, 1]) add(Cp(.004, sz.x * .45), clay(0xe8eef0), maskG, [sx * sz.x * .45, sz.y * .02, -sz.z * .2], [0, 0, PI / 2]);
+  const wp = V(c.x, fb.min.y + sz.y * .34, c.z - sz.z * .55); nurse.head.add(maskG); maskG.position.copy(nurse.head.worldToLocal(wp));
+  maskG.scale.setScalar(1 / nurse.root.scale.x); }
 // ================================================================ helpers
 function reset(P) {
   P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0.get(P)); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
@@ -131,7 +137,7 @@ function frame(t) {
     night(); const k = u01(t, ST('h03') - .3, ST('h04') - .3), hr = 12 + Math.floor(k * 3.99), on = (k * 4) % 1 < .45;
     setClock(hr, 0); granInBed(q, {up: .2}); gran.eyes('closed'); haruOnChair(haru, q); haru.expr('sleepy'); door.rotation.y = on ? 1.3 : 0; corridor.intensity = on ? 40 : 0;
     if (on) { place(nurse, RW / 2 + .2, 1.45, -PI / 2); relaxed(nurse); }
-    if ((k * 4) % 2 < 1) C(V(0, 2.05, -2.4), V(0, 2.2, -3.32), 34); else C(V(1.2, 1.4, 2.6), V(RW / 2, 1.1, 1.4), 40);
+    if ((k * 4) % 2 < 1) C(V(0, 2.05, -2.4), V(0, 2.2, -3.32), 34); else C(V(-.6, 1.6, 1.9), V(.6, .8, -2.0), 44);    // the clock; the room, the door's light sweeping across it
   } else if (t < ST('h05') - .4) {                                     // her hand in Grandma's; Grandma squeezes; then her eyes, wide awake: "Always two, Haru."
     night(); setClock(2, 0); granInBed(q, {up: .3}); haruOnChair(haru, q); haru.expr('worried');
     const sq = Math.sin(u01(t, ST('h04') + .8, ST('h04') + 1.6) * PI); gran.arms[0].up.rotation.set(-.6 - .2 * sq, 0, -.6); gran.arms[0].fo.rotation.x = -.5;
@@ -145,7 +151,7 @@ function frame(t) {
   } else if (t < ST('n1b') - .2) {                                     // she edges round the screen: a body under a sheet on the empty bed, breathing
     night(); setClock(3, 5); granInBed(q, {up: 0}); gran.eyes('closed'); breathe(); screen.rotation.y = -.35;
     const k = u01(t, ST('h06') - .3, ST('n1b') - .2); place(haru, lerp(.1, .55, k), lerp(-.5, -.2, k), PI * .75); idle(haru, q); haru.expr('terrified');
-    if (t < ST('h06') + 1.2) { const h = HEAD(haru); C(V(-.5, 1.35, .9), h, 36); fill.position.set(-.3, 1.8, .6); fill.intensity = 1.2; }   // Haru edging toward the screen else { screen.visible = false; C(V(.5, 1.55, -.3), V(1.5, BED_TOP + .1, -2.1), 40); }        // round the screen: the sheet, breathing
+    if (t < ST('h06') + 1.2) { const h = HEAD(haru); C(V(1.7, 1.35, .5), h, 36); fill.position.set(-.3, 1.8, .6); fill.intensity = 1.2; }   // Haru edging toward the screen else { screen.visible = false; C(V(.5, 1.55, -.3), V(1.5, BED_TOP + .1, -2.1), 40); }        // round the screen: the sheet, breathing
   } else if (t < ST('h08')) {                                          // the door: "How many people are in this room?" Haru: "Three." The nurse smiles: "Then one of you has to leave." The light dies.
     night(); setClock(3, 5); granInBed(q, {up: 0}); gran.eyes('closed'); breathe();
     place(haru, .55, -.2, PI * .25); idle(haru, q); haru.expr('terrified'); look(haru, {turn: .9});
@@ -163,7 +169,7 @@ function frame(t) {
     granInBed(q, {up: .6}); gran.expr('smile'); gran.mouth(Math.floor(t * 4) % 2 ? 'smile' : 'open', .5); gran.arms[0].up.rotation.set(-.7, 0, -.6);
     dblOnChair(q); dbl.expr('smile');
     const tk = u01(t, ST('h11'), ST('h11') + 1.8); look(dbl, {turn: -1.5 * sm(tk), nod: -.05}); dbl.chest.rotation.y -= .45 * sm(tk); if (tk > .6) { dbl.mouth('smile', 1); dbl.lid(.35); }
-    if (t < ST('h11')) { const hh = HEAD(haru); C(hh.clone().add(V(-.3, .95, .5)), V(-.7, .95, -1.5), 42); }                        // from her pillow: the two of them across the room
+    if (t < ST('h11')) C(V(1.7, 1.95, .6), V(-.6, .85, -1.4), 42);                                     // over the foot of her bed: the two of them                        // from her pillow: the two of them across the room
     else { const hd = HEAD(dbl), hh = HEAD(haru), d = hh.clone().add(V(-.3, .95, .5)).sub(hd).normalize(); C(hd.clone().addScaledVector(d, lerp(1.9, 1.1, tk)), hd, lerp(34, 26, tk)); fill.position.copy(hd).addScaledVector(d, 1.0).add(V(0, .5, 0)); fill.intensity = 1.0; }   // from Haru's pillow, the girl's face turning to her
   } else if (t < EN('d01') + .5) {                                     // the door: "How many people are in this room?" The girl: "Two."
     morning(); screen.visible = false; lie(haru, 1.55, -2.05); hSheet.visible = true; granInBed(q, {up: .6}); gran.expr('smile');
