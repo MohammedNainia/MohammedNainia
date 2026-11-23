@@ -363,7 +363,7 @@ function frame(t) {
   else {                                                               // the sign: NO clicks on
     show(MT); air('MT'); guests(-99, q, {man: false, wom: false, boy: false}); mtCar.position.set(parkX, 0, parkZ); carFace(mtCar, PI);
     const on = t > ST('END') - 1.1; noPlate.material = on ? noOn : noOff; noPlate.userData.back.material = noPlate.material; neonL.intensity = on ? 9 : 5;
-    CL(V(10.4, 2.4, 26.6), V(11.8, 2.2, 21.5), 46);
+    CL(V(9.6, 2.5, 26.2), V(11.5, 2.2, 21.6), 48);
   }
 }
 const frameFX = followFrame(frame, () => [haru, dbl, mum, woman]);
