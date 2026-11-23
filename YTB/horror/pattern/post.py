@@ -27,7 +27,7 @@ while i < len(CAPW):
     for k in range(n - 1):
         if CAPW[i + k][0][-1:] in ',.?!:' or CAPW[i + k][3] != CAPW[i + k + 1][3]: n = k + 1; break
     CHUNKS.append(CAPW[i:i + n]); i += n
-f_cap = ImageFont.truetype(FONT, 66); f_oth = ImageFont.truetype(FONT_I, 70); f_hook = ImageFont.truetype(FONT, 66)
+f_cap = ImageFont.truetype(FONT, 66); f_oth = ImageFont.truetype(FONT_I, 70); f_hook = ImageFont.truetype(FONT, 54)
 HOOK = ["I CAME HOME FROM EGYPT.", "EVERYTHING LOOKED THE SAME.", "I NEVER LEFT THE PYRAMID."]
 def overlay(fr, t):
     im = Image.fromarray(cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)); d = ImageDraw.Draw(im, 'RGBA')
@@ -148,7 +148,7 @@ if __name__ == '__main__':
                                      capture_output=True, text=True).stderr.split('[Parsed_loudnorm')[-1].split('\n', 1)[1])
     LN = ('loudnorm=I=-14:TP=-1.5:LRA=11:linear=true:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s'
           % (meas['input_i'], meas['input_tp'], meas['input_lra'], meas['input_thresh'], meas['target_offset']))
-    out = os.path.join(HERE, args[args.index('--out') + 1] if '--out' in args else 'vacancy_1080x1920.mp4')
+    out = os.path.join(HERE, args[args.index('--out') + 1] if '--out' in args else 'pattern_1080x1920.mp4')
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-i', wav,
                            '-af', LN, '-c:v', 'libx264', '-crf', '20', '-preset', 'slow', '-pix_fmt', 'yuv420p',
                            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out], stdin=subprocess.PIPE)
