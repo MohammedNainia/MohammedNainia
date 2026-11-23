@@ -1,0 +1,25 @@
+THE PATTERN (draft 1, approved)  9:16, voices 1.5x in post (pitch kept), target ~75 s
+Hook text at frame 0: I CAME HOME FROM EGYPT. / EVERYTHING LOOKED THE SAME. / I NEVER LEFT THE PYRAMID.
+Rule: walk the guide's pattern inside the pyramid: five slow steps, two fast, never break it (never explained).  Flaw: Haru's curiosity; she breaks it on purpose.
+Twist: home was only what the room showed her to keep her still; she never left, and she has taken the goat's place in the circle.
+Ending: a hood slides back: Mum, smiling too wide. "Welcome home, Haru." Black. Loop to the hook.
+Voices: Haru = Samara X (stability .5); the guide = Shadow (calm, low); Mum = Assistance. The gasp is Haru's voice.
+
+h01  HARU   I came home from the school trip to Egypt. I don't think I ever left the pyramid.
+h02  HARU   Inside, the guide made us walk his way. Five slow steps. Two fast. Over and over.
+g01  GUIDE  Five slow. Two fast. Never break it.
+h03  HARU   He never told us why. So I broke it.
+h04  HARU   One slow step too many, and the torches were gone.
+h05  HARU   Then chanting, somewhere below me. I followed it.
+h06  HARU   A room full of people in hoods, sitting in a circle. A goat tied in the middle.
+x01  HARU   (a sharp gasp)
+h07  HARU   Every head turned. Slowly. Then every hand came up, pointing at me.
+h08  HARU   I shut my eyes. Just a dream. Just a dream.
+g02  GUIDE  I told you to follow the pattern.
+h09  HARU   I fainted. When I woke up, I was home.
+h10  HARU   But our family photos were full of strangers.
+h11  HARU   Mom turned her head the way they did. Too slow.
+h12  HARU   And under the TV, so quiet, someone was chanting.
+h13  HARU   I ran to my room. Shut my eyes. Just a dream. Just a dream.
+h14  HARU   When I opened them, I was in the circle. Where the goat had been.
+m01  MUM    Welcome home, Haru.

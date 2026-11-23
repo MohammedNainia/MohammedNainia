@@ -1,0 +1,312 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// THE PATTERN (9:16, ~75 s): the clay library (lib.char / lib.prop, moves.js) plus code-built cult, goat and pyramid. Timed to pattern/voice/layout.json.
+// Places (one shown at a time):  PY the pyramid outside at dusk   CO the sloping torchlit corridor (and the same corridor dark)   CH the chamber: the circle
+//   HM home: bedroom, hallway of photos, kitchen, the TV
+// The rule: inside, walk the guide's pattern, five slow steps then two fast. Haru breaks it (a sixth slow step) and the torches are gone.
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, add, S, Cp, G, boil, CLAY_RIM, followFrame, look, walk as kitWalk, pose} from './clay.js';
+import * as K from './clay_sets.js';
+import {lib} from './library.js';
+import {relaxed, idle, run as runCycle, stride} from './moves.js';
+const PS = +(new URLSearchParams(location.search).get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .6, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
+cam.near = .02; cam.far = 220; cam.updateProjectionMatrix();
+const LAY = Object.fromEntries((await (await fetch('/data/pattern_layout.json')).json()).map(l => [l.name, l]));
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+const fog = K.haze(scene, 0x0a0806, .04);
+const u01 = (t, a, b) => clamp01((t - a) / (b - a)), sm = x => ease(clamp01(x));
+let rs = 5; const rnd = () => (rs = (rs * 16807) % 2147483647) / 2147483647;
+
+// ================================================================ materials
+const glyphTex = K.canvasTex(512, 512, (g, w, h) => {               // carved sandstone: rows of little pictures, cut in, a darker groove under each
+  g.fillStyle = '#b8935c'; g.fillRect(0, 0, w, h); const r = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  for (let y = 18; y < h; y += 64) { g.fillStyle = '#8a6a3e'; g.fillRect(0, y - 14, w, 3);
+    for (let x = 14; x < w - 20; x += 34) { g.strokeStyle = '#6a4e2a'; g.lineWidth = 3; g.beginPath(); const k = Math.floor(r() * 6), cx = x + 12, cy = y + 22;
+      if (k === 0) { g.arc(cx, cy, 9, 0, 6.3); g.moveTo(cx, cy + 9); g.lineTo(cx, cy + 20); }           // an ankh-ish loop
+      else if (k === 1) { g.moveTo(cx - 10, cy + 12); g.lineTo(cx, cy - 12); g.lineTo(cx + 10, cy + 12); }   // a peak
+      else if (k === 2) { g.ellipse(cx, cy, 11, 6, 0, 0, 6.3); g.moveTo(cx - 3, cy); g.arc(cx, cy, 3, 0, 6.3); }   // an eye
+      else if (k === 3) { g.moveTo(cx - 10, cy); g.quadraticCurveTo(cx, cy - 16, cx + 10, cy); g.moveTo(cx - 8, cy + 8); g.lineTo(cx + 8, cy + 8); }   // a bird
+      else if (k === 4) { for (let i = 0; i < 3; i++) { g.moveTo(cx - 9, cy - 8 + i * 8); g.lineTo(cx + 9, cy - 8 + i * 8); } }   // water
+      else { g.moveTo(cx, cy - 12); g.lineTo(cx, cy + 12); g.moveTo(cx - 8, cy - 4); g.lineTo(cx + 8, cy - 4); }   // a staff
+      g.stroke(); } } }, [3, 1]);
+const M = {sand: clay(0xc89a64, {bumpScale: 2.2}), stone: clay(0xb08a58, {bumpScale: 1.8}), glyph: new THREE.MeshPhysicalMaterial({map: glyphTex, roughness: .92, metalness: 0, sheen: .3}),
+  floor: clay(0x8a6a44, {bumpScale: 2}), dark: clay(0x18120e), robe: clay(0x4a1e18, {bumpScale: 1.4}), robeD: clay(0x2e120e), skin: clay(0xc8906a), black: new THREE.MeshBasicMaterial({color: 0}),
+  goat: clay(0x1e1c1e, {bumpScale: 2.5}), horn: clay(0x8a7a5a), wax: clay(0xe8dcc0), flame: new THREE.MeshBasicMaterial({color: 0xffc060, toneMapped: false}),
+  wall: clay(0x9a8a74, {bumpScale: 1}), carpet: clay(0x6a5a52, {bumpScale: 1.2}), white: clay(0xe0d8c8), wood: clay(0x6a4a30)};
+
+// ================================================================ places
+const PY = G(scene, [0, 0, 0]), CO = G(scene, [300, 0, 0]), CH = G(scene, [500, 0, 0]), HM = G(scene, [700, 0, 0]);
+const PLACES = [PY, CO, CH, HM];
+
+// ---------------------------------------------------------------- PY: the pyramid at dusk (stepped clay blocks), the sand, a dark doorway
+{ const g = new THREE.PlaneGeometry(400, 400, 100, 100).rotateX(-PI / 2), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z - 30); p.setY(i, THREE.MathUtils.smoothstep(d, 30, 70) * 5 * (Math.sin(x * .05) * Math.cos(z * .04) + .5)); }
+  g.computeVertexNormals(); add(g, M.sand, PY).castShadow = false; }
+const PYR = G(PY, [0, 0, -40]); const NL = 26, BASE = 60, PH = 34;
+for (let i = 0; i < NL; i++) { const s = BASE * (1 - i / NL), h = PH / NL; add(K.rbox(s, h, s, .15, .02, 1.5), M.stone, PYR, [0, h * (i + .5), 0]); }
+add(K.rbox(2.2, 3.2, 1.2, .1), M.black, PYR, [0, 4.6, BASE / 2 - 4.6 * (BASE / 2) / PH - .2]);     // the doorway, a few layers up
+const pyDoor = V(0, 4.6, -40 + BASE / 2 - 4.6 * (BASE / 2) / PH);
+// the ramp of sand up to it
+add(K.rbox(4, .4, 16, .1), M.sand, PY, [0, 1.8, pyDoor.z + 6], [-.3, 0, 0]);
+const pySun = new THREE.DirectionalLight(0xff9a5a, 2.2); pySun.position.set(60, 18, 30); pySun.target.position.set(0, 0, -30); pySun.castShadow = true; pySun.shadow.mapSize.set(2048, 2048);
+Object.assign(pySun.shadow.camera, {left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 200}); PY.add(pySun, pySun.target);
+PY.add(new THREE.HemisphereLight(0x6a5a9a, 0x6a4a2a, .9));
+{ const m = new THREE.ShaderMaterial({side: THREE.BackSide, depthWrite: false, fog: false, uniforms: {top: {value: new THREE.Color(0x2a2a5a)}, hor: {value: new THREE.Color(0xf08a4a)}},
+    vertexShader: 'varying vec3 p; void main(){ p = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: 'uniform vec3 top; uniform vec3 hor; varying vec3 p; void main(){ gl_FragColor = vec4(mix(hor, top, smoothstep(-.05, .5, p.y)), 1.); }'});
+  add(new THREE.SphereGeometry(190, 32, 16), m, PY).castShadow = false; }
+
+// ---------------------------------------------------------------- CO: the corridor, going down along -z (floor falls 1 m in 10), carved walls, torches
+const CW = 2.2, CHt = 2.6, CLEN = 40, SLOPE = .1;
+const coY = z => z * SLOPE;                                            // the floor height at z (z <= 0): it falls as z goes more negative
+add(K.rbox(CW, .2, CLEN, .01, .004, 2), M.floor, CO, [0, -.1, -CLEN / 2]).rotation.x = -Math.atan(SLOPE);
+CO.children[CO.children.length - 1].position.y = coY(-CLEN / 2) - .1;
+for (const s of [-1, 1]) { const w = add(new THREE.BoxGeometry(.2, CHt, CLEN), M.glyph, CO, [s * (CW / 2 + .1), coY(-CLEN / 2) + CHt / 2, -CLEN / 2]); w.rotation.x = -Math.atan(SLOPE); }
+add(K.rbox(CW + .4, .25, CLEN, .01), M.stone, CO, [0, coY(-CLEN / 2) + CHt + .12, -CLEN / 2]).rotation.x = -Math.atan(SLOPE);
+const TORCHES = []; for (let z = -2; z > -CLEN; z -= 4) { const s = (Math.round(-z / 4) % 2) ? 1 : -1, y = coY(z) + 1.7;
+  const g = G(CO, [s * (CW / 2 - .05), y, z]); add(Cp(.03, .3), M.wood, g, [0, 0, 0], [0, 0, -s * .5]); const f = add(new THREE.ConeGeometry(.07, .2, 8), M.flame, g, [-s * .08, .2, 0]); f.castShadow = false;
+  const L = new THREE.PointLight(0xffa850, 3, 7, 1.9); L.position.set(-s * .25, .35, 0); g.add(L); TORCHES.push({g, L, f, s}); }
+const coAmb = new THREE.HemisphereLight(0x5a4a3a, 0x0a0806, .25); CO.add(coAmb);
+// the dark: the same corridor, torches gone; at its end, steps down to a glow
+const coDark = new THREE.PointLight(0xffb070, 0, 9, 1.4); coDark.position.set(0, coY(-30) + 1.0, -34); CO.add(coDark);
+const nearHaru = new THREE.PointLight(0x8aa0d0, 0, 3, 1.6); scene.add(nearHaru);             // a faint cold light only on her, in the dark
+const torchHand = new THREE.Group();                                                       // the guide's torch, carried
+{ add(Cp(.025, .4), M.wood, torchHand, [0, .1, 0]); const f = add(new THREE.ConeGeometry(.06, .18, 8), new THREE.MeshBasicMaterial({color: 0xd88030}), torchHand, [0, .38, 0]); f.castShadow = false;
+  const L = new THREE.PointLight(0xffa850, 1.1, 4, 1.8); L.position.set(.15, .6, .25); torchHand.add(L); torchHand.userData.L = L; }
+
+// ---------------------------------------------------------------- CH: the chamber: a round room, pillars, candles, the circle, the goat
+add(new THREE.CylinderGeometry(9, 9, .2, 48), M.floor, CH, [0, -.1, 0]);
+{ const w = add(new THREE.CylinderGeometry(9.2, 9.2, 7, 48, 1, true), M.glyph, CH, [0, 3.5, 0]); w.material = M.glyph.clone(); w.material.side = THREE.BackSide; }
+for (let i = 0; i < 10; i++) { const a = i / 10 * PI * 2; add(K.rbox(.9, 7, .9, .05), M.stone, CH, [Math.cos(a) * 7.6, 3.5, Math.sin(a) * 7.6]); }
+add(K.rbox(1.8, 2.4, 1.0, .02), M.black, CH, [0, 1.2, 9.05]);                                       // the doorway she comes in by (+z)
+const CANDLES = []; for (let i = 0; i < 18; i++) { const a = i / 18 * PI * 2 + .1, r = 4.2 + (i % 2) * .5, h = .2 + rnd() * .35;
+  const g = G(CH, [Math.cos(a) * r, 0, Math.sin(a) * r]); add(Cp(.04, h), M.wax, g, [0, h / 2, 0]); const f = add(new THREE.ConeGeometry(.025, .07, 6), M.flame, g, [0, h + .06, 0]); f.castShadow = false; CANDLES.push({g, f, h}); }
+const chL = [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * PI * 2; const L = new THREE.PointLight(0xffa850, 8, 8, 1.4); L.position.set(Math.cos(a) * 4.4, .7, Math.sin(a) * 4.4); CH.add(L); return L; });
+const chTop = new THREE.SpotLight(0xffc890, 30, 14, .5, .6, 1.4); chTop.position.set(0, 7, 0); chTop.target.position.set(0, 0, 0); chTop.castShadow = true; chTop.shadow.mapSize.set(1024, 1024); CH.add(chTop, chTop.target);
+CH.add(new THREE.HemisphereLight(0x5a4030, 0x0a0604, .25));
+// a hooded one: a heavy robe pooled on the floor (seated), a deep hood with only black inside, sleeves with hands that can point
+function makeHooded(robeM = M.robe) {
+  const root = new THREE.Group(), body = G(root, [0, 0, 0]);
+  add(new THREE.LatheGeometry([[0, 0], [.62, 0], [.6, .12], [.42, .35], [.3, .75], [.24, 1.0], [.18, 1.12], [0, 1.16]].map(([r, y]) => new THREE.Vector2(r, y)), 24), robeM, body);
+  const head = G(body, [0, 1.12, 0]);                                    // the hood turns on this
+  add(S(.2, 1, 1.15, 1.05), robeM, head, [0, .12, -.02]); add(new THREE.ConeGeometry(.12, .25, 12), robeM, head, [0, .3, -.12], [-.6, 0, 0]);   // hood and its point
+  const hole = add(S(.13, 1, 1.25, .5), M.black, head, [0, .08, .13]); hole.castShadow = false;           // the black inside
+  const arms = [-1, 1].map(s => { const up = G(body, [s * .24, .98, .02]); add(Cp(.075, .42), robeM, up, [0, -.22, 0]); const hand = add(S(.05, .9, 1.3, .7), M.skin, up, [0, -.5, 0]);
+    up.rotation.set(-.9, 0, s * .35); return {up, hand, s}; });                                         // hands resting on the knees
+  root.traverse(m => { if (m.isMesh) m.castShadow = true; }); return {root, body, head, arms};
+}
+const CIRCLE = []; const NC = 10;
+for (let i = 0; i < NC; i++) { const h = makeHooded(i % 3 === 1 ? M.robeD : M.robe), a = i / NC * PI * 2 + PI / 2 + PI / NC; h.root.position.set(Math.cos(a) * 3.0, 0, Math.sin(a) * 3.0); h.root.rotation.y = -a - PI / 2; CH.add(h.root); h.a = a; CIRCLE.push(h); }
+// the goat: on four thin legs, head down, tied to a stake
+function makeGoat() { const g = new THREE.Group(), body = G(g, [0, .55, 0]);
+  add(Cp(.2, .45, .006, 9), M.goat, body, [0, 0, 0], [PI / 2, 0, 0]);
+  for (const [x, z] of [[-.12, .25], [.12, .25], [-.12, -.25], [.12, -.25]]) add(Cp(.035, .42), M.goat, body, [x, -.32, z]);
+  const neck = G(body, [0, .12, .3]); add(Cp(.08, .2), M.goat, neck, [0, .08, .05], [.7, 0, 0]); const head = G(neck, [0, .2, .14]); add(S(.1, .8, .8, 1.4), M.goat, head, [0, 0, .06]);
+  for (const s of [-1, 1]) { add(new THREE.TorusGeometry(.08, .022, 8, 16, PI * 1.2), M.horn, head, [s * .06, .1, -.02], [0, s * .4 + PI / 2, -.3]); add(S(.04, 1.6, .5, .4), M.goat, head, [s * .1, .05, -.02], [0, 0, s * .6]);
+    add(new THREE.SphereGeometry(.014, 8, 6), new THREE.MeshBasicMaterial({color: 0xd8b030}), head, [s * .055, .03, .13]); }
+  add(Cp(.015, .08), M.goat, head, [0, -.1, .1]);                                                  // the beard
+  add(Cp(.03, .12), M.goat, body, [0, .1, -.35], [-.8, 0, 0]);                                     // the tail
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; }); return {g, neck, head};
+}
+const goat = makeGoat(); CH.add(goat.g); goat.g.rotation.y = .5;
+add(Cp(.03, .5), M.wood, CH, [.5, .25, -.2]);                                                       // the stake
+
+// ---------------------------------------------------------------- HM: home (bedroom x -5, hallway x 0, kitchen x 5, the TV corner x 10)
+function room(parent, x, w, d, h, wall) { const g = G(parent, [x, 0, 0]); add(K.rbox(w, .1, d, .01), M.carpet, g, [0, -.05, 0]); add(K.rbox(w, .1, d, .01), clay(0x3a3430), g, [0, h + .05, 0]);
+  for (const s of [-1, 1]) add(K.rbox(.12, h, d, .01), wall, g, [s * w / 2, h / 2, 0]); add(K.rbox(w, h, .12, .01), wall, g, [0, h / 2, -d / 2]); return g; }
+const BED = room(HM, -6, 4, 5, 2.6, clay(0x7a8a9a)), HALL = room(HM, 0, 2.2, 6, 2.6, clay(0x9a8a6e)), KIT = room(HM, 6, 4.4, 5, 2.6, clay(0xb8b098)), LIV = room(HM, 12, 4.4, 5, 2.6, clay(0x8a7a6a));
+const bedP = await lib.prop('bed', {length: 2.0}); bedP.position.set(-.9, 0, -1.3); BED.add(bedP);
+const wardP = await lib.prop('wardrobe', {height: 1.9}); wardP.position.set(1.4, 0, -2.1); BED.add(wardP);
+const bedWin = add(new THREE.PlaneGeometry(1.1, 1.2), new THREE.MeshBasicMaterial({color: 0xf0e4c8, toneMapped: false}), BED, [-1.94, 1.5, .2], [0, PI / 2, 0]); bedWin.castShadow = false;
+const morning = new THREE.SpotLight(0xffe8c0, 40, 10, .7, .6, 1.2); morning.position.set(-1.8, 1.9, .2); morning.target.position.set(.5, 0, -.8); morning.castShadow = true; BED.add(morning, morning.target);
+const bedDoor = add(K.rbox(.9, 2.05, .07, .01), clay(0x6a4a30), BED, [1.0, 1.03, 2.45]);
+// the hallway: photos of strangers
+function strangerPhoto(seed) { return (g, w, h) => { let s = seed * 9301 + 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = ['#8aa0b0', '#b09a80', '#9ab08a', '#a08aa8'][seed % 4]; g.fillRect(0, 0, w, h); const n = 2 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) { const x = w * (i + .5) / n, y = h * (.45 + r() * .1), fs = 16 + r() * 8;
+    g.fillStyle = ['#3a2a3a', '#6a4a2a', '#1a1a1a', '#8a6a4a'][Math.floor(r() * 4)]; g.fillRect(x - fs * .9, y + fs * .9, fs * 1.8, h);   // shoulders
+    g.fillStyle = ['#e8b898', '#c88a6a', '#a06a4a', '#f0c8a8'][Math.floor(r() * 4)]; g.beginPath(); g.ellipse(x, y, fs * .7, fs, 0, 0, 7); g.fill();
+    g.fillStyle = ['#1a1414', '#5a3a1a', '#8a8a8a', '#c8a060'][Math.floor(r() * 4)]; g.beginPath(); g.ellipse(x, y - fs * .55, fs * .75, fs * .5, 0, PI, 0); g.fill();
+    g.fillStyle = '#1a1010'; for (const d of [-1, 1]) { g.beginPath(); g.arc(x + d * fs * .28, y - fs * .1, 2.2, 0, 7); g.fill(); }
+    g.strokeStyle = '#5a2020'; g.lineWidth = 2; g.beginPath(); g.arc(x, y + fs * .3, fs * .25, .2, PI - .2); g.stroke(); } }; }
+const PHOTOS = []; for (let i = 0; i < 6; i++) { const s = i % 2 ? 1 : -1, f = K.frame(.34, .42, strangerPhoto(i + 3), 0x4a3020); f.position.set(s * 1.03, 1.45 + (i % 3 === 1 ? .2 : 0), -2.2 + Math.floor(i / 2) * 1.5); f.rotation.y = -s * PI / 2; HALL.add(f); PHOTOS.push(f); }
+const hallL = new THREE.PointLight(0xffd8a8, 6, 7, 1.6); hallL.position.set(0, 2.3, -.5); HALL.add(hallL);
+// the kitchen
+const ktab = await lib.prop('kitchen_table', {height: .76}); ktab.position.set(-.6, 0, .4); KIT.add(ktab);
+const kfr = await lib.prop('fridge', {height: 1.75}); kfr.position.set(1.7, 0, -2.0); KIT.add(kfr);
+const kst = await lib.prop('stove', {height: .9}); kst.position.set(.6, 0, -2.1); KIT.add(kst);
+add(K.rbox(1.6, .9, .6, .02), clay(0x6a7a6a), KIT, [-1.2, .45, -2.1]); add(K.rbox(1.7, .05, .66, .01), clay(0xd8d0c0), KIT, [-1.2, .92, -2.1]);   // the counter
+const kitL = new THREE.PointLight(0xfff0d8, 9, 8, 1.5); kitL.position.set(0, 2.3, 0); kitL.castShadow = true; kitL.shadow.mapSize.set(1024, 1024); KIT.add(kitL);
+// the TV: a set on a cabinet, its screen hissing
+const tvCv = document.createElement('canvas'); tvCv.width = 160; tvCv.height = 120; const tvx = tvCv.getContext('2d'); const tvTex = new THREE.CanvasTexture(tvCv);
+let tvSeed = -1; function tvStatic(seed) { if (seed === tvSeed) return; tvSeed = seed; const d = tvx.createImageData(160, 120); let s = seed * 7919 + 1;
+  for (let i = 0; i < d.data.length; i += 4) { s = (s * 16807) % 2147483647; const v = 40 + (s % 160); d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } tvx.putImageData(d, 0, 0); tvTex.needsUpdate = true; }
+add(K.rbox(1.4, .55, .5, .02), M.wood, LIV, [0, .28, -2.0]); const tv = G(LIV, [0, .9, -2.0]); add(K.rbox(.9, .7, .5, .06), clay(0x2a2826), tv);
+add(new THREE.PlaneGeometry(.7, .52), new THREE.MeshBasicMaterial({map: tvTex, toneMapped: false}), tv, [0, 0, .255]).castShadow = false;
+const tvL = new THREE.PointLight(0xb8c8e0, 5, 6, 1.4); tvL.position.set(0, .9, -1.2); LIV.add(tvL);
+const arm = await lib.prop('armchair', {height: .95}); arm.position.set(.2, 0, .6); arm.rotation.y = PI; LIV.add(arm);
+HM.add(new THREE.HemisphereLight(0x8a8070, 0x1a1410, .5));
+
+// ================================================================ the cast
+const haru = await lib.char('haru'), mum = await lib.char('mum'), guide = await lib.char('man_tired');
+const kids = [await lib.char('boy'), await lib.char('girl'), await lib.char('boy', {height: 1.3}), await lib.char('girl', {height: 1.24})];
+const PEOPLE = [haru, mum, guide, ...kids];
+PEOPLE.forEach(P => { scene.add(P.root); P.faceLight.intensity = 0; });
+const S0 = new Map(PEOPLE.map(P => [P, P.root.scale.x]));
+// the guide: the tired man's suitcase folded away into his hand, a torch in it instead
+{ const geo = guide.mesh.geometry, pos = geo.attributes.position, uv = geo.attributes.uv, img = guide.mesh.material.map.image, W2 = 256, cv = document.createElement('canvas'); cv.width = cv.height = W2;
+  const c2 = cv.getContext('2d'); c2.drawImage(img, 0, 0, W2, W2); const px = c2.getImageData(0, 0, W2, W2).data, J = guide.J, wr = V(-J.wrist.x, J.wrist.y, J.wrist.z);
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); if (!(x < -J.hip.x - .03 && y < J.wrist.y + .02 && y > J.ankle.y + .06)) continue;
+    let u = uv.getX(i) % 1, v = uv.getY(i) % 1; if (u < 0) u += 1; if (v < 0) v += 1; const k = (Math.min(W2 - 1, Math.floor(v * W2)) * W2 + Math.min(W2 - 1, Math.floor(u * W2))) * 4;
+    const r = px[k], g = px[k + 1], b = px[k + 2]; if (r > 95 && r - g > 40 && g - b > 10 && r < 200) pos.setXYZ(i, wr.x, wr.y, wr.z); }
+  pos.needsUpdate = true; geo.computeVertexNormals(); }
+guide.arms[0].hand.add(torchHand); torchHand.position.set(0, -.06, .04); torchHand.scale.setScalar(1 / S0.get(guide) * .9);
+
+// ================================================================ helpers
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0.get(P)); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  if (P.restPos) { P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck); }
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); P.faceLight.intensity = 0;
+}
+const place = (P, parent, x, z, ry, y = 0) => { if (P.root.parent !== parent) parent.add(P.root); P.root.visible = true; P.root.position.set(x, y, z); P.root.rotation.y = ry; };
+let OFF = V(0, 0, 0);
+const show = g => { PLACES.forEach(p => p.visible = p === g); OFF = g.position.clone(); };
+const W = (x, y, z) => V(x, y, z).add(OFF);
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const CL = (p, l, fov) => C(p.clone().add(OFF), l.clone().add(OFF), fov);
+const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };
+const HAND = (P, i) => { P.root.updateMatrixWorld(true); return P.arms[i].hand.getWorldPosition(V(0, 0, 0)); };
+function air(where) {
+  const A = {PY: [0xd88a5a, .006, 0xffc8a0, .3, 'none'], CO: [0x0a0604, .05, 0xffb070, .35, 'lamp'], DK: [0x020203, .09, 0x6a80c0, .6, 'dread'],
+    CH: [0x0a0604, .035, 0xffb070, .45, 'lamp'], HM: [0x141210, .02, 0xffe0c0, .25, 'none'], HMD: [0x0a0a0c, .03, 0xb8c8e0, .4, 'dread']}[where];
+  fog.color.set(A[0]); fog.density = A[1]; scene.background = new THREE.Color(A[0]); CLAY_RIM.color.value.set(A[2]); CLAY_RIM.k.value = A[3]; grade(A[4]); }
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+// THE PATTERN: five slow steps (.62 s each), two fast (.24 s each). Returns how many steps are done (with the fraction) at time u from the start.
+const PAT = [.62, .62, .62, .62, .62, .24, .24], PAT_T = PAT.reduce((a, b) => a + b);
+function patSteps(u) { u = Math.max(0, u); const c = Math.floor(u / PAT_T); let r = u - c * PAT_T, n = c * 7; for (const d of PAT) { if (r < d) return n + r / d; r -= d; n++; } return n; }
+// walk a puppet down the corridor in the pattern: z from z0, going -z; k = step count; each step .3 m
+function patWalk(P, u, z0, x, lag = 0, stepL = .3, broken = -1) {
+  let k = patSteps(u - lag); if (broken >= 0 && k > broken) k = broken + (k - broken) * .5;
+  const z = z0 - k * stepL; place(P, CO, x, z, PI, coY(z)); kitWalk(P, k / 2, {amp: .75}); return z;
+}
+function torches(on, t) { TORCHES.forEach(({L, f, g}, i) => { g.visible = on; L.intensity = on ? 3 * (.85 + .15 * Math.sin(t * 9 + i) * Math.sin(t * 13 + i * 2)) : 0; f.scale.y = 1 + .15 * Math.sin(t * 17 + i); }); }
+function circleIdle(q) { CIRCLE.forEach((h, i) => { h.head.rotation.set(.1 + Math.sin(q * 1.3 + i) * .04, 0, 0); h.body.rotation.x = Math.sin(q * 1.7 + i * 2) * .03;   // swaying with the chant
+  h.arms.forEach(a => a.up.rotation.set(-.9, 0, a.s * .35)); }); }
+// every hood turns to look at a point, one after another (k 0..1), then the right arms come up to point at it (p 0..1)
+function circleTurn(target, k, p) { CIRCLE.forEach((h, i) => { const d = V().subVectors(target, h.root.position), ang = Math.atan2(d.x, d.z) - h.root.rotation.y;
+  const kk = sm((k * 1.6 - i / NC * .6) * 1.4), a = Math.atan2(Math.sin(ang), Math.cos(ang)); h.head.rotation.y = THREE.MathUtils.clamp(a, -1.5, 1.5) * kk; h.body.rotation.y = THREE.MathUtils.clamp(a, -1.5, 1.5) * kk * .3;
+  const pp = sm((p * 1.4 - i / NC * .4) * 1.3), r = h.arms[h.arms[0].s === -1 ? 1 : 0]; r.up.rotation.set(lerp(-.9, -1.6, pp), THREE.MathUtils.clamp(a, -1.2, 1.2) * pp * .8, r.s * lerp(.35, .05, pp)); }); }
+const q12 = t => Math.floor(t * 12) / 12;
+
+// ================================================================ the timeline
+function frame(t) {
+  const q = q12(t);
+  boil(Math.floor(t * 6));
+  black = false; PEOPLE.forEach(P => { reset(P); P.root.visible = false; }); nearHaru.intensity = 0; coDark.intensity = 0; torchHand.visible = true;
+  CIRCLE.forEach(h => { h.root.visible = true; }); goat.g.visible = true; chL.forEach(L => L.intensity = 8 * (.85 + .15 * Math.sin(t * 7))); chTop.intensity = 70;
+  CANDLES.forEach((c, i) => c.f.scale.y = 1 + .2 * Math.sin(t * 11 + i));
+  if (t < ST('h02') - .3) {                                            // the pyramid at dusk; the class files up the sand to the black doorway
+    show(PY); air('PY'); const order = [guide, kids[0], kids[1], haru, kids[2], kids[3]];
+    order.forEach((P, i) => { const k = (t - i * .35) * .9, z = pyDoor.z + 14 - k, y = Math.max(0, (pyDoor.z + 14 - z) / 14 * 4.6 * .9); place(P, PY, (i % 2 ? .4 : -.4), z, PI, Math.min(4.2, y)); kitWalk(P, k / 1.2, {amp: .9}); });
+    torchHand.visible = false; haru.expr('neutral');
+    if (t < 2.2) CL(V(26, 2.5, pyDoor.z + 62), V(0, 13, -40), 40); else { const h = HEAD(haru); C(h.clone().add(V(.9, .1, 3.2)), W(0, 4.4, pyDoor.z), 46); }
+  } else if (t < ST('h04') + 1.9) {                                     // the corridor: everyone in the pattern, the guide at the front with the torch
+    show(CO); air('CO'); torches(true, t); const u = t - (ST('h02') - .3);
+    const zG = patWalk(guide, u, -2, 0, 0); patWalk(kids[0], u, -.9, -.35, 0); patWalk(kids[1], u, -.9, .35, 0); patWalk(kids[2], u, .1, -.3, 0); patWalk(kids[3], u, .1, .35, 0);
+    // Haru at the back: in step with them, until "So I broke it": then a sixth slow step where the others take two fast ones
+    const brk = ST('h03') + 1.2;
+    let zH; if (t < brk) zH = patWalk(haru, u, 1.1, 0, 0); else { const u0 = brk - (ST('h02') - .3), k0 = patSteps(u0), k = k0 + Math.min(1, (t - brk) / .62) * 1;
+      zH = 1.1 - k * .3; place(haru, CO, 0, zH, PI, coY(zH)); kitWalk(haru, k / 2, {amp: .75}); haru.expr('worried'); look(haru, {nod: .3}); }
+    guide.arms[0].up.rotation.set(-.55, 0, -.35); guide.arms[0].fo.rotation.x = -.6;                  // the torch held out to the side, away from his face
+    if (t < ST('g01') - .2) { const k = u01(t, ST('h02') - .3, ST('g01') - .2); CL(V(.7, coY(zH) + 1.9 - k * .4, zH + 2.6 - k * .5), V(0, coY(zG) + .9, zG - 1), 48); }   // behind the line: the whole class stepping
+    else if (t < EN('g01') + .2) { look(guide, {turn: 1.2, nod: .05}); guide.expr('neutral'); const h = HEAD(guide); C(h.clone().add(V(-.75, .05, 1.0)), h.clone(), 34); }   // the guide looks back: "never break it"
+    else if (t < ST('h04')) { const h = HEAD(haru); C(h.clone().add(V(-.3, .2, -1.3)), h.clone().add(V(0, -.15, 0)), 36); }      // Haru at the back: deciding
+    else { const f = HAND(haru, 0).add(V(0, -.6, 0)); CL(V(-.6, coY(zH) + .5, zH - 1.4).add(V(0, 0, 0)), V(0, coY(zH) + .15, zH), 40); }   // her feet: one slow step too many
+  } else if (t < ST('h06') - .5) {                                     // the torches are gone; black; her breath; then her hand on the carved wall, down toward a glow
+    show(CO); air('DK'); torches(false, t); const zH = 1.1 - 2.4;
+    const k = u01(t, ST('h05'), ST('h06') - .5), z = lerp(zH, -26, k); place(haru, CO, -.6, z, PI, coY(z)); haru.expr('scared');
+    if (t > ST('h05')) { kitWalk(haru, (t - ST('h05')) * .7, {amp: .55}); haru.arms[1].up.rotation.set(-.2, 0, .9); haru.arms[1].fo.rotation.x = -.3; }   // her left hand trailing the wall
+    else { relaxed(haru); look(haru, {turn: Math.sin(t * 2) * .6}); }
+    nearHaru.intensity = t > ST('h04') + 2.6 ? 3 : 0; const h = HEAD(haru); nearHaru.position.copy(h).add(V(.6, .5, .9));
+    coDark.intensity = t > ST('h05') ? 2 + 2 * k : 0;
+    if (t < ST('h05')) C(h.clone().add(V(.2, .05, -1.0)), h, 36);
+    else { const hd = HAND(haru, 1); C(hd.clone().add(V(.55, .15, .8)), hd.clone().add(V(-.1, -.1, -1.2)), 40); }
+  } else if (t < ST('x01') + .8) {                                     // the chamber: the circle, the goat, the chant; she looks in from the doorway; the gasp
+    show(CH); air('CH'); circleIdle(q); goat.head.rotation.x = .3 + Math.sin(q * 2) * .1;
+    place(haru, CH, 0, 8.4, PI); idle(haru, q); haru.expr('scared');
+    if (t > ST('x01') - .1) { haru.expr('shock'); haru.arms.forEach((a, i) => { a.up.rotation.set(-1.2, i ? -.7 : .7, 0); a.fo.rotation.x = -2.2; }); }   // hands to her mouth
+    if (t < ST('h06') + 2.0) CL(V(.5, 2.3, 7.9), V(0, .5, 0), 46);                                   // over her shoulder from the door: the ring of hoods
+    else if (t < ST('x01') - .1) CL(V(.4, .85, 1.5), V(0, .55, 0), 38);                              // the goat, tied
+    else { const h = HEAD(haru); C(h.clone().add(V(.15, -.02, -.9)), h, 32); }                       // her face: the gasp
+  } else if (t < ST('g02') - .3) {                                     // every hood turns; every hand comes up pointing; she crouches: "just a dream"
+    show(CH); air('CH'); circleIdle(q);
+    const k = u01(t, ST('h07'), ST('h07') + 2.6), p = u01(t, ST('h07') + 2.8, ST('h07') + 4.4); circleTurn(V(0, 0, 8.4), k, p);
+    place(haru, CH, 0, 8.4, PI); haru.expr('terrified');
+    if (t > ST('h08') - .3) { pose(haru, 'cower'); haru.eyes('squeeze'); haru.mouth(Math.floor(t * 6) % 2 ? 'open' : 'closed', .5); }
+    else { idle(haru, q); haru.arms.forEach((a, i) => { a.up.rotation.set(-1.0, i ? -.6 : .6, 0); a.fo.rotation.x = -2.0; }); }
+    if (t < ST('h07') + 1.4) { const hh = CIRCLE[5], h = hh.head.getWorldPosition(V()), out = V(-hh.root.position.x, 0, -hh.root.position.z).normalize(); C(h.clone().add(out.multiplyScalar(2.1)).add(V(.4, .25, 0)), h, 34); }   // one hood, close, turning
+    else if (t < ST('h07') + 2.7) CL(V(0, 2.2, 4.0), V(0, .9, -1), 46);                               // the ring turning, from inside
+    else if (t < ST('h08') - .3) CL(V(-.6, 1.4, 6.2), V(0, .9, -1), 44);                               // from behind Haru: every arm pointing at the camera
+    else { const h = HEAD(haru); C(h.clone().add(V(.35, .3, -1.3)), h.clone().add(V(0, -.2, 0)), 38); }   // crouched, eyes shut
+  } else if (t < ST('h09') - .4) {                                     // torchlight: the guide over her, the class staring
+    show(CO); air('CO'); torches(true, t); const z = -9;
+    place(haru, CO, 0, z, PI / 2, coY(z)); pose(haru, 'cower'); haru.eyes('squeeze'); if (t > ST('g02') + .9) { haru.eyes('open'); haru.expr('terrified'); }
+    place(guide, CO, .1, z - .75, 0, coY(z - .75)); guide.chest.rotation.x = .35; look(guide, {nod: .4}); guide.arms[0].up.rotation.set(-.5, 0, -.45); guide.arms[0].fo.rotation.x = -.6;
+    kids.forEach((P, i) => { const zz = z - 1.4 - (i % 2) * .5; place(P, CO, (i - 1.5) * .45, zz, .1 * (i - 1.5), coY(zz)); idle(P, q, 1, i); P.expr('scared'); });
+    const h = HEAD(guide); if (t < ST('g02') + .8) C(HEAD(haru).add(V(.3, .25, .9)), h, 34); else C(h.clone().add(V(.2, -.2, 1.0)), HEAD(haru), 38);
+  } else if (t < ST('h09') + 1.2) { black = true;                      // "I fainted."
+  } else if (t < ST('h10') - .3) {                                     // her room, morning: she sits up in bed
+    show(HM); air('HM'); const k = u01(t, ST('h09') + 1.2, EN('h09') + .3);
+    place(haru, BED, -.9, -1.0, 0, .42); pose(haru, 'sitFloor'); haru.root.position.y = .45; haru.root.rotation.x = -(1 - k) * 1.2; haru.expr('worried'); haru.eyes(k < .3 ? 'closed' : 'open');
+    CL(V(-5.2, 1.4, 1.6), V(-6.9, .7, -1.2), 42);
+  } else if (t < ST('h11') - .3) {                                     // the hallway: photos of strangers, slowly passed
+    show(HM); air('HM'); const k = u01(t, ST('h10') - .3, ST('h11') - .3);
+    place(haru, HALL, 0, lerp(2.0, .2, k), PI); kitWalk(haru, q * .6, {amp: .5}); look(haru, {turn: .9}); haru.expr('worried');
+    const zp = k < .55 ? .8 : -.7; if (t < ST('h10') + .8) CL(V(-.2, 1.3, 2.6), V(0, 1.3, -1), 44); else CL(V(.45, 1.5, zp + .75), V(-1.03, 1.5, zp), 36);   // close past one photo, then the next
+  } else if (t < ST('h12') - .3) {                                     // the kitchen: Mum at the counter, turning her head far too slowly
+    show(HM); air('HM'); place(mum, KIT, -1.2, -1.6, PI); idle(mum, q, .4); mum.expr('neutral');
+    const k = u01(t, ST('h11') - .1, ST('h11') + 2.6); mum.root.rotation.y = PI; look(mum, {turn: -lerp(0, PI * .9, k * k * (3 - 2 * k))}); mum.neck.rotation.y -= k * .2;
+    place(haru, KIT, .4, 1.6, PI + .4); idle(haru, q); haru.expr('scared');
+    if (t < ST('h11') + .6) CL(V(7.4, 1.5, 2.4), V(5.0, 1.1, -1.6), 40); else { const h = HEAD(mum); C(h.clone().add(V(.4, .05, 1.3)), h, 32); }
+  } else if (t < ST('h13') - .3) {                                     // the TV: static; she leans closer; under the hiss, the chant
+    show(HM); air('HMD'); tvStatic(Math.floor(t * 12));
+    place(haru, LIV, .6, 1.0, PI + .3); idle(haru, q); haru.expr('scared'); const k = u01(t, ST('h12'), EN('h12')); haru.chest.rotation.x = .15 * k;
+    CL(V(11.6 + k * .3, 1.0, 1.4 - k * .6), V(12, .9, -2.0), lerp(46, 30, k));
+  } else if (t < ST('h14') - .3) {                                     // she runs to her room, slams the door, crouches, eyes shut: "just a dream"
+    show(HM); air('HM'); const u = t - (ST('h13') - .3);
+    if (u < 1.2) { place(haru, HALL, 0, lerp(-1, 2.2, u / 1.2), 0); runCycle(haru, u, {}); haru.expr('terrified'); CL(V(.3, 1.2, 2.8), V(0, .9, 0), 46); }
+    else { place(haru, BED, 1.0, 1.6, PI); pose(haru, 'cower'); haru.eyes('squeeze'); haru.mouth(Math.floor(t * 6) % 2 ? 'open' : 'closed', .5);
+      bedDoor.rotation.y = 0; const h = HEAD(haru); C(h.clone().add(V(.45, .35, -1.3)), h.clone().add(V(0, -.2, 0)), 40); }
+  } else if (t < ST('m01') + .2) {                                     // she opens her eyes: the circle, all around her, where the goat was; every hand pointing down at her
+    show(CH); air('CH'); circleIdle(q); goat.g.visible = false; circleTurn(V(0, 0, 0), 1, 1);
+    CIRCLE.forEach(h => { const r = h.arms[h.arms[0].s === -1 ? 1 : 0]; r.up.rotation.x = -1.2; });
+    place(haru, CH, 0, 0, 0); pose(haru, 'cower'); haru.expr('terrified'); haru.eyes('wide'); look(haru, {nod: -.4});
+    const k = u01(t, ST('h14') - .3, ST('h14') + 1.0);
+    if (t < ST('h14') + 1.4) { const h = HEAD(haru); C(h.clone().add(V(0, .05, .9)), h, 32); }                  // her eyes open
+    else CL(V(0, 7.5 - k * .6, .01), V(0, 0, 0), 64);                                                      // from above: her in the middle, the ring of hands
+  } else if (t < EN('m01') + .7) {                                     // the hood in front of her slides back: Mum, smiling too wide. "Welcome home, Haru."
+    show(CH); air('CH'); circleIdle(q); goat.g.visible = false; circleTurn(V(0, 0, 0), 1, 1);
+    place(haru, CH, 0, 0, 0); pose(haru, 'cower'); haru.expr('terrified');
+    const front = CIRCLE[0]; front.root.visible = false;                 // Mum sits in its place, her own hood falling back
+    const fp = front.root.position; place(mum, CH, fp.x * .9, fp.z * .9, Math.atan2(-fp.x, -fp.z)); mum.root.position.y = -.35; pose(mum, 'kneel');
+    mum.expr('neutral'); mum.mouth('grin', .7); mum.arms[0].up.rotation.set(-1.5, 0, 0);
+    mumHood.visible = true; mum.head.add(mumHood); const k = u01(t, ST('m01') - .5, ST('m01') + .3); mumHood.rotation.x = -sm(k) * 1.7; mumHood.position.set(0, .05 + .05 * k, -.05 * k);
+    const h = HEAD(mum); C(h.clone().add(V(-fp.x, 0, -fp.z).normalize().multiplyScalar(1.1)).add(V(0, .05, 0)), h, 32);
+  } else black = true;
+  if (t > DUR - .1) black = true;
+}
+// Mum's hood (a robe hood that slides back off her head)
+const mumHood = new THREE.Group(); { add(S(.2, 1, 1.15, 1.05), M.robe, mumHood, [0, .12, -.02]); add(new THREE.ConeGeometry(.12, .25, 12), M.robe, mumHood, [0, .3, -.12], [-.6, 0, 0]); mumHood.scale.setScalar(1.5); }
+const frameFX = followFrame(frame, () => [haru, mum]);
+window.DUR = DUR;
+const QC = new URLSearchParams(location.search).get('cam');
+window.renderAt = t => { mumHood.visible = false; frameFX(t); if (QC) { const c = QC.split(',').map(Number); CL(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
