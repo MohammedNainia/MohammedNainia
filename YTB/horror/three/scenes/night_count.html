@@ -11,7 +11,7 @@ import {clay, add, S, Cp, G, boil, CLAY_RIM, followFrame, look, pose} from './cl
 import * as K from './clay_sets.js';
 import {lib} from './library.js';
 import {relaxed, idle} from './moves.js';
-import {sitOn, lieOn, sitUpIn, seatOf, turnToward, sinkCheck, bodyPoints} from './contact.js';
+import {sitOn, lieOn, sitUpIn, seatOf, turnToward, sinkCheck, bodyPoints, drape} from './contact.js';
 const PS = +(new URLSearchParams(location.search).get('s') || 1);
 const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .55, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -68,8 +68,8 @@ const thing = G(R, [1.55, BED_TOP + .02, -1.95]); const sheetM = clay(0xe4e0d6, 
 const tBody = add(S(.32, 1, .45, 2.3), sheetM, thing, [0, .1, .15]); const tHead = add(S(.17, 1, .9, 1.05), sheetM, thing, [0, .12, -.72]);
 add(K.rbox(.95, .05, 1.9, .03), sheetM, thing, [0, .02, .05]);
 // the sheet over Haru in the morning (to her chin)
-const hSheet = add(K.rbox(.9, .14, 1.55, .06), sheetM, R, [1.55, BED_TOP + .12, -1.85]);
-const gBlanket = clay(0xb8c4cc, {bumpScale: 1.2}), gSheet = add(K.rbox(.9, .14, 1.0, .06), gBlanket, R, [-1.45, BED_TOP + .12, -1.6]);   // Grandma's blanket
+const hSheet = new THREE.Mesh(new THREE.BufferGeometry(), sheetM); hSheet.castShadow = hSheet.receiveShadow = true; scene.add(hSheet);
+const gBlanket = clay(0xb8c4cc, {bumpScale: 1.2}), gSheet = new THREE.Mesh(new THREE.BufferGeometry(), gBlanket); gSheet.castShadow = gSheet.receiveShadow = true; scene.add(gSheet);   // Grandma's blanket
 
 // ================================================================ the cast
 const haru = await lib.char('haru'), dbl = await lib.char('haru'), gran = await lib.char('grandma'), nurse = await lib.char('woman_red');
@@ -121,14 +121,10 @@ function morning() { grade('none'); fog.color.set(0x8a8a80); scene.background.se
 // (contact.js: measured from the bed's real shape, so she rests on the mattress with her head on the pillow, never inside it)
 function lie(P) { lieOn(P, bedE); }
 // the sheet over her, to her chin: from the mattress up to just over her body, from her shoulders to the foot of the bed
-// (also Grandma's blanket over her legs: from her hips to the foot of the bed). Shaped once per position.
-function sheetOver(P, bed = bedE, M = hSheet, from = 'neck', back = .07) { const key = P.root.position.toArray().join() + P.root.rotation.x; if (M.userData.for === key) { M.visible = true; return; }
-  const {head, centre, end, at} = seatOf(bed), y0 = at.y, top0 = P[from === 'neck' ? 'neck' : 'hips'].getWorldPosition(V()), pts = bodyPoints(P, 7); let top = y0;
-  for (const p of pts) if (p.clone().sub(top0).dot(head) < -.06 && (from === 'neck' || p.y < top0.y + .12)) top = Math.max(top, p.y);   // (for a lap blanket: only the legs)
-  const a = top0.clone().sub(centre).dot(head) - back, b = -end + .08, len = a - b, mid = centre.clone().addScaledVector(head, (a + b) / 2);
-  M.geometry.dispose(); M.geometry = K.rbox(.95, top + .03 - y0, len, .05); M.position.set(mid.x, (top + .03 + y0) / 2, mid.z); M.visible = true; M.userData.for = key; }
+// the sheet over Haru (to her chin) and Grandma's lap blanket: cloth draped over their bodies (contact.js), not boxes
+function sheetOver(P, bed = bedE, M = hSheet, from = 'neck') { drape(P, bed, {from, mesh: M, back: from === 'hips' ? -.04 : .06}); }
 // Grandma sitting up in her bed (head toward the back wall, facing the room)
-function granInBed(q, {up = .6} = {}) { sitUpIn(gran, bedG, {fix: P => { P.chest.rotation.x -= up * .5; }, key: up}); idle(gran, q, .3, 3); sheetOver(gran, bedG, gSheet, 'hips', -.02); }
+function granInBed(q, {up = .6} = {}) { sitUpIn(gran, bedG, {fix: P => { P.chest.rotation.x -= up * .5; }, key: up}); idle(gran, q, .3, 3); sheetOver(gran, bedG, gSheet, 'hips'); }
 // Haru on the chair, turned to Grandma, her hand on the blanket
 function haruOnChair(P, q) { sitOn(P, chair); idle(P, q, .2); P.arms[0].up.rotation.set(-1.0, 0, .1); P.arms[0].fo.rotation.x = -.3; }
 // the girl in Haru's hoodie in Haru's chair (her place now), turned to Grandma, holding her hand

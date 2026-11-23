@@ -61,6 +61,8 @@ export async function makeGlbPerson(name, o = {}) {
   const p = V(0, 0, 0), ab = V(0, 0, 0), ap = V(0, 0, 0), q = V(0, 0, 0);
   const near = (sg) => { ab.copy(sg.e).sub(sg.a); const t = Math.max(0, Math.min(1, ap.copy(p).sub(sg.a).dot(ab) / ab.lengthSq())); q.copy(sg.a).addScaledVector(ab, t); return 1 / Math.max(.006, p.distanceTo(q)) ** 3; };
   const BODY = segs.filter(sg => !sg.arm && !sg.leg), HEADS = BODY.filter(sg => sg.b === head || sg.b === neck), TORSO = BODY.filter(sg => sg.b !== head);
+  const si2 = R.skirt ? new Uint16Array(n * 4) : null, sw2 = R.skirt ? new Float32Array(n * 4) : null;   // a skirt has a second set: sitting, the skirt over the thighs follows them
+  for (const sit of R.skirt ? [false, true] : [false]) { const SI = sit ? si2 : si, SW = sit ? sw2 : sw;
   for (let v = 0; v < n; v++) {
     p.fromBufferAttribute(pos, v); const sd = p.x >= 0 ? 1 : -1, ax = Math.abs(p.x);
     const w = new Map(), put = (list, g) => { if (g <= 0) return; let tot = 0; const r = list.map(sg => { const x = near(sg); tot += x; return [sg.i, x]; }); r.forEach(([i, x]) => w.set(i, (w.get(i) || 0) + g * x / tot)); };
@@ -70,19 +72,22 @@ export async function makeGlbPerson(name, o = {}) {
       put([HEADS.find(sg => sg.b === head)], fh * .7); put([HEADS.find(sg => sg.b === neck)], fh * .3);
       const dArm = Math.min(...segs.filter(sg => sg.arm === sd).map(sg => 1 / Math.cbrt(near(sg))));                     // distance to the arm's centre line
       const fa = sm(ax0, ax1, ax) * (1 - sm(J.shoulder.y + .02, J.shoulder.y + .12, p.y)) * sm(SR1, SR0, dArm);          // how much sleeve: out at the side, and not far from the arm
-      const fl = R.skirt ? sm(J.knee.y + .05, J.knee.y - .12, p.y) * sm(.004, .05, ax) * .9 + sm(J.ankle.y + .1, J.ankle.y, p.y) * .1   // a skirt or long coat swings with the hips; only its hem and the legs below it follow the legs
-                         : sm(hem + .03, hem - .08, p.y) * sm(.004, .03, ax);                                                // how much leg
+      const fl = R.skirt && !sit ? sm(J.knee.y + .05, J.knee.y - .12, p.y) * sm(.004, .05, ax) * .9 + sm(J.ankle.y + .1, J.ankle.y, p.y) * .1   // a skirt or long coat swings with the hips; only its hem and the legs below it follow the legs
+                         : sm(hem + .03, hem - .08, p.y) * (sit ? 1 : sm(.004, .03, ax));                          // (sitting in a skirt: all of it below the hips, the middle too, goes with the thighs)                                                // how much leg
       put(segs.filter(sg => sg.arm === sd), fa * (1 - fh));
-      put(segs.filter(sg => sg.leg === sd), fl * (1 - fa));
+      if (sit && ax < .04) { const m = .5 + .5 * ax / .04; put(segs.filter(sg => sg.leg === sd), fl * (1 - fa) * m); put(segs.filter(sg => sg.leg === -sd), fl * (1 - fa) * (1 - m)); }
+      else put(segs.filter(sg => sg.leg === sd), fl * (1 - fa));
       put(TORSO, (1 - fa) * (1 - fl) * (1 - fh));
     }
     if (isHair && isHair[v] && p.y < hairPivot.y && p.y > J.shoulder.y - .35 * (J.headTop.y - J.headBase.y)) {   // long hair: from the head into the hair bone, more the lower it hangs
       const wh = sm(hairPivot.y - .02, hairPivot.y - .22 * (J.headTop.y - J.headBase.y) / .5, p.y) * .95;
       w.clear(); w.set(HI, wh); w.set(head.userData.i ?? bones.indexOf(head), 1 - wh); }
     const top = [...w.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4), tot = top.reduce((s, c) => s + c[1], 0) || 1;
-    top.forEach((c, k2) => { si[v * 4 + k2] = c[0]; sw[v * 4 + k2] = c[1] / tot; });
-  }
+    top.forEach((c, k2) => { SI[v * 4 + k2] = c[0]; SW[v * 4 + k2] = c[1] / tot; });
+  } }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const skinSets = {stand: [geo.attributes.skinIndex, geo.attributes.skinWeight], sit: R.skirt ? [new THREE.Uint16BufferAttribute(si2, 4), new THREE.Float32BufferAttribute(sw2, 4)] : null};
+  let skirtNow = 'stand'; const skirtMode = m => { if (!skinSets.sit || m === skirtNow) return; skirtNow = m; geo.setAttribute('skinIndex', skinSets[m][0]); geo.setAttribute('skinWeight', skinSets[m][1]); };
   // ---- the skin: the generator painted it browner than the sheet; shift every skin-coloured texel toward the sheet's peach (the hoodie, hair and trousers stay)
   const m0 = src.material, F = R.face || null;
   let map = m0.map;
@@ -194,12 +199,12 @@ export async function makeGlbPerson(name, o = {}) {
   const faceLight = new THREE.PointLight(0xffe8d8, 0, 1.2); head.add(faceLight); faceLight.position.set(0, .1, .4);
   const face = new THREE.Group(); head.add(face); const back = new THREE.Group(); head.add(back);
   // the makePerson face interface (the same calls drive it: P.expr('scared'), P.mouth('open', .6), P.eyes('closed'), P.brows(1)...)
-  const P = {rigFace: F, rigPt: P0, root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: [], hair: isHair ? hairB : null}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
+  const P = {skirtMode, rigFace: F, rigPt: P0, root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: [], hair: isHair ? hairB : null}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
     eyes(s) { ST.eyes = s; drawFace(); }, lid(v) { ST.eyes = v >= .9 ? 'closed' : 'open'; ST.lid = v; drawFace(); },
     brows(kk) { ST.brows = [kk, kk, Math.abs(kk) * .004]; drawFace(); }, browPair(r, l, raise = 0) { ST.brows = [r, l, raise]; drawFace(); },
     mouth(s, amt = 1) { ST.mouth = s; ST.open = amt; drawFace(); }, tears(b) { ST.tears = !!b; drawFace(); },
     expr(name) { const e = EXPR[name] || EXPR.neutral; ST.eyes = (e.lid ?? 0) >= .9 ? 'closed' : 'open'; ST.lid = Math.min(.6, e.lid ?? .15); ST.brows = [e.brows[0], e.brows[1], e.brows[2] || 0]; ST.mouth = e.mouth; ST.open = e.open ?? 1; ST.tears = !!e.tears; drawFace(); },
-    talkCues() {}, clothes() {}, rest() { ST.eyes = 'open'; ST.lid = .15; ST.brows = [0, 0, 0]; ST.mouth = 'closed'; ST.open = 1; ST.tears = false; drawFace(); }};
+    talkCues() {}, clothes() {}, rest() { skirtMode('stand'); ST.eyes = 'open'; ST.lid = .15; ST.brows = [0, 0, 0]; ST.mouth = 'closed'; ST.open = 1; ST.tears = false; drawFace(); }};
   // the scenes' reset() puts the hips at .82 and the head at neckLen; keep the chest and neck where the mesh needs them
   P.restPos = {chest: chest.position.clone(), neck: neck.position.clone()};
   return P;

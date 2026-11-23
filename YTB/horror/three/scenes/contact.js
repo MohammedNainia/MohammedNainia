@@ -119,7 +119,7 @@ export function turnToward(obj, target) {
 // (a still pose: the fit is kept per chair placement and key, so later frames cost nothing; add idle() after it)
 export function sitOn(P, chair, {forward = .02, fix, key = ''} = {}) {
   const {at, front} = seatOf(chair), k = chair.uuid + '|' + key + '|' + chair.position.toArray() + chair.rotation.y;
-  P.root.visible = true; P.root.rotation.set(0, Math.atan2(front.x, front.z), 0); pose(P, 'sitChair'); if (fix) fix(P);
+  P.root.visible = true; P.skirtMode?.('sit'); P.root.rotation.set(0, Math.atan2(front.x, front.z), 0); pose(P, 'sitChair'); if (fix) fix(P);
   const c = P.root.userData.sit; if (c && c.k === k) { P.root.position.copy(c.p); return; }
   P.root.position.set(0, 0, 0); P.root.updateMatrixWorld(true);
   const hip = P.hips.getWorldPosition(V());                                     // the pelvis over the seat's middle, a little forward
@@ -146,11 +146,46 @@ export function lieOn(P, bed, {along = 0, fix, key = ''} = {}) {
 // sit up in a bed: back to the head end, facing the foot, on the mattress, nothing through the head section or the rails
 export function sitUpIn(P, bed, {from = .12, poseName = 'sitBed', fix, key = ''} = {}) {
   const {head, centre, edge} = seatOf(bed), k = bed.uuid + '|' + from + poseName + '|' + key + '|' + bed.position.toArray() + bed.rotation.y;
-  P.root.visible = true; P.root.rotation.set(0, Math.atan2(-head.x, -head.z), 0); pose(P, poseName); if (fix) fix(P);
+  P.root.visible = true; P.skirtMode?.('sit'); P.root.rotation.set(0, Math.atan2(-head.x, -head.z), 0); pose(P, poseName); if (fix) fix(P);
   const c = P.root.userData.up; if (c && c.k === k) { P.root.position.copy(c.p); return; }
   P.root.position.set(0, 0, 0); P.root.updateMatrixWorld(true);
   const hip = P.hips.getWorldPosition(V()), want = centre.clone().addScaledVector(head, edge - from);   // her bottom just in front of the raised head section
   P.root.position.x += want.x - hip.x; P.root.position.z += want.z - hip.z; P.root.position.y = centre.y + .5 - hip.y;
   settleOn(P, bed, {reach: .5}); clearOf(P, [bed], head.clone().negate(), {max: .5}); settleOn(P, bed, {reach: .5});
   P.root.userData.up = {k, p: P.root.position.clone()};
+}
+
+// a sheet or blanket draped over someone in a bed: a soft cloth surface shaped to her body (the highest clay under each spot, smoothed),
+// lying on the mattress elsewhere and hanging over its sides. from: 'neck' (to her chin) or 'hips' (a lap blanket, legs only).
+// Returns a mesh (add it to the scene once; call again each frame: it is only rebuilt when she or the bed moves).
+export function drape(P, bed, {from = 'neck', back = .06, mat, mesh} = {}) {
+  const S = solidOf(bed), {head, centre, at, end} = seatOf(bed), across = V(head.z, 0, -head.x);
+  const key = P.root.position.toArray().join() + P.root.rotation.x + from + bed.position.toArray();
+  if (mesh && mesh.userData.key === key) { mesh.visible = true; return mesh; }
+  const half = (S.nx > S.nz ? S.box.max.z - S.box.min.z : S.box.max.x - S.box.min.x) / 2 - .1, base = at.y + .012;
+  const ref = (from === 'neck' ? P.neck : P.hips).getWorldPosition(V()), A = ref.clone().sub(centre).dot(head) - back, B = -end + .06;
+  const D = .025, nu = Math.max(2, Math.round((A - B) / D)), nv = Math.round((half + .14) * 2 / D);
+  const H = new Float32Array((nu + 1) * (nv + 1)).fill(-1);
+  for (const p of bodyPoints(P, 4)) {                                              // the highest clay over each spot
+    const d = p.clone().sub(centre), u = d.dot(head), v = d.dot(across); if (u > A + .02 || (from === 'hips' && p.y > ref.y - .02)) continue;
+    const i = Math.round((u - B) / D), j = Math.round((v + half + .14) / D); if (i < 0 || j < 0 || i > nu || j > nv) continue;
+    H[i * (nv + 1) + j] = Math.max(H[i * (nv + 1) + j], p.y);
+  }
+  // grow and soften: cloth bridges the gaps between limbs and falls off the body's sides instead of hugging it
+  let G = Float32Array.from(H, h => Math.max(h + .02, base));
+  for (let it = 0; it < 3; it++) { const N = G.slice(); for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) { let m = G[i * (nv + 1) + j];
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii <= nu && jj <= nv) m = Math.max(m, G[ii * (nv + 1) + jj] - .012); } N[i * (nv + 1) + j] = m; } G = N; }
+  for (let it = 0; it < 4; it++) { const N = G.slice(); for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) { let s = 0, c = 0;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii <= nu && jj <= nv) { s += G[ii * (nv + 1) + jj]; c++; } } N[i * (nv + 1) + j] = Math.max(s / c, base); } G = N; }
+  const pos = [], idx = [];
+  for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+    const u = B + i * D, v = -half - .14 + j * D, over = Math.max(0, Math.abs(v) - half);
+    let y = G[i * (nv + 1) + j]; if (over > 0) y = Math.min(y, base) - over * 1.6;      // hanging over the mattress's sides
+    const w = centre.clone().addScaledVector(head, u).addScaledVector(across, Math.sign(v) * Math.min(Math.abs(v), half + over * .3)); pos.push(w.x, y, w.z);
+    if (i < nu && j < nv) { const a = i * (nv + 1) + j; idx.push(a, a + nv + 1, a + 1, a + 1, a + nv + 1, a + nv + 2); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  if (!mesh) { mesh = new THREE.Mesh(g, mat); mesh.castShadow = mesh.receiveShadow = true; } else { mesh.geometry.dispose(); mesh.geometry = g; }
+  if (mesh.material) mesh.material.side = THREE.DoubleSide;
+  mesh.userData.key = key; mesh.visible = true; return mesh;
 }
