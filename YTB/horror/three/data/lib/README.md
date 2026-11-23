@@ -42,6 +42,7 @@ sitOn(haru, chair); idle(haru, q, .2);  // sitChair pose, bottom on the seat, ba
 lieOn(haru, bed);                       // on her back along the bed, head on the pillow end (measured), tilted up as the pillow needs
 sitUpIn(gran, bed, {fix: P => {...}});  // sitting up against the head section, facing the foot
 ```
+Covers: `drape(P, bed, {from: 'neck' | 'hips', mesh})` lays a sheet or lap blanket over her body's real shape (never a box). Skirted characters switch to sitting skin weights inside the sit helpers, so the skirt follows the thighs instead of hanging through the seat.
 Beds: the pillow end is found from the model; lay the bed lengthwise in the room and let `seatOf(bed).head` tell you which way it points.
 Before every render: `node check_contact.js --scene <name>` sweeps the reel and exits with an error if anyone is more than 4 cm inside
 any furniture (the scene exposes `window.contactAt(t)`, see night_count.html). Test a prop and a character alone: `scenes/contact_lab.html?char=haru&prop=chair&do=sit`.

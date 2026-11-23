@@ -97,9 +97,9 @@ export function settleOn(P, obj, {gap = .006, reach = .3, all = false, soft = .2
 }
 
 // push the character along dir until no point is inside the props (the chair's back, a bed rail); returns the distance moved
-export function clearOf(P, props, dir, {max = .5, stepD = .01} = {}) {
+export function clearOf(P, props, dir, {max = .5, stepD = .01, allow = 2} = {}) {
   const d = dir.clone().setY(0).normalize(); let moved = 0;
-  while (moved < max && sinkCheck(P, props, bodyPoints(P, 4)).n > 2) { P.root.position.addScaledVector(d, stepD); moved += stepD; }
+  while (moved < max && sinkCheck(P, props, bodyPoints(P, 3)).n > allow) { P.root.position.addScaledVector(d, stepD); moved += stepD; }
   return moved;
 }
 
@@ -151,7 +151,7 @@ export function sitUpIn(P, bed, {from = .12, poseName = 'sitBed', fix, key = ''}
   P.root.position.set(0, 0, 0); P.root.updateMatrixWorld(true);
   const hip = P.hips.getWorldPosition(V()), want = centre.clone().addScaledVector(head, edge - from);   // her bottom just in front of the raised head section
   P.root.position.x += want.x - hip.x; P.root.position.z += want.z - hip.z; P.root.position.y = centre.y + .5 - hip.y;
-  settleOn(P, bed, {reach: .5}); clearOf(P, [bed], head.clone().negate(), {max: .5}); settleOn(P, bed, {reach: .5});
+  settleOn(P, bed, {reach: .5}); clearOf(P, [bed], head.clone().negate(), {max: .5, allow: 0}); settleOn(P, bed, {reach: .5});
   P.root.userData.up = {k, p: P.root.position.clone()};
 }
 
