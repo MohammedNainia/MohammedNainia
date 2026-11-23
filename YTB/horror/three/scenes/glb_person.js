@@ -194,7 +194,7 @@ export async function makeGlbPerson(name, o = {}) {
   const faceLight = new THREE.PointLight(0xffe8d8, 0, 1.2); head.add(faceLight); faceLight.position.set(0, .1, .4);
   const face = new THREE.Group(); head.add(face); const back = new THREE.Group(); head.add(back);
   // the makePerson face interface (the same calls drive it: P.expr('scared'), P.mouth('open', .6), P.eyes('closed'), P.brows(1)...)
-  const P = {root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: [], hair: isHair ? hairB : null}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
+  const P = {rigFace: F, rigPt: P0, root, hips, chest, neck, head, back, face, arms, legs, mesh, faceMesh, J, faceLight, sec: {strings: [], hair: isHair ? hairB : null}, neckLen, s0, M: {eye: new THREE.MeshBasicMaterial(), skin: mat},
     eyes(s) { ST.eyes = s; drawFace(); }, lid(v) { ST.eyes = v >= .9 ? 'closed' : 'open'; ST.lid = v; drawFace(); },
     brows(kk) { ST.brows = [kk, kk, Math.abs(kk) * .004]; drawFace(); }, browPair(r, l, raise = 0) { ST.brows = [r, l, raise]; drawFace(); },
     mouth(s, amt = 1) { ST.mouth = s; ST.open = amt; drawFace(); }, tears(b) { ST.tears = !!b; drawFace(); },

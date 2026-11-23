@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#222}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// Contact test: every character sits on every seat and lies on every bed; prints how much of her is inside the prop (must be 0).
+//   contact_lab.html?char=haru&prop=chair&do=sit&cam=x,y,z,lx,ly,lz,fov     (one case, rendered)
+//   window.report() -> [{char, prop, do, n, depth}]                         (every case)
+import {THREE, setup} from './lib.js';
+import {lib} from './library.js';
+import {sitOn, lieOn, sitUpIn, settleOn, sinkCheck, solidOf, bodyPoints} from './contact.js';
+const Q = new URLSearchParams(location.search);
+const {scene, cam, render} = setup({w: 540, h: 960});
+scene.background = new THREE.Color(0x30343a); scene.add(new THREE.HemisphereLight(0xffffff, 0x404040, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(2, 4, 3); scene.add(sun);
+const SEATS = ['chair', 'armchair', 'pew', 'wheelchair'], BEDS = ['hospital_bed'], CHARS = (Q.get('chars') || 'haru,grandma,woman_red,man_tired,boy').split(',');
+const I = await lib.list();
+async function one(c, p, how) {
+  if (!I.props[p] || !I.chars[c]) return null;
+  const prop = await lib.prop(p), P = await lib.char(c); scene.add(prop, P.root);
+  if (how === 'sit') sitOn(P, prop); else if (how === 'lie') lieOn(P, prop); else if (how === 'situp') sitUpIn(P, prop); else { P.root.position.copy(solidOf(prop).seat); settleOn(P, prop); }
+  const r = sinkCheck(P, [prop]); return {char: c, prop: p, do: how, n: r.n, depth: +r.depth.toFixed(3), y: +P.root.position.y.toFixed(3), prop3d: prop, P};
+}
+window.report = async () => { const out = [];
+  for (const c of CHARS) { for (const p of SEATS) { const r = await one(c, p, 'sit'); if (r) { out.push({...r, prop3d: undefined, P: undefined}); scene.remove(r.prop3d, r.P.root); } }
+    for (const p of BEDS) for (const how of ['lie', 'situp']) { const r = await one(c, p, how); if (r) { out.push({...r, prop3d: undefined, P: undefined}); scene.remove(r.prop3d, r.P.root); } } }
+  return out; };
+if (Q.get('char')) {
+  const r = await one(Q.get('char'), Q.get('prop') || 'chair', Q.get('do') || 'sit'); console.log('CHECK', JSON.stringify({n: r.n, depth: r.depth}));
+  const c = (Q.get('cam') || '1.6,1.0,1.6,0,.5,0,40').split(',').map(Number); cam.position.set(c[0], c[1], c[2]); cam.lookAt(c[3], c[4], c[5]); cam.fov = c[6]; cam.updateProjectionMatrix();
+}
+window.solid = async n => { const o = await lib.prop(n); const S = solidOf(o); const h = {}; S.cells.forEach(c => c.length && (h[(Math.round(c[0][1] / .03) * .03).toFixed(2)] = (h[(Math.round(c[0][1] / .03) * .03).toFixed(2)] || 0) + 1));
+  const mid = S.cells[Math.floor(S.nx / 2) * S.nz + Math.floor(S.nz / 2)]; return {surfY: S.surfY, box: [S.box.min.toArray(), S.box.max.toArray()], hist: h, mid, front: S.front.toArray(), seat: S.seat.toArray()}; };
+window.dbgLie = async (c = 'haru', how = 'lie') => { const r = await one(c, 'hospital_bed', how); const S = solidOf(r.prop3d); const pts = bodyPoints(r.P); r.prop3d.updateMatrixWorld(true); const inv = r.prop3d.matrixWorld.clone().invert(); const out = [];
+  let ymin = 9, ymax = -9; for (const p of pts) { const lp = p.clone().applyMatrix4(inv); ymin = Math.min(ymin, lp.y); ymax = Math.max(ymax, lp.y);
+    const i = Math.round((lp.x - S.box.min.x) / .025), k = Math.round((lp.z - S.box.min.z) / .025); const s = S.cells[i * S.nz + k]; if (s && s.some(([b, t]) => lp.y > b + .006 && lp.y < t - .006) && out.length < 400) out.push([lp.toArray().map(v => +v.toFixed(3)), s]); }
+  const cl = {}; out.forEach(([p, s]) => { const key = [Math.round(p[0] * 5) / 5, Math.round(p[2] * 5) / 5]; cl[key] = (cl[key] || 0) + 1; }); return {ymin, ymax, cl, root: r.P.root.position.toArray(), n: pts.length}; };
+window.renderAt = t => render(t); window.renderAt(0); window.ready = true;
+</script></body></html>

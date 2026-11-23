@@ -31,6 +31,25 @@ reset(P); travel(P, t, path);            // walks / runs along it with the feet 
 ```
 Headings: 0 faces +z (the camera), PI/2 faces +x. See it: `scenes/haru_lab.html?mode=move` (and `?mode=face` for the face and stance from all sides).
 
+## Sitting and lying: contact (scenes/contact.js), the rule
+
+Never place a seated or lying character by hand (no guessed heights like `BED_TOP - .38`). Use the contact helpers: they measure the prop's real
+shape (a slab map from rays, once per prop) and the character's real skinned vertices, so she rests ON the seat or mattress and never sinks in.
+```js
+import {sitOn, lieOn, sitUpIn, settleOn, turnToward, sinkCheck} from './contact.js';
+turnToward(chair, V(-1.45, 0, -2.4));   // turn the chair to face something (its front is measured: the side away from the backrest)
+sitOn(haru, chair); idle(haru, q, .2);  // sitChair pose, bottom on the seat, back in front of the backrest; set arms after
+lieOn(haru, bed);                       // on her back along the bed, head on the pillow end (measured), tilted up as the pillow needs
+sitUpIn(gran, bed, {fix: P => {...}});  // sitting up against the head section, facing the foot
+```
+Beds: the pillow end is found from the model; lay the bed lengthwise in the room and let `seatOf(bed).head` tell you which way it points.
+Before every render: `node check_contact.js --scene <name>` sweeps the reel and exits with an error if anyone is more than 4 cm inside
+any furniture (the scene exposes `window.contactAt(t)`, see night_count.html). Test a prop and a character alone: `scenes/contact_lab.html?char=haru&prop=chair&do=sit`.
+
+## Masks and anything on a face
+Build them from the face rig (`P.rigFace`: eyes, mouth, face box in model units; `P.rigPt` turns them into the puppet's units), keep the top edge
+under the eye centre minus 1.7 eye radii (the widest drawn eye reaches about 1.05), and assert it in code (night_count.html does).
+
 ## Whole places (sets)
 
 `scenes/lib_sets.js` builds finished, lit places from these models plus our own ground, sky, fog and lights:
