@@ -389,6 +389,7 @@ export const POSES = {
   hug: {arms: A([-1.2, .9, 0], [-1.25, 0, 0]), chest: [.1, 0, 0]},
   sitFloor: {legs: {th: [-1.35, 0, .1], sh: [2.3, 0, 0]}, arms: A([-.95, .55, 0], [-.85, 0, 0]), chest: [.3, 0, 0], drop: .62},
   sitChair: {legs: {th: [-1.5, 0, 0], sh: [1.5, 0, 0]}, arms: A([-.4, 0, 0], [-.7, 0, 0])},
+  sitBed: {legs: {th: [-1.5, 0, .04], sh: [.05, 0, 0], ft: [-.2, 0, 0]}, arms: A([-.35, .25, -.05], [-.9, 0, 0]), chest: [-.08, 0, 0]},   // sitting up in bed: the legs straight out along the mattress
   kneel: {legs: {th: [.05, 0, 0], sh: [1.6, 0, 0]}, chest: [.1, 0, 0], drop: .38},
   peek: {hips: [0, 0, .12], chest: [0, 0, .3], head: [0, 0, .2], armR: A([-.4, 0, -.2], [-1.2, 0, 0])},
   sneak: {chest: [.3, 0, 0], head: [-.25, 0, 0], arms: A([-.6, 0, -.3], [-1.1, 0, 0]), legs: {th: [-.35, 0, 0], sh: [.6, 0, 0]}, drop: .07},

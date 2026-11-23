@@ -144,7 +144,7 @@ export function lieOn(P, bed, {along = 0, fix, key = ''} = {}) {
   P.root.position.copy(best.p); P.root.rotation.copy(best.r); P.root.userData.lie = {k, p: best.p.clone(), r: best.r.clone()};
 }
 // sit up in a bed: back to the head end, facing the foot, on the mattress, nothing through the head section or the rails
-export function sitUpIn(P, bed, {from = .12, poseName = 'sitFloor', fix, key = ''} = {}) {
+export function sitUpIn(P, bed, {from = .12, poseName = 'sitBed', fix, key = ''} = {}) {
   const {head, centre, edge} = seatOf(bed), k = bed.uuid + '|' + from + poseName + '|' + key + '|' + bed.position.toArray() + bed.rotation.y;
   P.root.visible = true; P.root.rotation.set(0, Math.atan2(-head.x, -head.z), 0); pose(P, poseName); if (fix) fix(P);
   const c = P.root.userData.up; if (c && c.k === k) { P.root.position.copy(c.p); return; }
