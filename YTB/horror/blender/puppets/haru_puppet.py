@@ -148,6 +148,19 @@ EYES = ('open', 'half', 'closed', 'happy', 'wide')
 MOUTHS = ('line', 'smile', 'frown', 'o', 'scream')
 
 
+def fast_cycles(sc):
+    """render settings benchmarked on the RTX 5090 laptop (scenes/haru_bench.py): 1.12 s per 1080x1920 frame vs
+    3.37 s with the skill defaults, with no visible difference. Use after claylib.setup_render()."""
+    c = sc.cycles
+    c.adaptive_threshold = 0.03; c.adaptive_min_samples = 16
+    c.max_bounces = 4; c.diffuse_bounces = 2; c.glossy_bounces = 2; c.transmission_bounces = 2
+    c.transparent_max_bounces = 4; c.volume_bounces = 0
+    c.use_light_tree = True; c.sample_clamp_indirect = 4.0
+    try: c.denoising_use_gpu = True
+    except AttributeError: pass
+    sc.render.use_persistent_data = True
+
+
 # ---------------------------------------------------------------- soft rest (hair squashes on floor / bed)
 def colliders():
     c = bpy.data.collections.get('Colliders')

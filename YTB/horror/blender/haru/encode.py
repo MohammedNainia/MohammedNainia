@@ -6,7 +6,8 @@ import imageio_ffmpeg
 src, out = sys.argv[1], sys.argv[2]
 step = int(sys.argv[sys.argv.index('--step') + 1]) if '--step' in sys.argv else 2
 ff = imageio_ffmpeg.get_ffmpeg_exe()
-frames = sorted(glob.glob(os.path.join(src, 'f_*.png')))
+frames = sorted(glob.glob(os.path.join(src, 'f_*.png')) or glob.glob(os.path.join(src, '[0-9][0-9][0-9][0-9].png')))
+# (f_*.png: 24 fps timeline rendered on twos; 0001.png: the claymation skill's 12 fps frames. Both hold 1/12 s each.)
 lst = os.path.join(src, 'list.txt')
 with open(lst, 'w') as f:
     for p in frames: f.write(f"file '{os.path.basename(p)}'\nduration {step / 24}\n")
