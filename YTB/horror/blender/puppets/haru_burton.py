@@ -23,12 +23,12 @@ importlib.reload(BM)
 from haru_puppet import Shape, piece, arc, soft_rest, S
 
 # ---------------------------------------------------------------- proportions (1.26 m units, x0.1 when built)
-HEAD_C, HEAD_R = Vector((0, 0, 1.1)), Vector((0.128, 0.12, 0.14))
+HEAD_C, HEAD_R = Vector((0, 0, 1.095)), Vector((0.142, 0.12, 0.15))  # broad round face, chin as low as the sheet (audit)
 SH = Vector((0.108, 0.01, 0.815)); A_REST = math.radians(9); L_UP, L_FORE = 0.19, 0.185
-HEM = 0.462
-EYE_X, EYE_Z, EYE_R = 0.058, 1.078, 0.03      # big Burton eyes, but a girl's, not an insect's
+HEM = 0.488
+EYE_X, EYE_Z, EYE_R = 0.062, 1.078, 0.03      # big Burton eyes, but a girl's, not an insect's
 
-PAL = {'skin': '#d5c5b9', 'lid': '#b9a8a8', 'socket': '#76687a', 'hoodie': '#a07c3c', 'pants': '#4d5153',
+PAL = {'skin': '#d5c5b9', 'lid': '#b9a8a8', 'socket': '#665468', 'hoodie': '#a07c3c', 'pants': '#4d5153',
        'canvas': '#e9e6df', 'sole': '#d9d6cf', 'hair': '#0b0b0c', 'brow': '#2a2526', 'lips': '#8f6a6a', 'mouth_in': '#2a1210'}
 
 EXPR = {  # upper lid (deg: -50 wide open .. 90 shut), lower lid (deg: 25 down .. -50 up), pupil, brow tilt (+ = inner up),
@@ -80,16 +80,16 @@ def hair_block(seed=4):
     forehead to her right. hair_grooves() then carves the strand grooves into it."""
     import random
     rnd = random.Random(seed); s = Shape()
-    s.ellipsoid((0, 0.03, 1.115), (0.148, 0.132, 0.14))                    # close over the skull, no bulge on top
+    s.ellipsoid((0, 0.038, 1.122), (0.153, 0.137, 0.152))                  # over the whole skull, set back so the face shows
     for sd in (1, -1):
-        s.ellipsoid((sd * 0.143, 0.02, 0.97), (0.024, 0.072, 0.2))         # flat sheets in front of the shoulders
+        s.ellipsoid((sd * 0.15, 0.06, 0.97), (0.02, 0.066, 0.2))          # flat sheets outside the cheeks, behind the ears
         for k in range(6):                                                # tapered locks at the ends
-            y = -0.04 + 0.017 * k
-            s.capsule((sd * 0.143, y, 0.86), (sd * (0.142 + rnd.uniform(-0.005, 0.005)), y + rnd.uniform(-0.004, 0.004),
+            y = 0.0 + 0.017 * k
+            s.capsule((sd * 0.15, y, 0.86), (sd * (0.149 + rnd.uniform(-0.005, 0.005)), y + rnd.uniform(-0.004, 0.004),
                                               0.755 + rnd.uniform(-0.02, 0.02)), 0.011, 0.003)
-    s.ellipsoid((0, 0.075, 0.95), (0.15, 0.05, 0.22))                      # one flat sheet down the back
+    s.ellipsoid((0, 0.08, 0.95), (0.142, 0.05, 0.22))                      # one flat sheet down the back
     for k in range(13):
-        x = -0.135 + 0.0225 * k
+        x = -0.128 + 0.0213 * k
         s.capsule((x, 0.08, 0.82), (x + rnd.uniform(-0.006, 0.006), 0.084, 0.705 + rnd.uniform(-0.02, 0.02)), 0.014, 0.0035)
     s.ellipsoid((-0.01, -0.074, 1.19), (0.12, 0.018, 0.05), rot=(math.radians(-32), math.radians(-15), 0))  # fringe, flat on the forehead
     s.ellipsoid((-0.09, -0.06, 1.15), (0.045, 0.02, 0.07), rot=(math.radians(-20), 0, 0))
@@ -169,7 +169,7 @@ class HaruBurton(HP.Haru):
     def _materials(self):
         sockets = [tuple(eye_frame(s)[2] * S) for s in (1, -1)]
         n = self.name
-        return {'face': BM.silicone(f'{n}_face', PAL['skin'], sockets=sockets, socket_color=PAL['socket'], socket_r=EYE_R * 1.45 * S),
+        return {'face': BM.silicone(f'{n}_face', PAL['skin'], sockets=sockets, socket_color=PAL['socket'], socket_r=EYE_R * 1.7 * S),
                 'skin': BM.silicone(f'{n}_skin', PAL['skin']), 'lid': BM.lid(f'{n}_lid', PAL['lid']),
                 'hoodie': BM.fabric(f'{n}_hoodie', PAL['hoodie'], 'knit'), 'pants': BM.fabric(f'{n}_pants', PAL['pants'], 'weave'),
                 'canvas': BM.fabric(f'{n}_canvas', PAL['canvas'], 'weave', fuzz=0.5), 'sole': BM.silicone(f'{n}_sole', PAL['sole']),
@@ -181,17 +181,17 @@ class HaruBurton(HP.Haru):
     def _build(self):
         M, co = self.M, self.coll
         s = Shape()                                                              # oversized knitted hoodie
-        s.ellipsoid((0, 0.01, 0.73), (0.118, 0.076, 0.13)); s.ellipsoid((0, 0, 0.6), (0.135, 0.083, 0.13))
-        s.ellipsoid((0, 0, HEM + 0.07), (0.142, 0.085, 0.06))
-        s.ring((0, 0, HEM + 0.017), 0.118, 0.07, 0.019, 60)                      # ribbed hem band, gathered under the body
-        s.ring((0, 0.016, 0.912), 0.06, 0.054, 0.034, 28, tilt=0.95)              # hood opening: a shallow V at the front
-        s.ellipsoid((0, 0.072, 0.86), (0.1, 0.038, 0.09))                        # hood on the back
-        s.ellipsoid((0, -0.078, 0.565), (0.08, 0.015, 0.05))                     # kangaroo pocket
-        for side in (1, -1): s.ball((side * 0.092, 0.01, 0.785), 0.052)
+        s.ellipsoid((0, 0.01, 0.73), (0.118, 0.098, 0.13)); s.ellipsoid((0, 0, 0.6), (0.135, 0.106, 0.13))
+        s.ellipsoid((0, 0, HEM + 0.07), (0.142, 0.106, 0.06))
+        s.ring((0, 0, HEM + 0.017), 0.118, 0.09, 0.019, 60)                      # ribbed hem band, gathered under the body
+        s.ring((0, 0.02, 0.876), 0.072, 0.062, 0.025, 32, tilt=0.55)                # hood opening: low, shallow V on the shoulders
+        s.ellipsoid((0, 0.078, 0.85), (0.105, 0.034, 0.09))                       # hood lying flat on the back
+        s.ellipsoid((0, -0.1, 0.575), (0.08, 0.015, 0.05))                       # kangaroo pocket
+        for side in (1, -1): s.ball((side * 0.094, 0.01, 0.8), 0.058)      # shoulders fill up under the hood
         self._attach(piece('hoodie', s, M['hoodie'], 'top', co, cuts=[(HEM, 'above')], smooth=8, lump=0.00008), 'spine')
         s = Shape()
         for side in (1, -1):
-            s.capsule((side * 0.022, -0.056, 0.875), (side * 0.026, -0.082, 0.79), 0.005); s.ball((side * 0.026, -0.082, 0.785), 0.0075)
+            s.capsule((side * 0.024, -0.066, 0.885), (side * 0.03, -0.108, 0.725), 0.005); s.ball((side * 0.03, -0.108, 0.72), 0.0075)
         self._attach(piece('drawstrings', s, M['hoodie'], 'top', co, voxel=0.0014, smooth=3, lump=0), 'chest', False)
         self._attach(piece('pelvis', Shape().ellipsoid((0, 0, 0.54), (0.115, 0.078, 0.065)), M['pants'], 'pants', co,
                            cuts=[(HEM + 0.04, 'below')], lump=0), 'hips')
@@ -199,7 +199,7 @@ class HaruBurton(HP.Haru):
                            voxel=0.0025, smooth=4, lump=0), 'neck')
         head = Shape().ellipsoid(HEAD_C, HEAD_R, seg=64)
         taper_head(head.bm)                                                       # one smooth egg, narrow at the chin
-        for side in (1, -1): head.ellipsoid((side * 0.124, 0.005, 1.07), (0.014, 0.022, 0.03))    # ears
+        for side in (1, -1): head.ellipsoid((side * 0.148, -0.006, 1.07), (0.012, 0.024, 0.032))  # ears, peeking out of the hair
         self._attach(piece('head', head, M['face'], 'skin', co, voxel=0.0025, smooth=5, lump=0), 'head')
         for side, tag in ((1, 'L'), (-1, 'R')):
             d = Vector((side * math.sin(A_REST), 0, -math.cos(A_REST)))
@@ -212,25 +212,26 @@ class HaruBurton(HP.Haru):
             self._attach(piece('sleeve_lo.' + tag, s, M['hoodie'], 'top', co, lump=0.00008), 'forearm.' + tag)
             out = Vector((math.cos(A_REST), 0, math.sin(A_REST))) if side > 0 else Vector((-math.cos(A_REST), 0, math.sin(A_REST)))
             Mx = Matrix((out, Vector((0, -1, 0)), -d)).transposed()
+            Mx = Matrix.Rotation(math.radians(-side * 40), 3, d) @ Mx     # turned in: backs of the hands show from the front
             P = lambda u, v, w: wr + Mx @ Vector((u, v, w))
-            s = Shape().capsule(P(0, 0, 0.02), P(0, 0, -0.01), 0.016, 0.015).ellipsoid(P(0, 0, -0.03), (0.014, 0.026, 0.03), rot=Mx)
-            for vy, ln in ((-0.018, 0.036), (-0.006, 0.044), (0.006, 0.042), (0.018, 0.034)):      # spindly fingers
-                s.capsule(P(0.001, vy, -0.052), P(-0.006, vy * 1.08, -0.052 - ln), 0.0058, 0.0048, 16)
-            s.capsule(P(-0.006, -0.024, -0.022), P(-0.016, -0.034, -0.05), 0.0062, 0.0052, 16)
+            s = Shape().capsule(P(0, 0, 0.02), P(0, 0, -0.012), 0.02, 0.019).ellipsoid(P(0, 0, -0.037), (0.017, 0.036, 0.04), rot=Mx)
+            for vy, ln in ((-0.025, 0.048), (-0.0085, 0.06), (0.0085, 0.057), (0.025, 0.046)):     # long spindly fingers
+                s.capsule(P(0.001, vy, -0.07), P(-0.008, vy * 1.08, -0.07 - ln), 0.0075, 0.006, 16)
+            s.capsule(P(-0.007, -0.033, -0.03), P(-0.02, -0.046, -0.068), 0.0082, 0.0068, 16)
             self._attach(piece('hand.' + tag, s, M['skin'], 'skin', co, voxel=0.0011, smooth=4, lump=0), 'hand.' + tag)
             hip, knee, ank = Vector((side * 0.05, 0, 0.52)), Vector((side * 0.05, 0, 0.30)), Vector((side * 0.05, 0.005, 0.09))
             self._attach(piece('thigh.' + tag, Shape().capsule(hip, knee, 0.042, 0.038), M['pants'], 'pants', co, lump=0.00005), 'thigh.' + tag)
             s = Shape().capsule(knee, ank, 0.038, 0.035).fold(knee, ank, 0.86, 0.035, 0.011, 0.008, seed=30 + side)
             self._attach(piece('shin.' + tag, s, M['pants'], 'pants', co, cuts=[(0.1, 'above')], lump=0.00005), 'shin.' + tag)
             x = side * 0.052
-            s = Shape().ellipsoid((x, -0.028, 0.042), (0.042, 0.082, 0.04)).ellipsoid((x, -0.072, 0.032), (0.04, 0.045, 0.03))
+            s = Shape().ellipsoid((x, -0.036, 0.042), (0.044, 0.11, 0.04)).ellipsoid((x, -0.1, 0.032), (0.042, 0.055, 0.03))
             s.capsule((x, 0.005, 0.055), (x, 0.005, 0.082), 0.036)
             self._attach(piece('shoe.' + tag, s, M['canvas'], 'shoes', co, voxel=0.0025, smooth=5, cuts=[(0.016, 'above')], lump=0), 'foot.' + tag)
-            self._attach(piece('sole.' + tag, Shape().ellipsoid((x, -0.03, 0.013), (0.047, 0.093, 0.014)), M['sole'], 'shoes', co,
+            self._attach(piece('sole.' + tag, Shape().ellipsoid((x, -0.04, 0.013), (0.049, 0.124, 0.014)), M['sole'], 'shoes', co,
                                voxel=0.0025, smooth=4, cuts=[(0.0, 'above')], lump=0), 'foot.' + tag)
             s = Shape()
             for k in range(3):                                                    # laces across the tongue
-                y = -0.03 - 0.016 * k; z = 0.078 - 0.008 * k
+                y = -0.04 - 0.018 * k; z = 0.078 - 0.008 * k
                 s.capsule((x - 0.02, y, z), (x + 0.02, y, z), 0.0035)
             self._attach(piece('laces.' + tag, s, M['canvas'], 'shoes', co, voxel=0.001, smooth=2, lump=0), 'foot.' + tag, False)
 
@@ -282,8 +283,8 @@ class HaruBurton(HP.Haru):
             self._put(arc(f'brow_arc.{tag}', [on_face(side * x_, 1.136 + 0.004 * (1 - ((x_ - 0.07) / 0.028) ** 2), 0.0006)[0]
                                               for x_ in (0.042, 0.056, 0.07, 0.084, 0.098)], 0.0026, M['brow'], co), h)
             self.brows.append((h, side, bc))
-        p, n = on_face(0, 1.03, 0.003)
-        self._attach(piece('nose', Shape().ellipsoid(p, (0.009, 0.008, 0.0085), seg=24), M['skin'], 'skin', co,
+        p, n = on_face(0, 1.032, 0.004)
+        self._attach(piece('nose', Shape().ellipsoid(p, (0.0075, 0.011, 0.013), rot=(math.radians(-35), 0, 0), seg=24), M['skin'], 'skin', co,
                            voxel=0.0007, smooth=3, lump=0), 'head', False)
         mc, mn = on_face(0, 0.986, 0.0005); R = mn.to_track_quat('-Y', 'Z').to_matrix()
         def mline(nm, curve):

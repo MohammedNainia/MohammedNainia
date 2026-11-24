@@ -89,7 +89,7 @@ def silicone(name, color, sockets=(), socket_color='#7a6a78', socket_r=0.0055):
     for sc in sockets:                                                        # dark rings around the eyes
         d = g.vop('DISTANCE', g.V, tuple(sc)).outputs['Value']
         ring = g.op('SUBTRACT', 1.0, g.smooth(d, socket_r * 0.55, socket_r * 1.35))
-        col = g.mix(g.op('MULTIPLY', ring, 0.75), col, _lin(socket_color), 'MULTIPLY')
+        col = g.mix(g.op('MULTIPLY', ring, 0.9), col, _lin(socket_color), 'MULTIPLY')
     g.L.new(col, b.inputs['Base Color'])
     h = g.op('MULTIPLY_ADD', g.tex('ShaderNodeTexNoise', 3500, Detail=1).outputs['Fac'], 0.5,
              g.tex('ShaderNodeTexNoise', 220, Detail=2).outputs['Fac'])     # micro texture + soft sculpt waviness
@@ -133,7 +133,7 @@ def hair(name, color='#141517', grooves=110):
     """sculpted, glossy hair: fine wavy strand grooves running down from the crown (angle round the z axis)"""
     g = _G(name); b = g.b; c = _lin(color)
     b.inputs['Base Color'].default_value = (*c, 1)
-    b.inputs['Roughness'].default_value = 0.42; b.inputs['Specular IOR Level'].default_value = 0.32
+    b.inputs['Roughness'].default_value = 0.45; b.inputs['Specular IOR Level'].default_value = 0.2
     b.inputs['Coat Weight'].default_value = 0.12; b.inputs['Coat Roughness'].default_value = 0.3
     gr = g.N.new('ShaderNodeTexGradient'); gr.gradient_type = 'RADIAL'; g.L.new(g.V, gr.inputs['Vector'])
     warp = g.tex('ShaderNodeTexNoise', 35, Detail=2)

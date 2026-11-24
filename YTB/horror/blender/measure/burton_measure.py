@@ -25,8 +25,12 @@ def classify(im):
     warm_light = fg & (lum > 105) & (r >= b + 4) & (sat < 70) & ~top
     neutral_light = fg & (lum > 150) & (sat < 35) & ~top
     dark = fg & (lum < 120) & (sat < 32) & ~top
-    leg_rows = np.where((dark & (yy > hem)).sum(1) > 60)[0]  # rows with trouser legs (5 figures x 2 legs)
-    shoe_top = int(leg_rows.max()) + 1 if len(leg_rows) else H
+    # shoes start where, going down the legs, light pixels outnumber the dark trouser pixels
+    light_any = (neutral_light | warm_light)
+    shoe_top = H
+    for y in range(hem + 120, H):
+        nl, nd = int(light_any[y].sum()), int(dark[y].sum())
+        if nl > 40 and nl > nd: shoe_top = y; break
     m = {'top': top}
     m['hair'] = dark & (yy < hem - 10)                        # black hair and its grey highlights, above the hem
     m['pants'] = dark & (yy > hem - 10) & (yy < shoe_top + 6)

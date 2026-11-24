@@ -1,0 +1,54 @@
+=== view 0
+part               sheet    ours    diff
+poke_px         16789.00012920.000-3869.000  <<
+hair_bottom        0.599   0.342  -0.257  <<
+face_top           0.070   0.067  -0.003
+chin               0.248   0.242  -0.005
+top_top            0.146   0.278  +0.131  <<
+top_hem            0.637   0.655  +0.017
+hands_bottom       0.910   0.755  -0.155  <<
+pants_hem          0.912   0.921  +0.009
+shoes_top          0.916   0.923  +0.007
+w_hair             0.254   0.266  +0.012
+w_face             0.270   0.242  -0.028  <<
+w_top_shoulders    0.190   0.246  +0.056  <<
+w_top_mid          0.278   0.277  -0.001
+w_top_hem          0.304   0.316  +0.012
+w_pants_mid        0.142   0.133  -0.009
+w_shoes            0.161   0.136  -0.025  <<
+parts off by more than 2%: 7
+=== view 2
+part               sheet    ours    diff
+poke_px         1676.000 658.000-1018.000  <<
+hair_bottom        0.421   0.410  -0.011
+face_top           0.060   0.017  -0.043  <<
+chin               0.238   0.242  +0.005
+top_top            0.114   0.296  +0.183  <<
+top_hem            0.646   0.655  +0.009
+hands_bottom       0.913   0.755  -0.158  <<
+pants_hem          0.915   0.920  +0.006
+shoes_top          0.915   0.923  +0.008
+w_hair             0.229   0.211  -0.018
+w_face             0.129   0.099  -0.030  <<
+w_top_shoulders    0.079   0.132  +0.053  <<
+w_top_mid          0.170   0.155  -0.015
+w_top_hem          0.111   0.061  -0.050  <<
+w_pants_mid        0.066   0.055  -0.011
+w_shoes            0.114   0.084  -0.030  <<
+parts off by more than 2%: 8
+=== view 4
+part               sheet    ours    diff
+poke_px         10373.0009667.000-706.000  <<
+hair_bottom        0.587   0.441  -0.146  <<
+top_top            0.384   0.385  +0.001
+top_hem            0.636   0.656  +0.021  <<
+hands_bottom       0.903   0.755  -0.148  <<
+pants_hem          0.904   0.921  +0.017
+shoes_top          0.906   0.923  +0.017
+w_hair             0.234   0.258  +0.023  <<
+w_top_shoulders    0.267   0.276  +0.009
+w_top_mid          0.307   0.296  -0.011
+w_top_hem          0.296   0.314  +0.017
+w_pants_mid        0.146   0.132  -0.014
+w_shoes            0.229   0.136  -0.092  <<
+parts off by more than 2%: 6
