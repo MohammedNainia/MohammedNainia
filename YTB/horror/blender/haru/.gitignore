@@ -1,0 +1,4 @@
+# rebuilt from build_haru.py + test_shot.py; frames are intermediate
+*.blend
+*.blend1
+renders/test_shot/
