@@ -271,6 +271,8 @@ def build_parts(coll, M):
         p, n = on_face(side * 0.038, 1.045, -0.002)
         R = n.to_track_quat('-Y', 'Z').to_matrix()
         piece('haru_eye.' + tag, Shape().ellipsoid(p, (0.0115, 0.006, 0.0125), rot=R), M['eye'])
+        wp, _ = on_face(side * 0.038, 1.045, -0.0006)              # eye white: hidden until 'wide'
+        piece('haru_eyewhite.' + tag, Shape().ellipsoid(wp, (0.0195, 0.0028, 0.021), rot=R, seg=32), M['white'], 0.0008)
         cp, _ = on_face(side * 0.038 + 0.004, 1.051, 0.0035)
         piece('haru_catchlight.' + tag, Shape().ball(cp, 0.0024, 12), M['white'], 0.0006)
         a, na = on_face(side * 0.022, 1.097, 0.0005); b, nb = on_face(side * 0.058, 1.092, 0.0005)
@@ -279,29 +281,88 @@ def build_parts(coll, M):
     piece('haru_nose', Shape().ellipsoid(p, (0.0105, 0.009, 0.0098), seg=24), M['skin'])
     a, _ = on_face(-0.013, 0.957, 0.0003); b, _ = on_face(0.013, 0.957, 0.0003)
     piece('haru_mouth', Shape().capsule(a, b, 0.0024, 0.0024, 12), M['mouth'], 0.0007)
+    p, n = on_face(0, 0.952, -0.0012)                            # open mouth: hidden until 'o' or 'scream'
+    piece('haru_mouth_open', Shape().ellipsoid(p, (0.01, 0.0035, 0.01), rot=n.to_track_quat('-Y', 'Z').to_matrix(), seg=32),
+          M['mouth_in'], 0.0007)
     parts['face'] = face
     return parts
 
 
 # ---------------------------------------------------------------- expressions (shape keys on the face pieces)
+EXPR = {   # expression presets: shape key values (anything not named is 0)
+    'neutral': {},
+    'sleep': {'blink': 1},
+    'worried': {'worried': 1, 'frown': 0.6},
+    'scared': {'worried': 1, 'wide': 0.75, 'o': 1, 'hide': 1},
+    'terrified': {'worried': 1, 'wide': 1, 'scream': 1, 'hide': 1},
+    'surprised': {'raised': 1, 'wide': 1, 'o': 0.8, 'hide': 1},
+    'sad': {'worried': 1, 'frown': 1, 'blink': 0.35},
+    'smile': {'smile': 1, 'raised': 0.2},
+    'happy': {'smile': 1, 'blink': 0.55, 'raised': 0.4},
+    'suspicious': {'angry': 0.6, 'blink': 0.45, 'frown': 0.3},
+    'angry': {'angry': 1, 'frown': 0.9},
+    'relieved': {'smile': 0.5, 'blink': 0.85, 'raised': 0.3},
+    'stare': {'wide': 1},
+}
+FACE_KEYS = ('blink', 'wide', 'worried', 'angry', 'raised', 'frown', 'smile', 'hide', 'o', 'scream')
+
+
+def expr_values(a, b=None, t=0.0, blink=0.0):
+    """key values for preset a (blended toward preset b by t), plus an extra blink; a blink hides the eye whites"""
+    A, Bv = EXPR[a], EXPR[b or a]
+    v = {k: A.get(k, 0) * (1 - t) + Bv.get(k, 0) * t for k in FACE_KEYS}
+    v['blink'] = min(1.0, v['blink'] + blink)
+    v['wide'] *= 1 - min(1.0, v['blink'] * 1.5)
+    return v
+
+
 def face_keys(parts):
-    """blink (eyes squash shut, catchlights sink), worried (inner brow ends up), frown (mouth corners down)"""
+    """eyes: blink, wide (whites appear, pupils shrink); brows: worried, angry, raised; mouth: frown, smile, hide;
+    open mouth: o, scream. Hidden pieces (whites, open mouth) have a collapsed Basis inside the head."""
     def keyed(ob, name, fn):
         if not ob.data.shape_keys: ob.shape_key_add(name='Basis', from_mix=False)
         k = ob.shape_key_add(name=name, from_mix=False)
-        for i, v in enumerate(ob.data.vertices): k.data[i].co = fn(v.co.copy())
+        base = ob.data.shape_keys.key_blocks['Basis']
+        for i in range(len(ob.data.vertices)): k.data[i].co = fn(base.data[i].co.copy())
+    def hidden(ob, c, n, shapes):
+        """ob is built full size; Basis becomes a dot sunk into the head, each shape key a scaled copy in face axes"""
+        R = n.to_track_quat('-Y', 'Z').to_matrix(); Ri = R.transposed()
+        full = [v.co.copy() for v in ob.data.vertices]
+        dot = [c - n * 0.0015 + (p - c) * 0.02 for p in full]   # shallow, so partial values already show
+        for v, p in zip(ob.data.vertices, dot): v.co = p
+        ob.shape_key_add(name='Basis', from_mix=False)
+        for name, (sx, sz, dz) in shapes.items():
+            k = ob.shape_key_add(name=name, from_mix=False)
+            for i, p in enumerate(full):
+                q = Ri @ (p - c); q = Vector((q.x * sx, q.y, q.z * sz))
+                k.data[i].co = c + R @ q + Vector((0, 0, dz))
     obs = {o.name: o for o in parts['face']}
+    centre = lambda ob: sum((v.co for v in ob.data.vertices), Vector()) / len(ob.data.vertices)
     for side, tag in ((1, 'L'), (-1, 'R')):
-        eye = obs['haru_eye.' + tag]
-        c = sum((v.co for v in eye.data.vertices), Vector()) / len(eye.data.vertices)
+        eye = obs['haru_eye.' + tag]; c = centre(eye)
         _, n = on_face(side * 0.038, 1.045)
         up = (Vector((0, 0, 1)) - n * n.z).normalized()
         keyed(eye, 'blink', lambda p: p - up * ((p - c).dot(up) * 0.88) - up * 0.004)
+        keyed(eye, 'wide', lambda p: c + (p - c) * 0.62 + n * 0.0016)
+        hidden(obs['haru_eyewhite.' + tag], centre(obs['haru_eyewhite.' + tag]), n, {'wide': (1, 1, 0)})
         cl = obs['haru_catchlight.' + tag]
         keyed(cl, 'blink', lambda p: c - n * 0.006 + (p - c) * 0.01)
-        keyed(obs['haru_brow.' + tag], 'worried',
-              lambda p: p + Vector((0, 0, 0.001 + 0.0065 * min(1, max(0, (0.058 - abs(p.x)) / 0.036)))))
-    keyed(obs['haru_mouth'], 'frown', lambda p: p + Vector((0, 0, -0.0035 * (abs(p.x) / 0.013) ** 2 + 0.0008)))
+        keyed(cl, 'wide', lambda p: p + n * 0.0012 - up * 0.002 - Vector((side * 0.001, 0, 0)))
+        inner = lambda p: min(1, max(0, (0.058 - abs(p.x)) / 0.036))
+        brow = obs['haru_brow.' + tag]
+        keyed(brow, 'worried', lambda p: p + Vector((0, 0, 0.001 + 0.0065 * inner(p))))
+        keyed(brow, 'angry', lambda p: p + Vector((0, 0, -0.009 * inner(p) + 0.004 * (1 - inner(p)))))
+        keyed(brow, 'raised', lambda p: p + Vector((0, 0, 0.009 + 0.002 * (1 - abs(inner(p) - 0.5) * 2))))
+    m = obs['haru_mouth']; mc = centre(m)
+    keyed(m, 'frown', lambda p: p + Vector((0, 0, -0.0035 * (abs(p.x) / 0.013) ** 2 + 0.0008)))
+    keyed(m, 'smile', lambda p: p + Vector((0, 0, 0.0042 * (abs(p.x) / 0.013) ** 2 - 0.0012)))
+    _, mn = on_face(0, 0.957)
+    keyed(m, 'hide', lambda p: mc - mn * 0.004 + (p - mc) * 0.02)
+    mo = obs['haru_mouth_open']; _, on = on_face(0, 0.952)
+    hidden(mo, centre(mo), on, {'o': (0.62, 0.85, 0.0), 'scream': (2.1, 2.7, -0.012)})
+    for ob in parts['face']:                     # new keys can come in at 1: start every face neutral
+        if ob.data.shape_keys:
+            for kb in ob.data.shape_keys.key_blocks[1:]: kb.value = 0.0
 
 
 def set_expr(parts_or_coll, **vals):
@@ -477,6 +538,7 @@ def materials():
             'eye': clay_mat('clay_eye', PAL['eye'], bump=0, gloss=True),
             'white': clay_mat('clay_white', PAL['white'], bump=0, sss=0.0),
             'mouth': clay_mat('clay_mouth', PAL['mouth'], bump=0.1),
+            'mouth_in': clay_mat('clay_mouth_in', '#3a1411', rough=0.7, sss=0.0, bump=0.05),
             'brow': clay_mat('clay_brow', PAL['brow'], bump=0.1)}
 
 
@@ -535,7 +597,7 @@ def look_at(ob, target):
     ob.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
 
 
-def stage(samples=128):
+def stage(samples=128, width=4.0):
     """light grey seamless backdrop + soft studio lights (like the Artlist sheet), 9:16 camera, Cycles on the GPU"""
     sc = bpy.context.scene
     col = bpy.data.collections.get('Stage')
@@ -552,16 +614,18 @@ def stage(samples=128):
         a = math.pi / 2 * i / 12; prof.append((1.2 + math.sin(a) * 1.0, 1.0 - math.cos(a) * 1.0))
     prof.append((2.2, 4.0))
     rows = []
-    for x in (-4.0, 4.0): rows.append([bm.verts.new((x, y, z)) for y, z in prof])
+    for x in (-width, width): rows.append([bm.verts.new((x, y, z)) for y, z in prof])
     for i in range(len(prof) - 1): bm.faces.new((rows[0][i], rows[0][i + 1], rows[1][i + 1], rows[1][i]))
     me = bpy.data.meshes.new('backdrop'); bm.to_mesh(me); bm.free()
     for p in me.polygons: p.use_smooth = True
     bd = bpy.data.objects.new('backdrop', me); col.objects.link(bd)
     me.materials.append(clay_mat('backdrop', '#dcdad6', rough=0.95, sss=0.0, bump=0.05))
+    lr = bpy.data.objects.new('light_rig', None); col.objects.link(lr)     # move this to follow her across the set
     def area(name, loc, energy, size, color, target=(0, 0, 0.75), spread=180):
         ld = bpy.data.lights.new(name, 'AREA'); ld.energy = energy; ld.size = size; ld.color = color
         ld.spread = math.radians(spread)
-        o = bpy.data.objects.new(name, ld); o.location = loc; col.objects.link(o); look_at(o, target); return o
+        o = bpy.data.objects.new(name, ld); o.location = loc; col.objects.link(o); look_at(o, target)
+        o.parent = lr; return o
     area('key', (-1.5, -2.2, 2.3), 190, 1.6, (1.0, 0.96, 0.9))
     area('fill', (2.2, -1.6, 1.1), 45, 2.0, (0.92, 0.95, 1.0))
     area('rim', (1.0, 1.6, 2.0), 120, 0.8, (1.0, 0.97, 0.92), (0, 0, 1.0), spread=50)

@@ -2,3 +2,7 @@
 *.blend
 *.blend1
 renders/test_shot/
+renders/test2/
+renders/t2check/
+renders/poses/
+renders/expr/
