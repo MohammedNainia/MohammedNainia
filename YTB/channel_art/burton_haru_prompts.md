@@ -18,7 +18,8 @@ Aspect ratio 16:9.
 > Character turnaround sheet of a stop-motion animation puppet in the style of Tim Burton's Corpse Bride and The
 > Nightmare Before Christmas. The character is Haru, a pale young girl about 10 years old. Burton proportions: a
 > large slightly oval head on a thin long neck, a slender body, long thin arms and legs, spindly fingers, small
-> feet. Big round dark eyes with soft grey-purple shadows under them, thin dark eyebrows, a tiny nose, a small
+> feet. Large round expressive eyes like glossy glass puppet eyes: white eyeballs, dark brown irises, black pupils
+> and a small bright catchlight, with soft grey-purple shadows under them; thin dark eyebrows, a tiny nose, a small
 > simple mouth, no blush. Long straight jet-black hair past the shoulders with a side-swept fringe, sculpted with
 > fine strand grooves. She wears an oversized mustard-ochre hoodie made of real knitted fabric with a kangaroo
 > pocket, two drawstrings and soft folds, charcoal grey slim trousers of real woven fabric, and small white canvas
@@ -32,9 +33,11 @@ Aspect ratio 16:9.
 
 Aspect ratio 16:9 (or 1:1). Attach the chosen turnaround.
 
-> Expression sheet of the same Tim Burton style stop-motion puppet girl Haru (pale silicone face, big round dark
-> eyes with grey-purple shadows under them, thin dark eyebrows, tiny nose, small mouth, long straight black hair
-> with side fringe, mustard knitted hoodie collar). 8 head-and-shoulders portraits in a 4 by 2 grid, same size and
+> Expression sheet of the same Tim Burton style stop-motion puppet girl Haru (pale silicone face, large round glossy
+> glass eyes with white eyeballs, dark brown irises, black pupils and catchlights, grey-purple shadows under them,
+> thin dark eyebrows, tiny nose, small mouth, long straight black hair with side fringe, mustard knitted hoodie
+> collar). The eyes and eyelids act in every expression: lids lowered when sad or suspicious, wide with the whites
+> showing all round when scared, pupils small in the blank stare. 8 head-and-shoulders portraits in a 4 by 2 grid, same size and
 > angle: neutral, worried, scared with a small round open mouth, terrified with wide eyes and a screaming mouth,
 > sad with teary eyes, small smile, suspicious with narrowed eyes, blank wide-eyed stare. Replacement-face style
 > like real stop-motion puppets. Plain light grey background, soft studio light, no text.
@@ -53,7 +56,8 @@ Aspect ratio 16:9. Attach the chosen turnaround.
 Aspect ratio 1:1. Attach the chosen turnaround.
 
 > Macro photograph close-ups of a Tim Burton style stop-motion puppet, four panels in a 2 by 2 grid: the pale
-> silicone face with subtle skin texture and slight translucency at the edges; the mustard-ochre knitted hoodie
+> silicone face with subtle skin texture and slight translucency at the edges, and one glossy glass eye with a white
+> eyeball, dark brown iris, black pupil and catchlight; the mustard-ochre knitted hoodie
 > fabric with visible stitches, fuzz and soft folds; the jet-black sculpted hair with fine strand grooves and a
 > soft sheen; the white canvas sneaker with grey rubber sole and tiny laces. Shallow depth of field, real studio
 > photography of a handmade puppet, no text.
@@ -62,8 +66,8 @@ Aspect ratio 1:1. Attach the chosen turnaround.
 
 Aspect ratio 9:16. Attach the chosen turnaround.
 
-> Cinematic still from a Tim Burton style stop-motion horror film. The puppet girl Haru, pale with big dark eyes,
-> long black hair and a mustard hoodie, stands in a crooked, expressionist miniature bedroom at night: slanted walls,
+> Cinematic still from a Tim Burton style stop-motion horror film. The puppet girl Haru, pale, with large glossy
+> glass eyes (white eyeballs, dark brown irises, catchlights), long black hair and a mustard hoodie, stands in a crooked, expressionist miniature bedroom at night: slanted walls,
 > a tall twisted window, a spiral pattern on the wallpaper, a narrow bed. Near black-and-white blue-grey palette
 > where her mustard hoodie is the only warm colour, plus a faint warm glow from a small bedside lamp. Cold moonlight
 > through the window casts long hard shadows across the walls, strong rim light on her hair, deep shadows. Handmade
