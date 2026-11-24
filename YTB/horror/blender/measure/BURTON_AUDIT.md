@@ -37,6 +37,14 @@ Front hair ends at about 0.39 on both.
 7. **Short drawstrings, hem slightly low.** Fixed: drawstrings hang to the chest with knots; hem raised.
 8. **Bald stripe at the crown** after the head was lengthened. Fixed: bigger hair cap.
 
+## Second pass (face, hood, sneakers)
+
+9. **Small pointed jaw.** The face now tapers into a soft wide U chin like the sheet's.
+10. **Mouth.** Neutral mouth is sculpted lips with a dark parting line, not a flat dash; button nose sunk into the face.
+11. **Hood.** Draped cowl that crosses into a V at the chest, hood hanging down the back, pocket edge, drawstrings from the V.
+12. **Sneakers.** Low-top canvas shoes: straight-walled white rubber sole with a thin grey stripe, rubber toe cap,
+    fine canvas weave, eyelets, criss-cross laces and a tongue; bare ankles show above them like on the sheet.
+
 ## Deliberate differences
 
 - **Eyes about 25% smaller than the sheet's**, at your request ("too big, looks like a cockroach").
@@ -44,8 +52,6 @@ Front hair ends at about 0.39 on both.
 
 ## Still different (next pass if wanted)
 
-- Hood shape: the sheet's hood is a draped fabric V with folds; ours is a smooth rolled collar.
-- Sneakers: still soft rounded shapes, not crisp canvas sneakers with toe caps and stitched soles.
 - Side view: the face shows a little less past the hair than on the sheet (face width 0.087 vs 0.129).
 - Sleeve cuffs hang about 2% lower than the sheet's.
 - A faint line where the crown hair meets the shoulder hair can show in some angles.

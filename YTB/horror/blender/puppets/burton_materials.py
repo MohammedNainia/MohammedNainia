@@ -101,7 +101,7 @@ def lid(name, color='#9a8590'):
     return silicone(name, color)
 
 
-def fabric(name, color, kind='knit', fuzz=0.85):
+def fabric(name, color, kind='knit', fuzz=0.85, scale=700, dark=0.55):
     """kind 'knit' (hoodie: fine loops, ribbing-friendly) or 'weave' (trousers, canvas: crossing threads)"""
     g = _G(name); b = g.b; c = _lin(color)
     b.inputs['Roughness'].default_value = 0.88
@@ -117,10 +117,10 @@ def fabric(name, color, kind='knit', fuzz=0.85):
         cell = g.tex('ShaderNodeTexVoronoi', 2300, vec=v, feature='DISTANCE_TO_EDGE')
         pat = g.smooth(cell.outputs['Distance'], 0.0, 0.18)
     else:                # crossing threads ~0.3 mm (twill-ish), in two directions
-        w1 = g.tex('ShaderNodeTexWave', 700, bands_direction='X', Distortion=0.6)
-        w2 = g.tex('ShaderNodeTexWave', 700, bands_direction='Z', Distortion=0.6)
+        w1 = g.tex('ShaderNodeTexWave', scale, bands_direction='X', Distortion=0.6)
+        w2 = g.tex('ShaderNodeTexWave', scale, bands_direction='Z', Distortion=0.6)
         pat = g.op('MULTIPLY', w1.outputs['Fac'], w2.outputs['Fac'])
-    col = g.mix(g.op('SUBTRACT', 1.0, pat), base, (c[0] * 0.55, c[1] * 0.55, c[2] * 0.55))   # dark between loops
+    col = g.mix(g.op('SUBTRACT', 1.0, pat), base, (c[0] * dark, c[1] * dark, c[2] * dark))   # dark between loops
     g.L.new(col, b.inputs['Base Color'])
     fz = g.tex('ShaderNodeTexNoise', 5000, Detail=1)
     h = g.op('MULTIPLY_ADD', fz.outputs['Fac'], 0.35, pat)

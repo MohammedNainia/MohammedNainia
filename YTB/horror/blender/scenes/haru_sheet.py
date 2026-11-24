@@ -71,6 +71,10 @@ elif MODE == 'look':      # judge the clay: full body 3/4, chest up, face
                                     ('face', (0.03, -0.17, EYE_Z), (0, -0.01, EYE_Z - 0.0035), 100, 11.0)):
         foc = (Vector(loc) - eyes).length if nm != 'full' else None
         cam = camera(loc, tgt, lens=lens, fstop=fs, focus=foc); shot(os.path.join(out, f'look_{nm}.png'))
+    for nm, loc, tgt, lens, fs, yaw in (('feet', (0.07, -0.2, 0.03), (0, -0.008, 0.007), 85, 8.0, 55),
+                                         ('back', (0.0, -0.42, 0.09), (0, 0, 0.075), 70, 5.6, 180)):   # back: turn her round
+        h.place(yaw=math.radians(yaw)); h.ground()
+        cam = camera(loc, tgt, lens=lens, fstop=fs, focus=(Vector(loc) - Vector(tgt)).length); shot(os.path.join(out, f'look_{nm}.png'))
 
 elif MODE == 'expr':      # head-and-shoulders close-ups, one per expression
     cam = camera((0, -0.24, EYE_Z), (0, 0, EYE_Z - 0.0035), lens=100, fstop=5.6, focus=0.229)   # focus on the face, not the head centre

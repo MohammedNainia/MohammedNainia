@@ -29,7 +29,7 @@ HEM = 0.488
 EYE_X, EYE_Z, EYE_R = 0.062, 1.078, 0.03      # big Burton eyes, but a girl's, not an insect's
 
 PAL = {'skin': '#d5c5b9', 'lid': '#b9a8a8', 'socket': '#665468', 'hoodie': '#a07c3c', 'pants': '#4d5153',
-       'canvas': '#e9e6df', 'sole': '#d9d6cf', 'hair': '#0b0b0c', 'brow': '#2a2526', 'lips': '#8f6a6a', 'mouth_in': '#2a1210'}
+       'canvas': '#e9e6df', 'sole': '#d9d6cf', 'hair': '#0b0b0c', 'brow': '#2a2526', 'lips': '#c2a19c', 'lip_line': '#5b3b3b', 'rubber': '#ecebe6', 'stripe': '#8e9094', 'mouth_in': '#2a1210'}
 
 EXPR = {  # upper lid (deg: -50 wide open .. 90 shut), lower lid (deg: 25 down .. -50 up), pupil, brow tilt (+ = inner up),
           # brow lift (1.26 m units), mouth, gaze (yaw, pitch deg)
@@ -50,7 +50,7 @@ EXPR = {  # upper lid (deg: -50 wide open .. 90 shut), lower lid (deg: 25 down .
 MOUTHS = ('line', 'smile', 'frown', 'o', 'scream')
 
 
-TAPER_X, TAPER_Y = 0.3, 0.12        # the head narrows below its middle to a small chin (a smooth egg, no seams)
+TAPER_X, TAPER_Y = 0.1, 0.04        # a soft, wide U-shaped jaw with full cheeks (like the sheet), no pointed chin
 
 
 def taper_k(z):
@@ -172,9 +172,11 @@ class HaruBurton(HP.Haru):
         return {'face': BM.silicone(f'{n}_face', PAL['skin'], sockets=sockets, socket_color=PAL['socket'], socket_r=EYE_R * 1.7 * S),
                 'skin': BM.silicone(f'{n}_skin', PAL['skin']), 'lid': BM.lid(f'{n}_lid', PAL['lid']),
                 'hoodie': BM.fabric(f'{n}_hoodie', PAL['hoodie'], 'knit'), 'pants': BM.fabric(f'{n}_pants', PAL['pants'], 'weave'),
-                'canvas': BM.fabric(f'{n}_canvas', PAL['canvas'], 'weave', fuzz=0.5), 'sole': BM.silicone(f'{n}_sole', PAL['sole']),
+                'canvas': BM.fabric(f'{n}_canvas', PAL['canvas'], 'weave', fuzz=0.5, scale=2200, dark=0.85), 'sole': BM.silicone(f'{n}_sole', PAL['sole']),
                 'hair': BM.hair(f'{n}_hair', PAL['hair']), 'eye': BM.glass_eye(f'{n}_eye'),
                 'brow': BM.silicone(f'{n}_brow', PAL['brow']), 'lips': BM.silicone(f'{n}_lips', PAL['lips']),
+                'lip_line': BM.silicone(f'{n}_lip_line', PAL['lip_line']), 'rubber': BM.silicone(f'{n}_rubber', PAL['rubber']),
+                'stripe': BM.silicone(f'{n}_stripe', PAL['stripe']),
                 'mouth_in': BM.silicone(f'{n}_mouth_in', PAL['mouth_in'])}
 
     # ---- body
@@ -184,14 +186,23 @@ class HaruBurton(HP.Haru):
         s.ellipsoid((0, 0.01, 0.73), (0.118, 0.098, 0.13)); s.ellipsoid((0, 0, 0.6), (0.135, 0.106, 0.13))
         s.ellipsoid((0, 0, HEM + 0.07), (0.142, 0.106, 0.06))
         s.ring((0, 0, HEM + 0.017), 0.118, 0.09, 0.019, 60)                      # ribbed hem band, gathered under the body
-        s.ring((0, 0.02, 0.876), 0.072, 0.062, 0.025, 32, tilt=0.55)                # hood opening: low, shallow V on the shoulders
-        s.ellipsoid((0, 0.078, 0.85), (0.105, 0.034, 0.09))                       # hood lying flat on the back
+        cowl = [(0.012, -0.088, 0.815), (0.045, -0.07, 0.85), (0.068, -0.035, 0.88), (0.075, 0.01, 0.9), (0.06, 0.05, 0.915),
+                (0.0, 0.075, 0.925)]                                              # rolled hood edge, from the V round to the back
+        for sd in (1, -1):
+            pts = [Vector((sd * x, y, z)) for x, y, z in cowl]
+            for i in range(len(pts) - 1):
+                r0 = 0.02 + 0.012 * min(1.0, i / 2.0); r1 = 0.02 + 0.012 * min(1.0, (i + 1) / 2.0)
+                s.capsule(pts[i], pts[i + 1], r0, r1, 16)
+        s.capsule((0.0, -0.088, 0.81), (0.0, -0.095, 0.79), 0.012, 0.008, 12)       # where the two sides cross
+        s.ellipsoid((0, 0.085, 0.83), (0.1, 0.032, 0.1))                          # the hood hangs down the back...
+        s.capsule((0, 0.09, 0.79), (0, 0.098, 0.705), 0.045, 0.006, 16)           # ...to a point
         s.ellipsoid((0, -0.1, 0.575), (0.08, 0.015, 0.05))                       # kangaroo pocket
+        s.ellipsoid((0, -0.104, 0.615), (0.08, 0.009, 0.006))                     # pocket top edge
         for side in (1, -1): s.ball((side * 0.094, 0.01, 0.8), 0.058)      # shoulders fill up under the hood
         self._attach(piece('hoodie', s, M['hoodie'], 'top', co, cuts=[(HEM, 'above')], smooth=8, lump=0.00008), 'spine')
         s = Shape()
         for side in (1, -1):
-            s.capsule((side * 0.024, -0.066, 0.885), (side * 0.03, -0.108, 0.725), 0.005); s.ball((side * 0.03, -0.108, 0.72), 0.0075)
+            s.capsule((side * 0.03, -0.1, 0.83), (side * 0.034, -0.112, 0.72), 0.005); s.ball((side * 0.034, -0.112, 0.715), 0.0075)  # from the V
         self._attach(piece('drawstrings', s, M['hoodie'], 'top', co, voxel=0.0014, smooth=3, lump=0), 'chest', False)
         self._attach(piece('pelvis', Shape().ellipsoid((0, 0, 0.54), (0.115, 0.078, 0.065)), M['pants'], 'pants', co,
                            cuts=[(HEM + 0.04, 'below')], lump=0), 'hips')
@@ -222,18 +233,39 @@ class HaruBurton(HP.Haru):
             hip, knee, ank = Vector((side * 0.05, 0, 0.52)), Vector((side * 0.05, 0, 0.30)), Vector((side * 0.05, 0.005, 0.09))
             self._attach(piece('thigh.' + tag, Shape().capsule(hip, knee, 0.042, 0.038), M['pants'], 'pants', co, lump=0.00005), 'thigh.' + tag)
             s = Shape().capsule(knee, ank, 0.038, 0.035).fold(knee, ank, 0.86, 0.035, 0.011, 0.008, seed=30 + side)
-            self._attach(piece('shin.' + tag, s, M['pants'], 'pants', co, cuts=[(0.1, 'above')], lump=0.00005), 'shin.' + tag)
+            self._attach(piece('shin.' + tag, s, M['pants'], 'pants', co, cuts=[(0.112, 'above')], lump=0.00005), 'shin.' + tag)
+            self._attach(piece('ankle.' + tag, Shape().capsule((side * 0.05, 0.005, 0.06), (side * 0.05, 0.005, 0.125), 0.021),
+                               M['skin'], 'skin', co, voxel=0.0015, smooth=3, lump=0), 'foot.' + tag)
             x = side * 0.052
-            s = Shape().ellipsoid((x, -0.036, 0.042), (0.044, 0.11, 0.04)).ellipsoid((x, -0.1, 0.032), (0.042, 0.055, 0.03))
-            s.capsule((x, 0.005, 0.055), (x, 0.005, 0.082), 0.036)
-            self._attach(piece('shoe.' + tag, s, M['canvas'], 'shoes', co, voxel=0.0025, smooth=5, cuts=[(0.016, 'above')], lump=0), 'foot.' + tag)
-            self._attach(piece('sole.' + tag, Shape().ellipsoid((x, -0.04, 0.013), (0.049, 0.124, 0.014)), M['sole'], 'shoes', co,
-                               voxel=0.0025, smooth=4, cuts=[(0.0, 'above')], lump=0), 'foot.' + tag)
-            s = Shape()
-            for k in range(3):                                                    # laces across the tongue
-                y = -0.04 - 0.018 * k; z = 0.078 - 0.008 * k
-                s.capsule((x - 0.02, y, z), (x + 0.02, y, z), 0.0035)
-            self._attach(piece('laces.' + tag, s, M['canvas'], 'shoes', co, voxel=0.001, smooth=2, lump=0), 'foot.' + tag, False)
+            sole = Shape().ellipsoid((x, -0.042, 0.013), (0.048, 0.126, 0.09))          # thick white rubber sole, flat top and bottom
+            self._attach(piece('sole.' + tag, sole, M['rubber'], 'shoes', co, voxel=0.002, smooth=4, lump=0,
+                               cuts=[(0.0, 'above'), (0.024, 'below')]), 'foot.' + tag)
+            stripe = Shape()
+            for i in range(240):                                                     # grey stripe round the sole
+                t = 2 * math.pi * i / 240
+                stripe.ball((x + 0.0485 * math.cos(t), -0.042 + 0.1265 * math.sin(t), 0.009), 0.0016, 8)
+            self._attach(piece('stripe.' + tag, stripe, M['stripe'], 'shoes', co, voxel=0.0012, smooth=2, lump=0), 'foot.' + tag, False)
+            UC, UR = (x, -0.032, 0.024), (0.039, 0.1, 0.05)                       # canvas upper: high instep, low toe
+            up = Shape().ellipsoid(UC, UR).ellipsoid((x, 0.04, 0.045), (0.038, 0.04, 0.04))   # heel counter rises to the ankle
+            self._attach(piece('shoe.' + tag, up, M['canvas'], 'shoes', co, voxel=0.0018, smooth=5, lump=0, cuts=[(0.022, 'above')]),
+                         'foot.' + tag)
+            toe = Shape().ellipsoid((x, -0.118, 0.022), (0.04, 0.024, 0.019))          # thin rubber toe cap on the very tip
+            self._attach(piece('toecap.' + tag, toe, M['rubber'], 'shoes', co, voxel=0.0015, smooth=4, lump=0, cuts=[(0.022, 'above')]),
+                         'foot.' + tag)
+
+            def surf(dx, y, lift=0.0024):                                           # a point on top of the upper
+                q = 1 - ((y - UC[1]) / UR[1]) ** 2 - (dx / UR[0]) ** 2
+                return (x + dx, y, UC[2] + UR[2] * math.sqrt(max(q, 0.0)) + lift)
+            s = Shape().ellipsoid((x, 0.004, 0.077), (0.017, 0.018, 0.005), rot=(math.radians(-35), 0, 0))   # tongue peeks out
+            eye = Shape()
+            for k in range(4):                                                      # criss-cross laces, lying on the canvas
+                y0 = -0.008 - 0.017 * k
+                for a in (1, -1):
+                    pa, pm, pb = surf(a * 0.018, y0), surf(0, y0 - 0.006), surf(-a * 0.018, y0 - 0.012)
+                    s.capsule(pa, pm, 0.0026, 0.0026, 10).capsule(pm, pb, 0.0026, 0.0026, 10)
+                    eye.ball(surf(a * 0.02, y0, 0.0008), 0.0032, 10)             # eyelets
+            self._attach(piece('eyelets.' + tag, eye, M['stripe'], 'shoes', co, voxel=0.0008, smooth=2, lump=0), 'foot.' + tag, False)
+            self._attach(piece('laces.' + tag, s, M['canvas'], 'shoes', co, voxel=0.0009, smooth=2, lump=0), 'foot.' + tag, False)
 
         top = piece('hair', hair_block(), M['hair'], 'hair', co, voxel=0.0025, smooth=6, lump=0, cuts=[(0.93, 'above')],
                     inset=lambda z: 0.0035 * min(1.0, max(0.0, (0.99 - z) / 0.04)))   # its lower edge tucks under the ends
@@ -283,14 +315,23 @@ class HaruBurton(HP.Haru):
             self._put(arc(f'brow_arc.{tag}', [on_face(side * x_, 1.136 + 0.004 * (1 - ((x_ - 0.07) / 0.028) ** 2), 0.0006)[0]
                                               for x_ in (0.042, 0.056, 0.07, 0.084, 0.098)], 0.0026, M['brow'], co), h)
             self.brows.append((h, side, bc))
-        p, n = on_face(0, 1.032, 0.004)
-        self._attach(piece('nose', Shape().ellipsoid(p, (0.0075, 0.011, 0.013), rot=(math.radians(-35), 0, 0), seg=24), M['skin'], 'skin', co,
+        p, n = on_face(0, 1.03, 0.0005)                                       # a soft button nose, mostly sunk into the face
+        self._attach(piece('nose', Shape().ellipsoid(p, (0.0085, 0.008, 0.009), rot=(math.radians(-20), 0, 0), seg=24), M['skin'], 'skin', co,
                            voxel=0.0007, smooth=3, lump=0), 'head', False)
         mc, mn = on_face(0, 0.986, 0.0005); R = mn.to_track_quat('-Y', 'Z').to_matrix()
         def mline(nm, curve):
-            return arc(nm, [on_face(x_, 0.986 + curve * (x_ / 0.013) ** 2, 0.0005)[0] for x_ in (-0.013, -0.0065, 0, 0.0065, 0.013)],
-                       0.0021, M['lips'], co)
-        for v, ob in (('line', mline('mouth_line', 0.0)), ('smile', mline('mouth_smile', 0.004)), ('frown', mline('mouth_frown', -0.0035))):
+            return arc(nm, [on_face(x_, 0.986 + curve * (x_ / 0.013) ** 2, 0.0006)[0] for x_ in (-0.013, -0.0065, 0, 0.0065, 0.013)],
+                       0.0018, M['lip_line'], co)
+        h = self._empty('mouth_line', mc)                                         # small sculpted closed lips
+        self._put(arc('lip_parting', [on_face(x_, 0.986 - 0.0012 * (x_ / 0.014) ** 2, 0.0008)[0] for x_ in (-0.014, -0.007, 0, 0.007, 0.014)],
+                      0.0011, M['lip_line'], co), h)
+        self._put(arc('lip_upper', [on_face(x_, 0.9885 + 0.0007 * (1 - (x_ / 0.012) ** 2), 0.0012)[0] for x_ in (-0.012, -0.006, 0, 0.006, 0.012)],
+                      0.0019, M['lips'], co), h)
+        lp, ln = on_face(0, 0.9815, 0.0008)
+        self._put(piece('lip_lower', Shape().ellipsoid(lp, (0.0085, 0.0032, 0.0034), rot=ln.to_track_quat('-Y', 'Z').to_matrix(), seg=24),
+                        M['lips'], 'skin', co, voxel=0.0006, smooth=3, lump=0), h)
+        self.mouths['line'] = h
+        for v, ob in (('smile', mline('mouth_smile', 0.004)), ('frown', mline('mouth_frown', -0.0035))):
             h = self._empty(f'mouth_{v}', mc); self._put(ob, h); self.mouths[v] = h
         for v, r, dz in (('o', (0.006, 0.0035, 0.0078), 0.0), ('scream', (0.017, 0.004, 0.022), -0.01)):
             h = self._empty(f'mouth_{v}', mc)
