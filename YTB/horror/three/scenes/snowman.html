@@ -1,0 +1,137 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// DON'T TURN AROUND (9:16, ~11.6 s, no words, loops): Haru finishes a snowman in a bright snowy garden; every time she looks back it is
+// closer and its stick smile wider; the third time it's gone; she sighs, faces us, and it leans over her shoulder, mouth open, icicle teeth.
+// The last frame cuts straight back to the first. Layout: the snowman starts at the origin facing +z; Haru walks off toward the camera (+z).
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, gloss, add, S, Cp, G, boil, CLAY_RIM, followFrame, look} from './clay.js';
+import * as K from './clay_sets.js';
+import {lib} from './library.js';
+import {relaxed, idle, travel, travelTime} from './moves.js';
+const Q = new URLSearchParams(location.search), PS = +(Q.get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .35, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .001});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z), sm = x => ease(clamp01(x)), u01 = (t, a, b) => clamp01((t - a) / (b - a));
+cam.near = .02; cam.far = 80; cam.updateProjectionMatrix();
+grade('none'); CLAY_RIM.color.value.set(0xdfe8ff); CLAY_RIM.k.value = .12;
+scene.background = new THREE.Color(0xc9d6e2); K.haze(scene, 0xc9d6e2, .035);
+
+// ================================================================ the garden: deep snow, a fence, a house, pines, falling snow
+const snowM = clay(0xf1f4f8, {bumpScale: .8});
+add(new THREE.CircleGeometry(30, 48).rotateX(-PI / 2), snowM, scene);
+for (let i = 0; i < 26; i++) { const a = i * 2.4, r = 2.2 + (i * 1.7) % 7; add(S(.5 + (i % 4) * .2, 1, .25, 1, .02, 3), snowM, scene, [Math.cos(a) * r, -.02, Math.sin(a) * r - 1]); }   // drifts
+const fence = await lib.prop('fence', {length: 4}); fence.position.set(-.5, 0, -3.2); scene.add(fence);
+const fence2 = await lib.prop('fence', {length: 4}); fence2.position.set(3.4, 0, -3.2); scene.add(fence2);
+const house = await lib.prop('house_family', {height: 5.5}); house.position.set(1.5, 0, -9); scene.add(house);
+const pineM = clay(0x2e4a3a), capM = clay(0xf6f8fb);
+function pine(x, z, h) { const g = G(scene, [x, 0, z]); add(K.rbox(.12, h * .2, .12, .03), clay(0x4a3428), g, [0, h * .1, 0]);
+  for (let k = 0; k < 3; k++) { const r = h * (.32 - k * .08), y = h * (.25 + k * .22); add(new THREE.ConeGeometry(r, h * .38, 14), pineM, g, [0, y, 0]); add(new THREE.ConeGeometry(r * .8, h * .14, 14), capM, g, [0, y + h * .13, 0]); } }
+pine(-2.6, -2.4, 2.6); pine(-3.4, -4.5, 3.2); pine(3.2, -4.0, 2.9); pine(-1.4, -5.5, 3.4);
+// falling snow: flakes drifting down, placed by time so every render of a frame is the same
+const NF = 500, fg = new THREE.BufferGeometry(), fp = new Float32Array(NF * 3); fg.setAttribute('position', new THREE.BufferAttribute(fp, 3));
+const flakes = new THREE.Points(fg, new THREE.PointsMaterial({color: 0xffffff, size: .03, transparent: true, opacity: .85, depthWrite: false})); scene.add(flakes);
+const rnd = i => { const x = Math.sin(i * 127.1) * 43758.5; return x - Math.floor(x); };
+function snowfall(t) { for (let i = 0; i < NF; i++) { const h = 3.2, y = h - ((rnd(i + 3) * h + t * (.35 + .2 * rnd(i + 7))) % h);
+  fp[i * 3] = (rnd(i) - .5) * 6 + Math.sin(t * .8 + i) * .08; fp[i * 3 + 1] = y; fp[i * 3 + 2] = rnd(i + 11) * 5.5 - 2.5; } fg.attributes.position.needsUpdate = true; }
+// light: a bright winter day
+const sun = new THREE.DirectionalLight(0xfff4e6, 2.6); sun.position.set(3, 6, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left: -4, right: 4, top: 4, bottom: -4, near: .5, far: 20}); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xdfeaff, 0xb8c0cc, 1.25));
+const fill = new THREE.PointLight(0xfff0e0, 0, 4, 1.6); scene.add(fill);
+
+// ================================================================ the snowman (taller than Haru), facing +z
+const SC = .85, SM = G(scene), white = clay(0xf4f6fa, {bumpScale: 1.1}), coal = clay(0x151515), twig = clay(0x5a3e2a);
+add(S(.42, 1, .88, 1, .012, 4), white, SM, [0, .36, 0]);
+const upper = G(SM, [0, .66, 0]);                                    // the waist: the top half leans from here
+add(S(.31, 1, .9, 1, .01, 4), white, upper, [0, .3, 0]);
+for (const y of [.18, .32, .46]) add(S(.028), coal, upper, [0, y, .29 - Math.abs(y - .32) * .25]);
+const scarf = add(new THREE.TorusGeometry(.2, .055, 10, 24).rotateX(PI / 2), clay(0xb8262c), upper, [0, .55, 0]);
+const tail = add(K.rbox(.1, .32, .04, .02), clay(0xb8262c), upper, [.14, .42, .17], [0, 0, .25]);
+const arms = [-1, 1].map(s => { const sh = G(upper, [s * .27, .38, 0]); add(Cp(.016, .5), twig, sh, [s * .25, 0, 0], [0, 0, PI / 2]);
+  const hand = G(sh, [s * .5, 0, 0]); for (const a of [-.5, 0, .5]) add(Cp(.01, .12), twig, hand, [s * .05, Math.sin(a) * .05, 0], [0, 0, PI / 2 + a * s]); return sh; });
+const head = G(upper, [0, .78, 0]); add(S(.22, 1, .95, 1, .008, 5), white, head);
+const eyes = [-1, 1].map(s => add(S(.034, 1, 1, .6), coal, head, [s * .075, .06, .19]));
+add(new THREE.ConeGeometry(.03, .2, 12).rotateX(PI / 2), clay(0xe8742a), head, [0, 0, .28]);
+// the mouth: a stick smile of coal pebbles that widens; then a dark open mouth ringed with icicle teeth
+const NP = 9, peb = Array.from({length: NP}, () => add(S(.016), coal, head, [0, 0, 0]));
+const mouth = G(head, [0, -.085, .18]); add(S(.09, 1.25, 1, .35), clay(0x1a0a0c), mouth);
+const ice = gloss(0xdff2ff, {roughness: .15}), teeth = [];
+for (let i = 0; i < 12; i++) { const top = i < 6, k = (i % 6) / 5 - .5; const c = add(new THREE.ConeGeometry(.013, .055, 8), ice, mouth, [k * .2, top ? .055 : -.055, .02], [top ? PI : 0, 0, 0]); teeth.push(c); }
+function snowman({x = 0, z = 0, face = 0, smile = 0, lean = 0, open = 0, eye2 = 1, reach = 0} = {}) {
+  SM.visible = true; SM.scale.setScalar(SC); SM.position.set(x, 0, z); SM.rotation.y = face; upper.rotation.x = lean; head.rotation.x = -lean * .95;   // the head stays up: its face keeps looking ahead as the body leans
+  eyes[1].visible = eye2 > 0; eyes[1].position.z = .19 + .05 * (1 - eye2);                       // the last eye going in
+  const spread = lerp(.9, 2.3, smile), curve = lerp(.06, .13, smile);                               // the stick smile: wider and higher at the corners
+  peb.forEach((p, i) => { const a = (i / (NP - 1) - .5) * spread; p.position.set(Math.sin(a) * .16, -.07 + (1 - Math.cos(a)) * curve * 2.2, .2 - (1 - Math.cos(a)) * .08); p.visible = open < .1; });
+  mouth.visible = open >= .1; mouth.scale.set(1 + smile * .3, Math.max(.1, open), 1);
+  arms.forEach((a, i) => { a.rotation.set(-reach * 1.1, 0, (i ? -1 : 1) * (.35 - reach * .2)); });
+}
+
+// ================================================================ Haru
+const haru = await lib.char('haru'); scene.add(haru.root); haru.faceLight.intensity = 0;
+const S0 = haru.root.scale.x;
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  if (P.restPos) { P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck); }
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest();
+}
+// her path: pat the eye in, turn, walk off toward us, then three looks back over her shoulder
+const H0 = [.28, .5], H1 = [.5, 1.3];
+const PATH = [{from: H0, heading: Math.atan2(-H0[0], -H0[1])}, {idle: 1.8}, {turn: .2, dur: .5}, {walk: H1, speed: 1.5}, {turn: 0, dur: .35},
+  {look: 'L', dur: 1.5}, {idle: .5}, {look: 'R', dur: 1.5}, {idle: .5}, {look: 'L', dur: 1.7}, {idle: 2.2}];
+const T_END = travelTime(haru, PATH), DUR = T_END;
+// when each look starts (the snowman moves only while she isn't looking)
+const LOOKS = [];
+// (walk length measured exactly)
+{ const L = []; let T = 0, pos = H0; for (const mv of PATH.slice(1)) { let d; if (mv.walk) { d = travelTime(haru, [{from: pos}, {walk: mv.walk, speed: mv.speed}]); pos = mv.walk; } else d = mv.idle || mv.dur;
+  if (mv.look) L.push([T, T + d]); T += d; } LOOKS.length = 0; LOOKS.push(...L); }
+const REVEAL = LOOKS[2][1] + .75;                                   // she faces us again, sighs... and it's there
+
+// ================================================================ cameras
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };
+const toward = (a, b) => Math.atan2(b[0] - a[0], b[1] - a[1]);
+
+// ================================================================ the timeline
+function frame(t) {
+  boil(Math.floor(t * 6)); snowfall(t); fill.intensity = 0;
+  reset(haru); const r = travel(haru, t, PATH); const hp = [haru.root.position.x, haru.root.position.z];
+  const lk = LOOKS.findIndex(([a, b]) => t >= a - .05 && t < b);                // which look-back she is in (-1: none)
+  const done = LOOKS.filter(([a]) => t >= a - .05).length;                         // how many have started
+  // the snowman's place: it moves only between looks (stop-motion jumps), always facing her
+  const SP = [[0, 0], [.18, .45], [.34, .82]];
+  if (t >= REVEAL - .05) {                                                          // behind her, leaning over her shoulder
+    // its face lands beside hers, just over her left shoulder (our right), turned to us; the base goes wherever that puts it
+    const k = sm(u01(t, REVEAL, REVEAL + .5)), L = lerp(.55, .8, k), yaw = -.12, hh0 = HEAD(haru), T = hh0.clone().add(V(.25, .1, -.2));
+    const fw = SC * (.78 * Math.sin(L) + .02), bx = T.x - Math.sin(yaw) * fw, bz = T.z - Math.cos(yaw) * fw;
+    snowman({x: bx, z: bz, face: yaw, smile: 1, lean: L, open: lerp(.3, 1.2, k), reach: k * .6});
+  } else if (done >= 3) SM.visible = false;                                         // the third time: gone
+  else { const p = SP[done]; snowman({x: p[0], z: p[1], face: toward(p, hp), smile: [0, .5, 1][done], eye2: done ? 1 : sm(u01(t, .9, 1.4))}); }
+  // Haru's face and the patting at the start
+  if (t < 1.8) { haru.expr('smile'); const pat = Math.max(0, Math.sin(t * 9)) * (t > .6 && t < 1.5 ? 1 : 0);
+    haru.arms[0].up.rotation.set(-2.6 - .08 * pat, .1, .1); haru.arms[0].fo.rotation.x = -.2 - .25 * pat; look(haru, {nod: -.35}); }
+  else if (lk >= 0) haru.expr(['scared', 'terrified', 'worried'][lk]);
+  else if (t >= LOOKS[2][1]) { const k = u01(t, LOOKS[2][1], LOOKS[2][1] + .6); haru.expr(k < 1 ? 'worried' : 'relieved'); haru.chest.rotation.x -= .06 * Math.sin(u01(t, LOOKS[2][1] + .3, LOOKS[2][1] + 1.2) * PI); }
+  else haru.expr(done >= 2 ? 'terrified' : done >= 1 ? 'scared' : 'neutral');
+  if (t > REVEAL + .9) haru.eyes('wide');                                          // the last beat: she feels it
+
+  // shots
+  const hh = HEAD(haru), sh = SM.visible ? head.getWorldPosition(V()) : V(.42, 1.3, 1.02);
+  if (t < 1.8) C(V(-1.5, 1.1, 1.45), V(.15, 1.0, .3), 38);                       // side on: both faces, her hand pressing the last eye in                        // close on the two of them: the last eye going in
+  else if (lk < 0 && t < LOOKS[0][0]) C(V(.62, 1.05, 3.1), V(.45, .95, .9), 34);  // she walks toward us, the snowman small behind her
+  else if (lk >= 0) { const [a, b] = LOOKS[lk], u = (t - a) / (b - a);
+    if (u < .5) { const sp = SM.visible ? SM.position.clone() : V(.34, 0, .82), mid = V((hp[0] + sp.x) / 2, .95, (hp[1] + sp.z) / 2), d = V(hp[0] - sp.x, 0, hp[1] - sp.z).normalize(), pr = V(-d.z, 0, d.x).multiplyScalar(lk === 1 ? 1 : -1);
+      if (pr.z < 0) pr.negate(); const dd = Math.hypot(hp[0] - sp.x, hp[1] - sp.z); C(mid.clone().addScaledVector(pr, 1.6 + dd * 2.0).add(V(0, .25, 0)), mid, 40); }   // from the side: her looking back, it standing there, closer (or gone)
+    else { const f = new THREE.Vector3(); haru.head.getWorldDirection(f); f.y = 0; f.normalize(); C(hh.clone().addScaledVector(f, .85).add(V(0, -.02, 0)), hh, 30); fill.position.copy(hh).addScaledVector(f, 1.1).add(V(0, .4, 0)); fill.intensity = 1.2; } }   // her face, from where it points
+  else if (t < REVEAL) C(hh.clone().add(V(.05, -.05, 1.15)), hh.clone().add(V(0, -.05, 0)), 32);   // between looks: on her, the garden behind
+  else { const k = sm(u01(t, REVEAL, REVEAL + 1.2)); C(hh.clone().add(V(.1, .04, lerp(1.35, 1.05, k))), hh.clone().add(V(.08, .06, -.05)), lerp(38, 34, k)); fill.position.copy(hh).add(V(.2, .5, 1)); fill.intensity = 1.0; }
+}
+const frameFX = followFrame(frame, () => [haru]);
+scene.traverse(o => { if (o.isLight && o.castShadow) { o.shadow.bias = -.0015; o.shadow.normalBias = .03; } });
+window.DUR = DUR; window.BEATS = {looks: LOOKS, reveal: REVEAL};
+window.renderAt = t => { frameFX(t); const QC = Q.get('cam'); if (QC) { const c = QC.split(',').map(Number); C(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); } render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
