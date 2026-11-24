@@ -18,7 +18,9 @@ AX = {'x': (1, 0, 0), 'y': (0, 1, 0), 'z': (0, 0, 1)}
 # x: +leans the spine/head forward, +moves a hanging limb back, +bends the knee; elbows bend with -x; foot -x = toes up.
 # y on an upper arm: + brings the left arm in (-, the right).
 STAND = {}
-LIE = {('hips', 'x'): -90, ('head', 'x'): 6, ('upper_arm.L', 'y'): -8, ('upper_arm.R', 'y'): 8,
+# on her back: legs lowered and head tipped back so heels, bottom, back and head all rest on the floor
+LIE = {('hips', 'x'): -90, ('head', 'x'): -2, ('neck', 'x'): -4, ('thigh.L', 'x'): 3.5, ('thigh.R', 'x'): 3.5,
+       ('upper_arm.L', 'y'): -8, ('upper_arm.R', 'y'): 8,
        ('forearm.L', 'x'): -8, ('forearm.R', 'x'): -8, ('foot.L', 'x'): 12, ('foot.R', 'x'): 12}
 SIT = {('hips', 'x'): -8, ('thigh.L', 'x'): -82, ('thigh.R', 'x'): -82, ('chest', 'x'): 6, ('head', 'x'): 4,
        ('upper_arm.L', 'x'): 30, ('upper_arm.R', 'x'): 30, ('upper_arm.L', 'y'): -10, ('upper_arm.R', 'y'): 10,
@@ -189,13 +191,16 @@ def setup(B, out_dir, step=2):
     sc = bpy.context.scene; vl = bpy.context.view_layer
     col = bpy.data.collections['Haru']
     rig = bpy.data.objects['haru_rig']; cam = bpy.data.objects['cam_main']; lr = bpy.data.objects['light_rig']
-    meshes = [o for o in col.objects if o.type == 'MESH' and not o.name.startswith(('haru_eye', 'haru_brow', 'haru_mouth',
-              'haru_catchlight', 'haru_nose'))]
+    swing = bpy.data.objects.get('hair_swing')
+    # what she rests on: everything but the face pieces and the soft parts (the hair squashes on the floor instead)
+    meshes = [o for o in col.objects if o.type == 'MESH' and o.name not in B.get('SOFT', ()) and not o.name.startswith(
+              ('haru_eye', 'haru_brow', 'haru_mouth', 'haru_catchlight', 'haru_nose'))]
     face_obs = [o for o in col.objects if o.type == 'MESH' and o.data.shape_keys]
     mats = [m for m in bpy.data.materials if m.name.startswith('clay_') and m.node_tree and m.node_tree.nodes.get('boil')]
     lumps = [md for o in col.objects if o.type == 'MESH' for md in o.modifiers if md.type == 'DISPLACE']
-    for idb in [rig, cam, cam.data, lr] + [o.data.shape_keys for o in face_obs] + [m.node_tree for m in mats] + \
-               [o for o in col.objects if o.type == 'MESH']:
+    anim_ids = [rig, cam, cam.data, lr] + ([swing] if swing else []) + [o.data.shape_keys for o in face_obs] + \
+               [m.node_tree for m in mats] + [o for o in col.objects if o.type == 'MESH']
+    for idb in anim_ids:
         if idb.animation_data: idb.animation_data_clear()
 
     frames = list(range(1, int(END * FPS) + 1, step))
@@ -248,14 +253,19 @@ def setup(B, out_dir, step=2):
         cam.data.lens = r['lens']; cam.data.keyframe_insert('lens', frame=f)
         cam.data.dof.focus_distance = r['focus']; cam.data.dof.keyframe_insert('focus_distance', frame=f)
         lr.location = (cam.location.x if r['t'] < 10.1 else r['x'], 0, 0); lr.keyframe_insert('location', frame=f)
+        if swing:   # hair ends trail behind when she moves, lag down on the way up of the jump, flick up on landing
+            t = r['t']; u = (t - 15.9) / 0.75
+            jz = (-0.05 if 0.1 < u < 0.5 else 0.035 if 0.5 <= u < 0.95 else 0.0) if 15.9 < t < 16.7 else 0.0
+            wob = 0.006 * math.sin(t * 9.0) * min(1.0, speed(t))
+            swing.location = (-0.045 * speed(t), wob, jz + 0.012 * min(1.0, speed(t) / 2.1))
+            swing.keyframe_insert('location', frame=f)
         for m in mats:
             mp = m.node_tree.nodes['boil']
             mp.inputs['Location'].default_value = tuple(rnd.uniform(-1, 1) * 0.004 for _ in range(3))
             mp.inputs['Location'].keyframe_insert('default_value', frame=f)
         for md in lumps:
             md.mid_level = 0.5 + rnd.uniform(-1, 1) * 0.08; md.keyframe_insert('mid_level', frame=f)
-    for idb in [rig, cam, cam.data, lr] + [o.data.shape_keys for o in face_obs] + [m.node_tree for m in mats] + \
-               [o for o in col.objects if o.type == 'MESH']:
+    for idb in anim_ids:
         ad = getattr(idb, 'animation_data', None)
         if ad and ad.action:
             for fc in action_fcurves(ad.action):

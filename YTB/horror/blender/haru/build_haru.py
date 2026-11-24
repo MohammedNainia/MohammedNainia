@@ -542,6 +542,51 @@ def materials():
             'brow': clay_mat('clay_brow', PAL['brow'], bump=0.1)}
 
 
+def colliders():
+    """collection of support surfaces (floor, bed, sofa...) that soft clay parts rest on; add a set's furniture to it"""
+    c = bpy.data.collections.get('Colliders')
+    if not c:
+        c = bpy.data.collections.new('Colliders'); bpy.context.scene.collection.children.link(c)
+        # objects here are also in their own set collections; a linked object still renders once
+    return c
+
+
+def soft_rest(ob, offset=0.0015):
+    """soft clay: after the rig moves it, any part of `ob` that ends up under a support surface (anything in the
+    Colliders collection: the floor, a bed...) is pushed up onto that surface, so the clay squashes flat against it
+    instead of propping her up. The surface is found by casting a ray straight down from above each point.
+    (Down is the object's -z: the rig only ever turns about z.)"""
+    ng = bpy.data.node_groups.get('soft_rest')
+    if not ng:
+        ng = bpy.data.node_groups.new('soft_rest', 'GeometryNodeTree')
+        ng.interface.new_socket('Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+        ng.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+        N, L = ng.nodes, ng.links
+        gi, go = N.new('NodeGroupInput'), N.new('NodeGroupOutput')
+        ci = N.new('GeometryNodeCollectionInfo'); ci.transform_space = 'RELATIVE'
+        ci.inputs['Collection'].default_value = colliders()
+        rz = N.new('GeometryNodeRealizeInstances'); L.new(ci.outputs[0], rz.inputs[0])
+        pos = N.new('GeometryNodeInputPosition').outputs[0]
+        up = N.new('ShaderNodeVectorMath'); up.operation = 'ADD'; L.new(pos, up.inputs[0]); up.inputs[1].default_value = (0, 0, 0.6)
+        rc = N.new('GeometryNodeRaycast'); L.new(rz.outputs[0], rc.inputs['Target Geometry'])
+        L.new(up.outputs[0], rc.inputs['Source Position'])
+        rc.inputs['Ray Direction'].default_value = (0, 0, -1); rc.inputs['Ray Length'].default_value = 1.2
+        hz = N.new('ShaderNodeSeparateXYZ'); L.new(rc.outputs['Hit Position'], hz.inputs[0])
+        pz = N.new('ShaderNodeSeparateXYZ'); L.new(pos, pz.inputs[0])
+        top = N.new('ShaderNodeMath'); top.operation = 'ADD'; L.new(hz.outputs['Z'], top.inputs[0]); top.inputs[1].default_value = offset
+        mx = N.new('ShaderNodeMath'); mx.operation = 'MAXIMUM'; L.new(pz.outputs['Z'], mx.inputs[0]); L.new(top.outputs[0], mx.inputs[1])
+        sw = N.new('GeometryNodeSwitch'); sw.input_type = 'FLOAT'
+        L.new(rc.outputs['Is Hit'], sw.inputs['Switch']); L.new(pz.outputs['Z'], sw.inputs['False']); L.new(mx.outputs[0], sw.inputs['True'])
+        cb = N.new('ShaderNodeCombineXYZ'); L.new(pz.outputs['X'], cb.inputs['X']); L.new(pz.outputs['Y'], cb.inputs['Y']); L.new(sw.outputs[0], cb.inputs['Z'])
+        sp = N.new('GeometryNodeSetPosition'); L.new(gi.outputs[0], sp.inputs['Geometry']); L.new(cb.outputs[0], sp.inputs['Position'])
+        L.new(sp.outputs[0], go.inputs[0])
+    md = ob.modifiers.new('soft_rest', 'NODES'); md.node_group = ng      # after the rig modifier
+    return md
+
+
+SOFT = ('haru_hair',)          # parts that squash against the floor or a bed instead of holding her up
+
+
 def build():
     if bpy.context.object and bpy.context.object.mode != 'OBJECT': bpy.ops.object.mode_set(mode='OBJECT')
     cube = bpy.data.objects.get('Cube')
@@ -551,6 +596,8 @@ def build():
     face_keys(parts)
     rig = make_rig(coll)
     skin(parts, rig)
+    for ob in all_meshes(parts):
+        if ob.name in SOFT: soft_rest(ob)
     rest(rig)
     dg = bpy.context.evaluated_depsgraph_get()
     lo, hi = Vector((9, 9, 9)), Vector((-9, -9, -9))
@@ -620,6 +667,7 @@ def stage(samples=128, width=4.0):
     for p in me.polygons: p.use_smooth = True
     bd = bpy.data.objects.new('backdrop', me); col.objects.link(bd)
     me.materials.append(clay_mat('backdrop', '#dcdad6', rough=0.95, sss=0.0, bump=0.05))
+    colliders().objects.link(bd)                                     # she rests on the floor; soft parts squash on it
     lr = bpy.data.objects.new('light_rig', None); col.objects.link(lr)     # move this to follow her across the set
     def area(name, loc, energy, size, color, target=(0, 0, 0.75), spread=180):
         ld = bpy.data.lights.new(name, 'AREA'); ld.energy = energy; ld.size = size; ld.color = color
