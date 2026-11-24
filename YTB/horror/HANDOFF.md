@@ -1,5 +1,7 @@
 # Handoff: PaperLit horror pipeline (read this first in a new session)
 
+**Moving to Blender clay: read `YTB/horror/blender/README.md` first** (character bible, everything learned, research, current work).
+
 Channel: PaperLit (YouTube @paperlit, channel UCEPxEir-yy6bpwdue24CLlA). **YouTube only** for now (Instagram and TikTok dropped).
 Branch: `claude/dead-star-philosophy-reel-2kq6ee`. Commit + push there; no PRs unless asked. Never use the long dash in any text.
 
