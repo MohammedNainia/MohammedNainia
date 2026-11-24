@@ -1,0 +1,156 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+// MIRROR RULES (9:16, ~25-35 s, narrated, loops). A small bathroom at night. The mirror is real geometry: a second Haru and a mirrored copy of
+// the room behind the glass (a group with scale z = -1), copying her joint for joint, so the reflection can break the copy when the story says.
+// Layout: the mirror wall is the plane z = 0; Haru stands at z ~ .55 facing it (-z); her right hand is -x. Timed to mirror_rules/voice/layout.json.
+import {THREE, setup, ease, clamp01, lerp} from './lib.js';
+import {clay, gloss, add, S, Cp, G, boil, CLAY_RIM, followFrame, look} from './clay.js';
+import * as K from './clay_sets.js';
+import {lib} from './library.js';
+import {relaxed, idle} from './moves.js';
+const Q = new URLSearchParams(location.search), PS = +(Q.get('s') || 1);
+const {scene, cam, renderer, render, dofPass, grade} = setup({bloom: .45, w: Math.round(1080 * PS), h: Math.round(1920 * PS), dof: true, wobble: .0012});
+const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z), sm = x => ease(clamp01(x)), u01 = (t, a, b) => clamp01((t - a) / (b - a));
+cam.near = .02; cam.far = 30; cam.updateProjectionMatrix();
+const LAY = Object.fromEntries((await (await fetch('/data/mirror_rules_layout.json')).json()).map(l => [l.name, l]));
+const ST = n => LAY[n].start, EN = n => LAY[n].end, DUR = LAY.END.start;
+grade('lamp'); scene.background = new THREE.Color(0x0a0a0c); CLAY_RIM.color.value.set(0xffe8c8); CLAY_RIM.k.value = .15;
+
+// ================================================================ the bathroom (everything but the mirror wall), built twice: here, and mirrored behind the glass
+const RW = 2.2, RD = 2.2, RH = 2.5, TILE = K.tiles(0xd8dcd4, 0xa8aca4, 6, [4, 3]);
+function room(parent, mirrored) {
+  const R = G(parent), M = {};
+  add(K.rbox(RW, .06, RD, .01), clay(0x6e7a78, {bumpScale: .5}), R, [0, -.03, RD / 2]);                        // floor
+  add(K.rbox(RW, .06, RD, .01), clay(0xcfcfc6), R, [0, RH + .03, RD / 2]);                                     // ceiling
+  const wallM = clay(0xffffff, {map: TILE, bumpScale: .4});
+  add(K.rbox(.08, RH, RD, .01), wallM, R, [-RW / 2, RH / 2, RD / 2]); add(K.rbox(.08, RH, RD, .01), wallM, R, [RW / 2, RH / 2, RD / 2]);
+  add(K.rbox(RW, RH, .08, .01), clay(0x8a948e), R, [0, RH / 2, RD]);                                          // the wall behind her (with the door)
+  add(K.rbox(.8, 2.0, .05, .01), clay(0xe6e0d2), R, [.55, 1.0, RD - .05]);                                    // the door
+  add(S(.03), gloss(0xc8b070), R, [.25, 1.0, RD - .09]);
+  // the shower curtain on her left (+x), a towel on a rail, a bath mat
+  for (let i = 0; i < 9; i++) add(K.rbox(.1, 1.7, .06, .03), clay(0x7a9aa8), R, [RW / 2 - .1, 1.15, .35 + i * .1], [0, .3 * (i % 2 ? 1 : -1), 0]);
+  add(Cp(.012, 1.2), gloss(0xc8c8c0), R, [RW / 2 - .1, 2.02, .75], [PI / 2, 0, 0]);
+  add(K.rbox(.04, .5, .32, .03), clay(0xb85a4a), R, [-RW / 2 + .06, 1.05, 1.0]); add(Cp(.01, .4), gloss(0xc8c8c0), R, [-RW / 2 + .08, 1.31, 1.0], [PI / 2, 0, 0]);
+  add(K.rbox(.6, .02, .4, .01), clay(0x5a7a6a), R, [0, .01, .55]);
+  // the sink against the mirror wall: pedestal, basin, tap; a cup with a toothbrush on its left (+x)
+  add(Cp(.09, .5), clay(0xeeeee6), R, [0, .32, .16]); add(K.rbox(.56, .12, .36, .05), clay(0xf2f2ea), R, [0, .68, .2]);
+  add(K.rbox(.4, .04, .24, .04), clay(0xc8ccc4), R, [0, .74, .21]); add(Cp(.014, .1), gloss(0xc8c8c0), R, [0, .8, .06], [PI / 2 - .3, 0, 0]);
+  M.cup = G(R, [.2, .75, .14]); add(K.rbox(.06, .09, .06, .02), clay(0x6aa0c8), M.cup, [0, .045, 0]);
+  M.brush = G(M.cup, [0, .09, 0]); add(K.rbox(.012, .16, .012, .005), clay(0xd84a4a), M.brush, [0, .05, 0], [0, 0, .15]); add(K.rbox(.016, .03, .02, .004), clay(0xf0f0f0), M.brush, [-.018, .13, 0]);
+  // the light switch on the mirror wall, at her right hand (-x)
+  M.sw = G(R, [-.62, 1.15, .02]); add(K.rbox(.08, .12, .02, .01), clay(0xf0eee6), M.sw); M.toggle = add(K.rbox(.02, .04, .02, .005), clay(0xd8d6ce), M.sw, [0, 0, .015]);
+  if (mirrored) { R.scale.z = -1; }
+  return M;
+}
+const REAL = room(scene, false);
+const MIR = G(scene); MIR.scale.z = -1; const BACK = room(MIR, false);              // the world in the glass
+// the mirror wall: tiles around the opening, a thin frame, a faint glass sheen (it never casts shadows: light has to reach both rooms)
+const MW = .72, MH = .9, MY = 1.32, wallM2 = clay(0xffffff, {map: TILE, bumpScale: .4});
+for (const [w, h, x, y] of [[RW, MY - MH / 2, 0, (MY - MH / 2) / 2], [RW, RH - MY - MH / 2, 0, (RH + MY + MH / 2) / 2], [(RW - MW) / 2, MH, -(RW + MW) / 4, MY], [(RW - MW) / 2, MH, (RW + MW) / 4, MY]]) {
+  const m = add(K.rbox(w, h, .06, .005), wallM2, scene, [x, y, -.03]); m.castShadow = false; }
+for (const [w, h, x, y] of [[MW + .06, .03, 0, MY + MH / 2], [MW + .06, .03, 0, MY - MH / 2], [.03, MH, -MW / 2, MY], [.03, MH, MW / 2, MY]]) { const m = add(K.rbox(w, h, .03, .01), gloss(0xb8b4a8), scene, [x, y, .01]); m.castShadow = false; }
+const glass = add(new THREE.PlaneGeometry(MW, MH), new THREE.MeshPhysicalMaterial({color: 0xcfe0e8, transparent: true, opacity: .07, roughness: .05, metalness: 0, depthWrite: false}), scene, [0, MY, .005]); glass.castShadow = false;   // (no depth: the drawn face behind it must still show)
+// the light: a bar over the mirror (on the mirror plane, so the room and its reflection are lit alike) and a soft fill from the door side
+const barM = new THREE.MeshBasicMaterial({color: 0xfff2d8}); add(K.rbox(.5, .05, .08, .02), barM, scene, [0, MY + MH / 2 + .12, .04]);
+const lamp = new THREE.PointLight(0xffe8c8, 5, 6, 1.6); lamp.position.set(0, MY + MH / 2 + .1, .3); lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); scene.add(lamp);
+const lampB = new THREE.PointLight(0xffe8c8, 5, 6, 1.6); lampB.position.set(0, MY + MH / 2 + .1, -.3); lampB.castShadow = true; lampB.shadow.mapSize.set(1024, 1024); scene.add(lampB);
+const hemi = new THREE.HemisphereLight(0xfff0e0, 0x303030, .55); scene.add(hemi);
+const fill = new THREE.PointLight(0xfff0e0, 0, 3, 1.8); scene.add(fill);
+function lights(on) { lamp.intensity = lampB.intensity = on * 3; hemi.intensity = on * .55; barM.color.set(on ? 0xfff2d8 : 0x151515); REAL.toggle.rotation.x = BACK.toggle.rotation.x = on ? -.3 : .3; }
+
+// ================================================================ Haru, and the one in the glass
+const haru = await lib.char('haru'), refl = await lib.char('haru'); scene.add(haru.root, refl.root);   // (not inside the mirrored group: a flipped puppet loses its drawn face; its pose is mirrored instead)
+[haru, refl].forEach(P => { P.faceLight.intensity = 0; });
+          // mirrored (negative scale) the face plate turns inside out: draw both sides
+const S0 = haru.root.scale.x;
+function reset(P) {
+  P.root.position.set(0, 0, 0); P.root.rotation.set(0, 0, 0); P.root.scale.setScalar(S0); P.hips.position.set(0, .82, 0); P.hips.rotation.set(0, 0, 0);
+  if (P.restPos) { P.chest.position.copy(P.restPos.chest); P.neck.position.copy(P.restPos.neck); }
+  for (const o of [P.chest, P.neck, P.head]) o.rotation.set(0, 0, 0); P.head.position.set(0, P.neckLen || .155, 0);
+  P.arms.forEach(({up, fo, hand}) => { up.rotation.set(0, 0, 0); fo.rotation.set(0, 0, 0); hand.rotation.set(0, 0, 0); });
+  P.legs.forEach(({th, sh, ft}) => { th.rotation.set(0, 0, 0); sh.rotation.set(0, 0, 0); ft.rotation.set(0, 0, 0); }); P.rest(); P.root.visible = true;
+}
+// the reflection mirrors her across the glass (z = 0): position z flipped, facing flipped, every joint's side-to-side turns negated,
+// her left and right limbs swapped: what she does with her right hand, the one in the glass does with its left
+const mir = (src, dst) => dst.set(src.x, -src.y, -src.z);
+function copyPose(A, B) {
+  B.root.position.set(A.root.position.x, A.root.position.y, -A.root.position.z); B.root.rotation.set(A.root.rotation.x, PI - A.root.rotation.y, -A.root.rotation.z);
+  B.hips.position.set(-A.hips.position.x, A.hips.position.y, A.hips.position.z);
+  for (const k of ['hips', 'chest', 'neck', 'head']) mir(A[k].rotation, B[k].rotation); B.head.position.copy(A.head.position);
+  A.arms.forEach((a, i) => { for (const k of ['up', 'fo', 'hand']) mir(a[k].rotation, B.arms[1 - i][k].rotation); });
+  A.legs.forEach((l, i) => { for (const k of ['th', 'sh', 'ft']) mir(l[k].rotation, B.legs[1 - i][k].rotation); });
+}
+const both = f => { f(haru); f(refl); };
+// the reflection's own toothbrush (in its left hand, which in the glass looks like her right)
+// (placed in the room each frame: from its hand to its mouth, bristles at the mouth, so the brushing reads from any angle)
+const rBrush = G(scene); const rStick = add(K.rbox(.014, .014, 1, .005), clay(0xd84a4a), rBrush); const rHead = add(K.rbox(.03, .022, .03, .006), clay(0xf4f4f4), rBrush);
+function placeBrush(P, wig) { P.root.updateMatrixWorld(true); const hand = P.arms[1].hand.getWorldPosition(V()), mouth = HEAD(P).add(V(wig, -.065, .16));   // (world units: the face centre, down to the lips, out in front of them; it faces +z)
+  const L = hand.distanceTo(mouth) + .02; rStick.scale.z = L; rStick.position.set(0, 0, -L / 2); rHead.position.set(0, .012, -.012); rBrush.position.copy(mouth); rBrush.lookAt(hand); rBrush.rotateY(PI); }
+const HEAD = P => { P.root.updateMatrixWorld(true); const up = P.J ? (P.J.headTop.y - P.J.headBase.y) * .4 : .1; return P.head.localToWorld(V(0, up, 0)); };
+const C = (p, l, fov = 40) => { cam.position.copy(p); cam.lookAt(l); if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); } dofPass.set(p.distanceTo(l), Math.min(2, Math.max(.4, 40 / fov - .3))); };
+const emptyScene = new THREE.Scene(); emptyScene.background = new THREE.Color(0); let black = false;
+const HZ = .55;                                                                     // where she stands
+const talk = (t, a, b) => t > a && t < b && Math.floor(t * 9) % 2;                 // mouth flaps while a line plays (mouths.json replaces this later)
+
+// ================================================================ the timeline
+function frame(t) {
+  boil(Math.floor(t * 6)); black = false; fill.intensity = 0; lights(1);
+  reset(haru); reset(refl); rBrush.visible = false; BACK.brush.visible = true;
+  haru.root.position.set(0, 0, HZ); haru.root.rotation.y = PI; idle(haru, t, .5);
+  const hh = HEAD(haru);
+  // ---- m01: the reflection blinks first
+  if (t < ST('m02') - .2) {
+    copyPose(haru, refl); both(P => P.expr('neutral'));
+    if (t > 1.1 && t < 1.32) refl.eyes('closed');                                     // it blinks...
+    if (t > 1.75 && t < 1.95) haru.eyes('closed');                                    // ...then she does
+    const k = sm(u01(t, 0, ST('m02'))), rh = HEAD(refl);
+    C(hh.clone().add(V(-.34, .05, lerp(.55, .45, k))), rh, 30);                        // over her shoulder, onto the face in the glass
+  }
+  // ---- m02: don't smile at it; it smiles too wide
+  else if (t < ST('m03') - .2) {
+    copyPose(haru, refl); const u = u01(t, ST('m02'), EN('m02') + .5);
+    haru.expr('worried'); haru.mouth('smile', .35);
+    refl.expr('worried'); refl.mouth(u < .55 ? 'smile' : 'grin', u < .55 ? .35 : lerp(.25, .6, sm((u - .55) / .45)));
+    const rh = HEAD(refl); C(hh.clone().add(V(.26, .02, .06)), rh.clone().add(V(.02, -.02, 0)), 24);
+  }
+  // ---- m03: it's already brushing; she reaches for the cup, then for the switch; the light goes out
+  else if (t < EN('m03') + .35) {
+    const a = ST('m03'), b = EN('m03'), reachCup = sm(u01(t, a + .4, a + 1.3)) * (1 - sm(u01(t, a + 2.6, a + 3.1))), reachSw = sm(u01(t, b - 1.4, b - .5));
+    haru.arms[1].up.rotation.x -= 1.0 * reachCup; haru.arms[1].fo.rotation.x -= .4 * reachCup; look(haru, {nod: .35 * reachCup});
+    haru.arms[0].up.rotation.x -= 1.25 * reachSw; haru.arms[0].up.rotation.z -= .55 * reachSw;
+    haru.expr(t < a + 1.6 ? 'worried' : 'scared');
+    copyPose(haru, refl);
+    // the reflection: brushing its teeth, eyes on her, not following
+    const bw = Math.sin(t * 16) * .12; refl.arms[1].up.rotation.set(-1.6, 0, -.7 + bw); refl.arms[1].fo.rotation.set(-2.05, 0, 0); refl.arms[1].hand.rotation.set(0, 0, bw * 2);
+    refl.head.rotation.set(0, 0, 0); refl.neck.rotation.set(0, 0, 0); rBrush.visible = true; BACK.brush.visible = false; placeBrush(refl, bw * .25);
+    refl.expr('neutral'); refl.mouth('grin', .3);
+    if (t > b + .15) lights(0);
+    const u = u01(t, a, b + .35);
+    C(V(.55, 1.18, 1.0), V(.02, 1.02, -.3), lerp(32, 28, u));                        // both of them: her reaching for the brush, it already brushing
+    if (t > b + .15) black = true;
+  }
+  // ---- the dark (m04): only the brushing sound
+  else if (t < ST('m05') + .45) { black = true; }
+  // ---- the light comes back: she's there, the mirror shows the room without her (m05, m06)
+  else if (t < ST('m06') + .5) {
+    refl.root.visible = false; haru.expr('terrified');
+    C(V(.85, 1.2, .95), V(-.1, 1.12, .12), 40);                                        // past her shoulder: the glass shows the room, and no one
+  }
+  // ---- it's in her now: white eyes, the grin; "so whatever you do... don't blink" (m07); she blinks; cut back to the start
+  else {
+    refl.root.visible = false; const k = sm(u01(t, ST('m06') + .5, ST('m06') + 1.2));
+    haru.eyes('white'); haru.mouth('grin', lerp(.1, .75, k)); if (talk(t, ST('m07'), EN('m07'))) haru.mouth('grin', .95);
+    if (t > EN('m07') + .45 && t < EN('m07') + .62) haru.eyes('closed');             // she blinks
+    C(hh.clone().add(V(.03, .0, -lerp(.95, .75, sm(u01(t, ST('m06'), DUR))))), hh, 30);   // from the mirror's side, her face
+    fill.position.copy(hh).add(V(.3, .5, -1)); fill.intensity = .5;
+  }
+}
+const frameFX = followFrame(frame, () => [haru, refl]);
+scene.traverse(o => { if (o.isLight && o.castShadow) { o.shadow.bias = -.0015; o.shadow.normalBias = .03; } });
+window.DUR = DUR; window.__P = {haru, refl, rBrush}; 
+window.renderAt = t => { frameFX(t); const QC = Q.get('cam'); if (QC) { const c = QC.split(',').map(Number); C(V(c[0], c[1], c[2]), V(c[3], c[4], c[5]), c[6] || 50); black = false; } if (black) renderer.render(emptyScene, cam); else render(t); };
+window.renderAt(0); window.ready = true;
+</script></body></html>
