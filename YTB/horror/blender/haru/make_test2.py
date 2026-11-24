@@ -18,7 +18,8 @@ sc = bpy.context.scene
 if '--stills' in args:
     frames = [int(x) for x in args[args.index('--frames') + 1].split(',')] if '--frames' in args else [13, 103, 187]
     keep = (sc.render.resolution_x, sc.render.resolution_y, sc.cycles.samples)
-    sc.render.resolution_x, sc.render.resolution_y, sc.cycles.samples = 540, 960, 32
+    w, h = (int(v) for v in args[args.index('--res') + 1].split(',')) if '--res' in args else (540, 960)
+    sc.render.resolution_x, sc.render.resolution_y, sc.cycles.samples = w, h, 48
     out = os.path.join(HERE, 'renders', 'hair_check')
     for f in frames:
         sc.frame_set(f); sc.render.filepath = os.path.join(out, f'f{f:03d}.png'); bpy.ops.render.render(write_still=True)

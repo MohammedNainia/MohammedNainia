@@ -1,0 +1,7 @@
+# frames and test renders are rebuilt by the scene scripts; keep only chosen review images
+renders/bench_*/
+renders/haru_sheet/*.png
+!renders/haru_sheet/look_v3.png
+!renders/haru_sheet/turn_vs_sheet.png
+!renders/haru_sheet/expressions_clay.png
+measure/id_view*.png

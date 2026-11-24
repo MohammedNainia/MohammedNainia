@@ -11,6 +11,9 @@ from mathutils import Vector
 
 FPS = 24
 END = 17.0
+BOIL = 0.007            # metres the clay marks shift per pose (puppet-scale: the animator's touch)
+CHATTER = 0.6           # degrees of random miss per pose
+CHATTER_BONES = ('spine', 'chest', 'neck', 'head', 'upper_arm.L', 'upper_arm.R', 'forearm.L', 'forearm.R')
 AX = {'x': (1, 0, 0), 'y': (0, 1, 0), 'z': (0, 0, 1)}
 
 # ---------------------------------------------------------------- pose library
@@ -206,12 +209,15 @@ def setup(B, out_dir, step=2):
     frames = list(range(1, int(END * FPS) + 1, step))
     # pass 1: pose, put her on the floor, record everything (no keys yet, so nothing overrides the pose)
     rec = []; x = X0; phase = 0.0; prev_t = 0.0
+    chat = random.Random(5)
     for f in frames:
         t = (f - 1) / FPS; dt = t - prev_t; prev_t = t
         v = speed(t); x += v * dt
         cyc = RUN_T if t >= 7.15 else WALK_T
         phase += dt / cyc
         spec, lift, facing = body(t, phase)
+        # chatter: a hand-posed puppet never lands exactly on the pose; tiny random misses every new pose
+        spec = add(spec, {(bn, ax): chat.uniform(-CHATTER, CHATTER) for bn in CHATTER_BONES for ax in ('x', 'z')})
         rig.location = (x, 0, 0); rig.rotation_euler = (0, 0, math.radians(facing))
         apply(B, rig, spec); vl.update()
         z = -lowest(meshes) + lift
@@ -252,6 +258,9 @@ def setup(B, out_dir, step=2):
         cam.keyframe_insert('location', frame=f); cam.keyframe_insert('rotation_euler', frame=f)
         cam.data.lens = r['lens']; cam.data.keyframe_insert('lens', frame=f)
         cam.data.dof.focus_distance = r['focus']; cam.data.dof.keyframe_insert('focus_distance', frame=f)
+        # miniature set: very shallow focus (a 20 cm puppet shot close with a real lens)
+        cam.data.dof.aperture_fstop = 1.4 + 0.8 * seg(r['t'], 10.1, 11.3) - 0.8 * seg(r['t'], 15.35, 15.75)
+        cam.data.dof.keyframe_insert('aperture_fstop', frame=f)
         lr.location = (cam.location.x if r['t'] < 10.1 else r['x'], 0, 0); lr.keyframe_insert('location', frame=f)
         if swing:   # hair ends trail behind when she moves, lag down on the way up of the jump, flick up on landing
             t = r['t']; u = (t - 15.9) / 0.75
@@ -261,7 +270,7 @@ def setup(B, out_dir, step=2):
             swing.keyframe_insert('location', frame=f)
         for m in mats:
             mp = m.node_tree.nodes['boil']
-            mp.inputs['Location'].default_value = tuple(rnd.uniform(-1, 1) * 0.004 for _ in range(3))
+            mp.inputs['Location'].default_value = tuple(rnd.uniform(-1, 1) * BOIL for _ in range(3))
             mp.inputs['Location'].keyframe_insert('default_value', frame=f)
         for md in lumps:
             md.mid_level = 0.5 + rnd.uniform(-1, 1) * 0.08; md.keyframe_insert('mid_level', frame=f)
@@ -270,7 +279,7 @@ def setup(B, out_dir, step=2):
         if ad and ad.action:
             for fc in action_fcurves(ad.action):
                 for kp in fc.keyframe_points: kp.interpolation = 'CONSTANT'
-    cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = 2.8
+    cam.data.dof.use_dof = True
     sc.camera = cam
     sc.frame_start, sc.frame_end, sc.frame_step = 1, frames[-1], step
     sc.render.fps = FPS

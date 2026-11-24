@@ -12,7 +12,7 @@ with open(lst, 'w') as f:
     for p in frames: f.write(f"file '{os.path.basename(p)}'\nduration {step / 24}\n")
     f.write(f"file '{os.path.basename(frames[-1])}'\n")
 subprocess.run([ff, '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst,
-                '-vf', 'fps=24,noise=alls=5:allf=t,format=yuv420p', '-c:v', 'libx264', '-crf', '17', '-preset', 'slow',
+                '-vf', 'fps=24,vignette=angle=PI/5,noise=alls=5:allf=t,format=yuv420p', '-c:v', 'libx264', '-crf', '17', '-preset', 'slow',
                 '-movflags', '+faststart', out], check=True)
 small = out.replace('.mp4', '_small.mp4')
 subprocess.run([ff, '-y', '-loglevel', 'error', '-i', out, '-c:v', 'libx264', '-crf', '24', '-preset', 'slow',

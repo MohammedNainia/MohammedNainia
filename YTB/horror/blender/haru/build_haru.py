@@ -100,70 +100,126 @@ def make(name, shape, coll, mat, part, voxel=0.005, smooth=6, lumps=0.0025, cuts
     for p in ob.data.polygons: p.use_smooth = True
     ob.data.materials.append(mat)
     ob['part'] = part; ob.color = (*ID[part], 1)
+    add_rest(ob)
     if lumps:
+        # uneven hand-pressed silhouette; LOCAL coords so the lumps stay put on the clay as she moves
         tex = bpy.data.textures.get('clay_lumps') or bpy.data.textures.new('clay_lumps', 'CLOUDS')
-        tex.noise_scale = 0.05; tex.noise_depth = 1
-        dm = ob.modifiers.new('lumps', 'DISPLACE'); dm.texture = tex; dm.strength = lumps
-        dm.texture_coords = 'GLOBAL'; dm.mid_level = 0.5
+        tex.noise_scale = 0.085; tex.noise_depth = 2
+        dm = ob.modifiers.new('lumps', 'DISPLACE'); dm.texture = tex; dm.strength = lumps * 1.7
+        dm.texture_coords = 'LOCAL'; dm.mid_level = 0.5
     return ob
 
 
+def add_rest(ob):
+    """store each vertex's rest position: the clay shader reads it, so prints and marks stay pressed into the clay
+    when the rig moves it (only the deliberate per-pose boil changes them)"""
+    co = np.empty(len(ob.data.vertices) * 3, np.float32); ob.data.vertices.foreach_get('co', co)
+    a = ob.data.attributes.get('rest') or ob.data.attributes.new('rest', 'FLOAT_VECTOR', 'POINT')
+    a.data.foreach_set('vector', co)
+
+
 # ---------------------------------------------------------------- clay materials
-def clay_mat(name, hexc, rough=0.86, sss=0.04, bump=0.35, grooves=0.0, gloss=False):
+def clay_mat(name, hexc, rough=0.56, sss=0.04, bump=0.35, grooves=0.0, gloss=False, prints=1.0, specks=1.0):
+    """plasticine at PUPPET scale. Haru is modelled 1.26 m tall, but a clay puppet is ~20 cm, so every mark is sized
+    for the puppet (x6.3): thumbprints ~6 cm across with ridges ~3 mm apart, soft dents, smears, modelling-tool
+    creases, marbled colour, a few dust specks, and a waxy sheen (handled spots a little shinier). Coordinates are
+    the stored rest position, so marks stay on the clay; the 'boil' Mapping node shifts them a little per pose."""
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     m.use_nodes = True; nt = m.node_tree; N, Lk = nt.nodes, nt.links; N.clear()
-    out = N.new('ShaderNodeOutputMaterial'); out.location = (900, 0)
-    b = N.new('ShaderNodeBsdfPrincipled'); b.location = (600, 0)
+    out = N.new('ShaderNodeOutputMaterial'); out.location = (1100, 0)
+    b = N.new('ShaderNodeBsdfPrincipled'); b.location = (800, 0)
     Lk.new(b.outputs['BSDF'], out.inputs['Surface'])
     c = lin(hexc)
-    b.inputs['Roughness'].default_value = 0.25 if gloss else rough
-    b.inputs['Specular IOR Level'].default_value = 0.5 if gloss else 0.32
+    b.inputs['Specular IOR Level'].default_value = 0.5 if gloss else 0.3
     b.inputs['Subsurface Weight'].default_value = sss
     b.inputs['Subsurface Radius'].default_value = (1.0, 0.45, 0.25)
     b.inputs['Subsurface Scale'].default_value = 0.015
-    b.inputs['Sheen Weight'].default_value = 0.0 if gloss else 0.12
-    tc = N.new('ShaderNodeTexCoord'); tc.location = (-900, 0)
-    mp = N.new('ShaderNodeMapping'); mp.name = mp.label = 'boil'; mp.location = (-700, 0)
-    Lk.new(tc.outputs['Object'], mp.inputs['Vector'])
-    # mottled colour
-    n1 = N.new('ShaderNodeTexNoise'); n1.location = (-400, 300)
-    n1.inputs['Scale'].default_value = 7; n1.inputs['Detail'].default_value = 3
-    Lk.new(mp.outputs['Vector'], n1.inputs['Vector'])
-    ramp = N.new('ShaderNodeValToRGB'); ramp.location = (-150, 300)
-    e0, e1 = ramp.color_ramp.elements
-    e0.position, e1.position = 0.3, 0.72
-    e0.color = (*[v * 0.86 for v in c], 1); e1.color = (*[min(1, v * 1.1) for v in c], 1)
-    Lk.new(n1.outputs['Fac'], ramp.inputs['Fac']); Lk.new(ramp.outputs['Color'], b.inputs['Base Color'])
-    if bump <= 0: return m
-    # height = soft dents + fingerprints + tool marks (+ hair grooves)
-    n_dent = N.new('ShaderNodeTexNoise'); n_dent.location = (-400, 0)
-    n_dent.inputs['Scale'].default_value = 16; n_dent.inputs['Detail'].default_value = 2
-    n_fp = N.new('ShaderNodeTexWave'); n_fp.location = (-400, -250)
-    n_fp.wave_type = 'RINGS'; n_fp.inputs['Scale'].default_value = 140
-    n_fp.inputs['Distortion'].default_value = 6; n_fp.inputs['Detail'].default_value = 1
-    vo = N.new('ShaderNodeTexVoronoi'); vo.location = (-400, -500)
-    vo.feature = 'DISTANCE_TO_EDGE'; vo.inputs['Scale'].default_value = 22
-    for t in (n_dent, n_fp, vo): Lk.new(mp.outputs['Vector'], t.inputs['Vector'])
-    def madd(a, k, add, loc):
-        n = N.new('ShaderNodeMath'); n.operation = 'MULTIPLY_ADD'; n.location = loc
-        Lk.new(a, n.inputs[0]); n.inputs[1].default_value = k
-        if isinstance(add, float): n.inputs[2].default_value = add
-        else: Lk.new(add, n.inputs[2])
+    b.inputs['Sheen Weight'].default_value = 0.0 if gloss else 0.06
+    ra = N.new('ShaderNodeAttribute'); ra.attribute_name = 'rest'
+    mp = N.new('ShaderNodeMapping'); mp.name = mp.label = 'boil'
+    Lk.new(ra.outputs['Vector'], mp.inputs['Vector'])
+    V = mp.outputs['Vector']
+
+    def tex(kind, scale, vec=None, **kw):
+        t = N.new(kind); Lk.new(vec or V, t.inputs['Vector']); t.inputs['Scale'].default_value = scale
+        for k, v in kw.items():
+            if k in t.inputs: t.inputs[k].default_value = v
+            else: setattr(t, k, v)
+        return t
+
+    def op(kind, *ins, clamp=False):
+        n = N.new('ShaderNodeMath'); n.operation = kind; n.use_clamp = clamp
+        for i, x in enumerate(ins):
+            if isinstance(x, (int, float)): n.inputs[i].default_value = x
+            else: Lk.new(x, n.inputs[i])
         return n.outputs[0]
-    h = madd(n_dent.outputs['Fac'], 1.0, 0.0, (-150, 0))
-    h = madd(n_fp.outputs['Fac'], 0.12, h, (-150, -200))
-    vs = N.new('ShaderNodeMath'); vs.operation = 'SMOOTH_MIN'; vs.location = (-200, -500)
-    Lk.new(vo.outputs['Distance'], vs.inputs[0]); vs.inputs[1].default_value = 0.08; vs.inputs[2].default_value = 0.05
-    h = madd(vs.outputs[0], 0.6, h, (-150, -400))
-    if grooves:
-        wv = N.new('ShaderNodeTexWave'); wv.location = (-400, -750)
-        wv.bands_direction = 'X'; wv.inputs['Scale'].default_value = 9
-        wv.inputs['Distortion'].default_value = 3; wv.inputs['Detail Scale'].default_value = 1
-        Lk.new(mp.outputs['Vector'], wv.inputs['Vector'])
-        h = madd(wv.outputs['Fac'], grooves, h, (-150, -650))
-    bp = N.new('ShaderNodeBump'); bp.location = (300, -300)
-    bp.inputs['Strength'].default_value = bump; bp.inputs['Distance'].default_value = 0.003
+
+    def mix(fac, a, b_col, blend='MIX'):
+        n = N.new('ShaderNodeMix'); n.data_type = 'RGBA'; n.blend_type = blend
+        Lk.new(fac, n.inputs['Factor']); Lk.new(a, n.inputs[6]); n.inputs[7].default_value = b_col
+        return n.outputs[2]
+
+    # colour: mottling, kneaded marbling, dust specks
+    mot = tex('ShaderNodeTexNoise', 5, Detail=3, Distortion=0.5)
+    ramp = N.new('ShaderNodeValToRGB'); e0, e1 = ramp.color_ramp.elements
+    e0.position, e1.position = 0.3, 0.72
+    e0.color = (*[v * 0.82 for v in c], 1); e1.color = (*[min(1, v * 1.1) for v in c], 1)
+    Lk.new(mot.outputs['Fac'], ramp.inputs['Fac'])
+    col = ramp.outputs['Color']
+    if not gloss:
+        marb = tex('ShaderNodeTexNoise', 2.5, Detail=2, Distortion=5)
+        band = op('MULTIPLY', op('SUBTRACT', op('ABSOLUTE', op('SUBTRACT', marb.outputs['Fac'], 0.5)), 0.04), -12.0, clamp=True)
+        col = mix(band, col, (0.86, 0.84, 0.82, 1), 'MULTIPLY')                 # thin darker veins
+        if specks:
+            sp = tex('ShaderNodeTexVoronoi', 260)
+            sc = N.new('ShaderNodeSeparateColor'); Lk.new(sp.outputs['Color'], sc.inputs[0])
+            dot = op('MULTIPLY', op('LESS_THAN', sp.outputs['Distance'], 0.07), op('GREATER_THAN', sc.outputs[0], 0.8))
+            col = mix(op('MULTIPLY', dot, 0.75 * specks), col, (*[v * 0.35 for v in c], 1))
+    Lk.new(col, b.inputs['Base Color'])
+    if bump <= 0:
+        b.inputs['Roughness'].default_value = 0.22 if gloss else rough
+        return m
+
+    # height: soft dents, small lumps, smears, modelling-tool creases, thumbprints (+ carved hair grooves)
+    h = op('MULTIPLY', tex('ShaderNodeTexNoise', 6, Detail=2).outputs['Fac'], 1.0)
+    def acc(x, k):
+        return op('MULTIPLY_ADD', x, k, h)
+    h = acc(tex('ShaderNodeTexNoise', 25, Detail=1).outputs['Fac'], 0.25)
+    sm = N.new('ShaderNodeMapping'); Lk.new(V, sm.inputs['Vector']); sm.inputs['Scale'].default_value = (9, 9, 1.6)
+    h = acc(tex('ShaderNodeTexNoise', 1.0, vec=sm.outputs['Vector'], Detail=1).outputs['Fac'], 0.3)           # smears
+    tool = tex('ShaderNodeTexVoronoi', 9, feature='DISTANCE_TO_EDGE')
+    h = acc(op('SMOOTH_MIN', tool.outputs['Distance'], 0.06, 0.04), 0.45)                                     # tool creases
+    shiny = None
+    if prints:   # thumbprints: smudged, partial, oval whorls inside some Voronoi cells, each with a shallow pressed bowl
+        st = N.new('ShaderNodeMapping'); Lk.new(V, st.inputs['Vector']); st.inputs['Scale'].default_value = (1.0, 1.0, 1.6)
+        tp = tex('ShaderNodeTexVoronoi', 11, vec=st.outputs['Vector'], Randomness=1.0)          # oval, not round
+        warp = tex('ShaderNodeTexNoise', 22, Detail=2)
+        d2 = op('MULTIPLY_ADD', warp.outputs['Fac'], 0.09, tp.outputs['Distance'])              # wobbly loops, no targets
+        ridge = op('SINE', op('MULTIPLY', d2, 2 * math.pi * 26))
+        rc = N.new('ShaderNodeSeparateColor'); Lk.new(tp.outputs['Color'], rc.inputs[0])
+        cell = op('GREATER_THAN', rc.outputs[0], 0.4)
+        fr = N.new('ShaderNodeMapRange'); fr.interpolation_type = 'SMOOTHSTEP'
+        Lk.new(tp.outputs['Distance'], fr.inputs['Value'])
+        fr.inputs['From Min'].default_value, fr.inputs['From Max'].default_value = 0.1, 0.36
+        fr.inputs['To Min'].default_value, fr.inputs['To Max'].default_value = 1.0, 0.0
+        part = op('MULTIPLY', op('SUBTRACT', tex('ShaderNodeTexNoise', 30, Detail=1).outputs['Fac'], 0.42), 4.0, clamp=True)
+        mask = op('MULTIPLY', op('MULTIPLY', cell, fr.outputs['Result']), part)                  # only part of each print shows
+        h = acc(op('MULTIPLY', ridge, mask), 0.12 * prints)
+        h = acc(op('MULTIPLY', op('POWER', fr.outputs['Result'], 2.0), cell), -0.55 * prints)
+        shiny = mask
+    if grooves:  # tool-carved locks: few, wavy, uneven grooves running down from the crown
+        gr = N.new('ShaderNodeTexGradient'); gr.gradient_type = 'RADIAL'; Lk.new(V, gr.inputs['Vector'])
+        ang = op('MULTIPLY_ADD', tex('ShaderNodeTexNoise', 5, Detail=2).outputs['Fac'], 0.035, gr.outputs['Fac'])
+        g = op('POWER', op('ABSOLUTE', op('SINE', op('MULTIPLY', ang, math.pi * 38))), 0.35)    # wide locks, narrow cuts
+        depth = op('MULTIPLY_ADD', tex('ShaderNodeTexNoise', 9, Detail=1).outputs['Fac'], 1.4, -0.2)
+        h = acc(op('MULTIPLY', g, depth), grooves)
+    bp = N.new('ShaderNodeBump')
+    bp.inputs['Strength'].default_value = bump; bp.inputs['Distance'].default_value = 0.004
     Lk.new(h, bp.inputs['Height']); Lk.new(bp.outputs['Normal'], b.inputs['Normal'])
+    # waxy sheen, uneven; handled (printed) spots a little shinier
+    r = op('MULTIPLY_ADD', tex('ShaderNodeTexNoise', 4, Detail=1).outputs['Fac'], 0.16, rough - 0.08)
+    if shiny is not None: r = op('MULTIPLY_ADD', shiny, -0.12, r)
+    Lk.new(r, b.inputs['Roughness'])
     return m
 
 
@@ -529,12 +585,12 @@ def collection(name='Haru'):
 
 
 def materials():
-    return {'hoodie': clay_mat('clay_hoodie', PAL['hoodie'], sss=0.03, bump=0.4),
-            'pants': clay_mat('clay_pants', PAL['pants'], sss=0.02, bump=0.35),
-            'skin': clay_mat('clay_skin', PAL['skin'], sss=0.12, bump=0.22),
-            'hair': clay_mat('clay_hair', PAL['hair'], rough=0.8, sss=0.0, bump=0.35, grooves=0.5),
-            'shoe': clay_mat('clay_shoe', PAL['shoe'], sss=0.03, bump=0.25),
-            'sole': clay_mat('clay_sole', PAL['sole'], bump=0.25),
+    return {'hoodie': clay_mat('clay_hoodie', PAL['hoodie'], sss=0.03, bump=0.5),
+            'pants': clay_mat('clay_pants', PAL['pants'], sss=0.02, bump=0.45),
+            'skin': clay_mat('clay_skin', PAL['skin'], rough=0.74, sss=0.12, bump=0.38, prints=0.6),
+            'hair': clay_mat('clay_hair', PAL['hair'], rough=0.58, sss=0.0, bump=0.5, grooves=0.8, prints=0.4, specks=0),
+            'shoe': clay_mat('clay_shoe', PAL['shoe'], sss=0.03, bump=0.35, specks=1.5),
+            'sole': clay_mat('clay_sole', PAL['sole'], bump=0.3),
             'eye': clay_mat('clay_eye', PAL['eye'], bump=0, gloss=True),
             'white': clay_mat('clay_white', PAL['white'], bump=0, sss=0.0),
             'mouth': clay_mat('clay_mouth', PAL['mouth'], bump=0.1),
@@ -668,6 +724,7 @@ def stage(samples=128, width=4.0):
     bd = bpy.data.objects.new('backdrop', me); col.objects.link(bd)
     me.materials.append(clay_mat('backdrop', '#dcdad6', rough=0.95, sss=0.0, bump=0.05))
     colliders().objects.link(bd)                                     # she rests on the floor; soft parts squash on it
+    add_rest(bd)
     lr = bpy.data.objects.new('light_rig', None); col.objects.link(lr)     # move this to follow her across the set
     def area(name, loc, energy, size, color, target=(0, 0, 0.75), spread=180):
         ld = bpy.data.lights.new(name, 'AREA'); ld.energy = energy; ld.size = size; ld.color = color
