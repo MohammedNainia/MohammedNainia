@@ -1,0 +1,12 @@
+MIRROR RULES (approved)  9:16, narration 1.5x in post (pitch kept), target ~35-40 s. Test 1 of the competitor study: a short narrated reel
+that speaks to the viewer (second-person rules). Haru narrates. No hook text card: the first line is the hook (it is also burned in as a caption).
+Rule: if your reflection blinks first, don't look away. Flaw: Haru turns the light off (it can't see you in the dark).
+Twist: when the light comes back, the mirror is empty: it's in her now. Ending: "don't blink" / she blinks / cut to the first shot (loop).
+
+m01  HARU  If your reflection blinks before you do... don't look away first.
+m02  HARU  Rule two. Don't smile at it. It's learning how.
+m03  HARU  Rule three. If it starts brushing its teeth before you've picked up the brush... turn off the light. Slowly.
+m04  HARU  In the dark, it can't see you. That's the rule.
+m05  HARU  I turned the light back on.
+m06  HARU  It's not in the mirror anymore.
+m07  HARU  So whatever you do... don't blink.
