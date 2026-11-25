@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'puppets'))
 import haru_puppet as HP
 import haru_burton as HB
+import haru_clay as HC
 import burton_materials as BM
 from claylib import *
 spec = importlib.util.spec_from_file_location('story', os.path.join(HERE, '..', 'haru', 'test2_shot.py'))
@@ -30,8 +31,10 @@ F = int(END * FPS)
 reset()
 sc = setup_render(res=OPTS['res'], samples=OPTS['samples'], frames=F)
 HP.fast_cycles(sc)
-world((0.05, 0.06, 0.09), 0.25)
-sc.view_settings.exposure = -0.2
+world((0.02, 0.025, 0.045), 0.12)
+sc.view_settings.exposure = -0.25
+try: sc.view_settings.look = 'AgX - High Contrast'      # horror grade: deep blacks, hard falloff
+except TypeError: pass
 
 # ------------------------------------------------------------------ materials
 def nodes_mat(name):
@@ -114,6 +117,7 @@ for cx in (x0 - 0.012, x1 + 0.012):
 box('curtain_rod', x0 - 0.03, x1 + 0.03, WY - 0.014, WY - 0.01, z1 + 0.012, z1 + 0.016, WOOD, bevel=0.001)
 sky = box('sky', -0.5, 0.2, 0.42, 0.43, -0.1, 0.5, SKY, bevel=0)
 moon = sphere('moon', 0.022, (-0.205, 0.41, 0.165), mat=MOON)
+for o in (sky, moon): o.visible_shadow = False      # the moonlight behind them shines in through the window
 # doorway: frame, the door on a hinge, darkness behind, two eyes that appear later
 d0, d1, dh = DOOR
 for a in ((d0 - 0.007, d0, 0, dh + 0.007), (d1, d1 + 0.007, 0, dh + 0.007), (d0, d1, dh, dh + 0.007)):
@@ -144,7 +148,7 @@ for i in range(5):
     box('headboard_spindle', bx0 - 0.01, bx0 - 0.006, yy - 0.002, yy + 0.002, 0.1, 0.13, WOOD, bevel=0.001)
 box('headboard_top', bx0 - 0.013, bx0 - 0.003, by0 - 0.006, by1 + 0.006, 0.128, 0.134, WOOD, bevel=0.002)
 m = box('mattress', bx0, bx1, by0, by1, MATT - 0.012, MATT, SHEET, bevel=0.005, coll=True); add_lumps(m, 0.0008, size=0.02)
-pw = box('pillow', bx0 + 0.006, bx0 + 0.048, by0 + 0.02, by1 - 0.02, MATT - 0.002, MATT + 0.006, SHEET, bevel=0.004, coll=True)
+pw = box('pillow', bx0 + 0.006, bx0 + 0.048, by0 + 0.02, by1 - 0.02, MATT - 0.002, MATT + 0.003, SHEET, bevel=0.004, coll=True)
 add_lumps(pw, 0.001, size=0.012)
 bl = box('blanket', bx1 - 0.03, bx1 + 0.002, by0 - 0.002, by1 + 0.002, MATT - 0.002, MATT + 0.007, BLANKET, bevel=0.004, coll=True)
 add_lumps(bl, 0.0012, size=0.01)
@@ -167,14 +171,25 @@ box('picture', -0.005, 0.045, WY - 0.008, WY - 0.005, 0.12, 0.18, TRIM, bevel=0.
 box('picture_in', 0.0, 0.04, WY - 0.0095, WY - 0.007, 0.125, 0.175, painted('picture_dark', (0.02, 0.02, 0.025)), bevel=0.0005)
 
 # lights: moonlight through the window, the lamp, a soft front key so her face reads, a cool rim
-moon_l = area_light('moonlight', (-0.2, 0.5, 0.36), (-0.15, 0.08, 0.0), 26, 0.12, (0.62, 0.74, 1.0))
-key_l = area_light('key', (-0.25, -0.35, 0.22), (0, 0.05, 0.05), 3.2, 0.25, (1.0, 0.9, 0.8))
-fill = area_light('fill', (0.35, -0.3, 0.12), (0, 0.05, 0.04), 0.7, 0.4, (0.6, 0.7, 1.0))
-rim = area_light('rim', (0.3, 0.35, 0.25), (0, 0.05, 0.06), 2.0, 0.15, (0.7, 0.8, 1.0))
-door_l = area_light('hall', ((d0 + d1) / 2, WY + 0.15, 0.1), ((d0 + d1) / 2, 0.0, 0.0), 0.0, 0.05, (0.7, 0.8, 0.6))
+# horror light: one cold motivated source (the moon through the window) throwing hard window-bar shadows through a
+# thin haze, the small warm lamp as the only comfort, a faint low cool fill so her face just reads, a cold rim that
+# cuts her silhouette out of the dark; no even front light
+moon_l = area_light('moonlight', (-0.2, 0.5, 0.36), (-0.15, 0.08, 0.0), 26, 0.05, (0.55, 0.68, 1.0))
+KEY_E = 1.5
+key_l = area_light('key', (-0.18, -0.32, 0.06), (0, 0.05, 0.07), KEY_E, 0.2, (0.62, 0.72, 0.95))   # low, from below eye level
+fill = area_light('fill', (0.35, -0.3, 0.12), (0, 0.05, 0.04), 0.12, 0.4, (0.5, 0.6, 0.9))
+rim = area_light('rim', (0.3, 0.35, 0.25), (0, 0.05, 0.06), 3.0, 0.12, (0.6, 0.75, 1.0))
+haze = bpy.data.materials.new('haze'); haze.use_nodes = True; hn = haze.node_tree.nodes
+hn.remove(hn['Principled BSDF']); pv = hn.new('ShaderNodeVolumePrincipled')
+pv.inputs['Density'].default_value = 0.9; pv.inputs['Anisotropy'].default_value = 0.55; pv.inputs['Color'].default_value = (0.8, 0.85, 1.0, 1)
+haze.node_tree.links.new(pv.outputs[0], hn['Material Output'].inputs['Volume'])
+bpy.ops.mesh.primitive_cube_add(size=1, location=(0, (WY - 0.45) / 2, 0.2)); hz = bpy.context.object; hz.name = 'haze'
+hz.scale = (0.62, WY + 0.43, 0.4); hz.data.materials.append(haze)
+sc.cycles.volume_bounces = 0; sc.cycles.volume_step_rate = 4.0
+door_l = area_light('hall', ((d0 + d1) / 2, WY + 0.15, 0.1), ((d0 + d1) / 2, 0.0, 0.0), 0.0, 0.05, (0.62, 0.8, 0.5))   # sickly hall light
 
 # ------------------------------------------------------------------ the puppet
-h = HB.HaruBurton(loc=(-0.183, 0.12, 0), yaw=math.radians(90))
+h = HC.HaruClay(loc=(-0.183, 0.12, 0), yaw=math.radians(90))
 contact_obs = list(h.meshes)
 LIMB = ('hand', 'sleeve', 'shin', 'ankle', 'sole', 'stripe', 'shoe', 'toecap', 'laces', 'eyelets')
 SUPPORTS = [((-9, 9, -9, 9), 0.0), (BED, MATT), (SEATR, SEAT)]
@@ -205,7 +220,8 @@ def settle(supports=SUPPORTS, lift=0.0, feet_on=None):
     for i, ((x0, x1, y0, y1), top) in enumerate(supports):
         m = (W[:, 0] > x0) & (W[:, 0] < x1) & (W[:, 1] > y0) & (W[:, 1] < y1)
         if i > 0: m &= kind == 0
-        if m.any(): off = max(off, top - float(W[m, 2].min()))
+        press = 0.003 if i == 1 else 0.0                     # the soft mattress gives under her: she lies in it, not on it
+        if m.any(): off = max(off, top - press - float(W[m, 2].min()))
     for si, ((x0, x1, y0, y1), top) in enumerate(supports[1:], 1):
         inr = (W[:, 0] > x0) & (W[:, 0] < x1) & (W[:, 1] > y0) & (W[:, 1] < y1)
         body = inr & (kind == 0)
@@ -397,7 +413,7 @@ for f in range(1, F + 1):
     lit = 0.0 if (21.5 <= t < 21.6 or 21.68 <= t < 21.76 or t >= 28.5) else 1.0
     lamp.data.energy = 0.6 * lit * (1 + boil.r.uniform(-0.03, 0.03)); lamp.data.keyframe_insert('energy', frame=f)
     shade_em.default_value = 3.0 * lit + 0.05; shade_em.keyframe_insert('default_value', frame=f)
-    key_l.data.energy = 3.2 * (1 + boil.r.uniform(-0.012, 0.012)) * (0.8 if t >= 28.5 else 1.0); key_l.data.keyframe_insert('energy', frame=f)
+    key_l.data.energy = KEY_E * (1 + boil.r.uniform(-0.012, 0.012)) * (0.8 if t >= 28.5 else 1.0); key_l.data.keyframe_insert('energy', frame=f)
 
     bpy.context.view_layer.update()
     hp = head_pt(); root = h.root.location.copy()
