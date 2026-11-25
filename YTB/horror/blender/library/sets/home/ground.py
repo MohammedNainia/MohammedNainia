@@ -22,6 +22,7 @@ def extra_materials():
     for k, (c, r) in {'concrete': ((0.16, 0.16, 0.15), 0.9), 'metal_shelf': ((0.3, 0.31, 0.32), 0.4), 'sack': ((0.4, 0.33, 0.22), 0.95),
                       'car_paint': ((0.18, 0.05, 0.04), 0.3), 'washer': ((0.72, 0.72, 0.7), 0.3), 'green_lamp': ((0.12, 0.3, 0.15), 0.3)}.items():
         if k not in K.M: K.M[k] = K.painted(k, c, rough=r)
+    K.aged_materials()                                       # the scanned textures, where downloaded
 
 
 WALLS = [  # (a, b, inward, openings, kw)

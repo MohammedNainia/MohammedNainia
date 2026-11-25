@@ -186,6 +186,137 @@ def materials():
     return M
 
 
+# ------------------------------------------------------------------ scanned textures (Poliigon, kept out of git)
+SCANS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'textures', 'poliigon')
+SCAN_MEAN = {   # average base colour of each scan (sRGB), so a tint can aim at a target colour
+    'adobe_plaster': (0.838, 0.768, 0.71), 'ash_floor': (0.81, 0.699, 0.583), 'brick_reclaimed': (0.351, 0.262, 0.209),
+    'clay_red': (0.619, 0.397, 0.301), 'concrete_floor': (0.53, 0.526, 0.511), 'dirt_rocks': (0.324, 0.252, 0.189),
+    'grass': (0.338, 0.368, 0.144), 'oak_veneer': (0.728, 0.582, 0.47), 'plaster_white': (0.871, 0.871, 0.871),
+    'roof_shingle': (0.286, 0.288, 0.305), 'sheer_fabric': (0.794, 0.762, 0.712), 'tiles_ivory': (0.767, 0.747, 0.725),
+    'towel': (0.959, 0.959, 0.959)}
+_SCAN_KEYS = {'col': ('_COL_', 'BaseColor'), 'rough': ('ROUGHNESS', 'Roughness'), 'gloss': ('_GLOSS_',),
+              'disp': ('_DISP_', 'Displacement'), 'ao': ('_AO_', 'AmbientOcclusion'), 'overlay': ('OVERLAY',)}
+
+
+def _lin(c):
+    return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c)
+
+
+def scan_maps(name):
+    """the map files of a downloaded scan ({'col': path, ...}), or None when the folder is missing (fresh checkout)"""
+    d = os.path.join(SCANS, name)
+    if not os.path.isdir(d): return None
+    fs = sorted(f for f in os.listdir(d) if 'Preview' not in f and 'DISP16' not in f and 'NRM16' not in f)
+    out = {}
+    for k, keys in _SCAN_KEYS.items():
+        hit = [f for f in fs if any(t in f for t in keys)]
+        if hit: out[k] = os.path.join(d, min(hit, key=len))
+    return out or None
+
+
+def _scan_nodes(nt, maps, size, blend=0.25):
+    """image nodes for scan maps, box-projected in object space, one texture repeat every `size` units"""
+    N, L = nt.nodes, nt.links
+    tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (1 / size,) * 3; L.new(tc.outputs['Object'], mp.inputs['Vector'])
+    out = {}
+    for k, f in maps.items():
+        im = bpy.data.images.load(f, check_existing=True)
+        if k not in ('col', 'overlay'): im.colorspace_settings.name = 'Non-Color'
+        t = N.new('ShaderNodeTexImage'); t.image = im; t.projection = 'BOX'; t.projection_blend = blend
+        L.new(mp.outputs['Vector'], t.inputs['Vector']); out[k] = t.outputs['Color']
+    return out
+
+
+def _multiply(nt, col, other, fac):
+    mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'; mx.blend_type = 'MULTIPLY'; mx.inputs[0].default_value = fac
+    nt.links.new(col, mx.inputs[6])
+    if isinstance(other, tuple): mx.inputs[7].default_value = (*other, 1)
+    else: nt.links.new(other, mx.inputs[7])
+    return mx.outputs[2]
+
+
+def _grime(nt, col, amount, size):
+    """the smudges overlay multiplied in: dirt that does not repeat with the surface"""
+    g = scan_maps('smudges')
+    if not g or 'overlay' not in g or not amount: return col
+    tx = _scan_nodes(nt, {'overlay': g['overlay']}, size)
+    return _multiply(nt, col, tx['overlay'], amount)
+
+
+def _bump(nt, b, height, strength):
+    bp = nt.nodes.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = strength; bp.inputs['Distance'].default_value = 0.0006
+    nt.links.new(height, bp.inputs['Height']); nt.links.new(bp.outputs['Normal'], b.inputs['Normal'])
+
+
+def scanned(mname, scan, size=0.28, color=None, rough=None, bump=0.25, ao=0.6, grime=0.0, fallback=None):
+    """a material from a downloaded scan (see library/textures). `color` aims the scan's average colour at a target
+    (linear RGB) so pale ash boards can be dark worn brown; `grime` adds the smudges overlay. Without the scan on disk
+    it returns `fallback` (the code-made material) so a fresh checkout still renders."""
+    maps = scan_maps(scan)
+    if not maps or 'col' not in maps: return fallback
+    m, nt, b = _nodes(mname); L = nt.links
+    tx = _scan_nodes(nt, maps, size)
+    col = tx['col']
+    if color is not None:
+        mean = _lin(SCAN_MEAN.get(scan, (0.5, 0.5, 0.5)))
+        col = _multiply(nt, col, tuple(min(4.0, c / max(mc, 1e-3)) for c, mc in zip(color, mean)), 1.0)
+    if 'ao' in tx and ao: col = _multiply(nt, col, tx['ao'], ao)
+    col = _grime(nt, col, grime, size * 1.7)
+    L.new(col, b.inputs['Base Color'])
+    if rough is not None: b.inputs['Roughness'].default_value = rough
+    elif 'rough' in tx: L.new(tx['rough'], b.inputs['Roughness'])
+    elif 'gloss' in tx:
+        inv = nt.nodes.new('ShaderNodeInvert'); L.new(tx['gloss'], inv.inputs['Color']); L.new(inv.outputs['Color'], b.inputs['Roughness'])
+    if 'disp' in tx and bump: _bump(nt, b, tx['disp'], bump)
+    return m
+
+
+def scan_overlay(m, scan, size=0.28, amount=0.6, bump=0.2, grime=0.0):
+    """age a code-made material (a wallpaper, painted wood) with a scan: its colour multiplied in, its height as bump"""
+    maps = scan_maps(scan)
+    if not maps or m is None: return m
+    nt = m.node_tree; b = nt.nodes['Principled BSDF']; lk = b.inputs['Base Color'].links
+    col = lk[0].from_socket if lk else None
+    tx = _scan_nodes(nt, maps, size)
+    if col is None:                                               # a flat colour: start from it
+        rgb = nt.nodes.new('ShaderNodeRGB'); rgb.outputs[0].default_value = b.inputs['Base Color'].default_value; col = rgb.outputs[0]
+    if 'col' in tx: col = _multiply(nt, col, tx['col'], amount)
+    if 'ao' in tx: col = _multiply(nt, col, tx['ao'], 0.6)
+    col = _grime(nt, col, grime, size * 1.7)
+    nt.links.new(col, b.inputs['Base Color'])
+    if 'disp' in tx and bump: _bump(nt, b, tx['disp'], bump)
+    return m
+
+
+def aged_materials():
+    """swap the house's code-made surfaces for the scans where they are on disk (STYLE.md 3b); once per scene"""
+    if 'shingle' in M: return M
+    W = 0.28                                                       # one repeat = 2.8 m of real wall
+    M['wall'] = scan_overlay(M['wall'], 'adobe_plaster', W, amount=0.75, bump=0.35, grime=0.5)
+    M['wall_bath'] = scan_overlay(M['wall_bath'], 'plaster_white', W, amount=0.8, bump=0.3, grime=0.4)
+    M['ceiling'] = scanned('ceiling_scan', 'plaster_white', W, (0.36, 0.35, 0.32), rough=0.9, bump=0.3, grime=0.45, fallback=M['ceiling'])
+    M['floor'] = scanned('floor_scan', 'ash_floor', 0.3, (0.13, 0.075, 0.042), bump=0.35, grime=0.4, fallback=M['floor'])
+    M['planks'] = scanned('planks_scan', 'ash_floor', 0.3, (0.09, 0.055, 0.032), rough=0.8, bump=0.4, grime=0.55, fallback=M['planks'])
+    M['wood'] = scanned('wood_scan', 'oak_veneer', 0.2, (0.07, 0.04, 0.025), bump=0.2, grime=0.3, fallback=M['wood'])
+    M['counter'] = scanned('counter_scan', 'oak_veneer', 0.2, (0.32, 0.26, 0.19), bump=0.15, grime=0.3, fallback=M['counter'])
+    M['tiles_wall'] = scanned('tiles_wall_scan', 'tiles_ivory', 0.2, (0.5, 0.52, 0.46), bump=0.3, grime=0.45, fallback=M['tiles_wall'])
+    M['tiles_kitchen'] = scanned('tiles_kitchen_scan', 'tiles_ivory', 0.2, (0.5, 0.49, 0.42), bump=0.3, grime=0.45, fallback=M['tiles_kitchen'])
+    M['tiles_floor'] = scan_overlay(M['tiles_floor'], 'concrete_floor', 0.3, amount=0.5, bump=0.15, grime=0.4)
+    M['lino'] = scan_overlay(M['lino'], 'concrete_floor', 0.3, amount=0.5, bump=0.1, grime=0.45)
+    M['towel'] = scanned('towel_scan', 'towel', 0.05, (0.3, 0.38, 0.34), rough=0.95, bump=0.4, fallback=M['towel'])
+    if 'concrete' in M:
+        M['concrete'] = scanned('concrete_scan', 'concrete_floor', 0.35, (0.14, 0.14, 0.13), bump=0.3, grime=0.5, fallback=M['concrete'])
+    cw = scanned('concrete_wall_scan', 'concrete_floor', 0.35, (0.2, 0.2, 0.18), rough=0.95, bump=0.3, grime=0.5)
+    if cw: M['concrete_wall'] = cw
+    M['shingle'] = scanned('shingle_scan', 'roof_shingle', 0.25, (0.07, 0.065, 0.06), bump=0.5, grime=0.3, fallback=M['planks'])
+    for key, args in (('garden', ('garden_scan', 'grass', 0.4, (0.03, 0.045, 0.025), 0.95, 0.4)),
+                      ('monster_clay', ('monster_clay', 'clay_red', 0.12, None, None, 0.6))):
+        mt = scanned(*args[:4], rough=args[4], bump=args[5])
+        if mt: M[key] = mt
+    return M
+
+
 # ------------------------------------------------------------------ scene
 def begin(name, res=(1080, 1920), samples=64, frames=1):
     reset()
@@ -387,6 +518,9 @@ def roof(x0, x1, y0, y1, z_eave, z_ridge, ridge_x=None, spacing=0.06):
         n = Vector((-math.sin(ang), 0, math.cos(ang))) * (1 if xa < rx else -1)   # outward normal of the slope
         sl = rounded_box('roof_slope', (ln + 0.01, y1 - y0 + 0.02, 0.006), (cx, (y0 + y1) / 2, cz), bevel=0.0005, mat=M['planks'])
         sl.rotation_euler = (0, -ang, 0); sl.location = Vector((cx, (y0 + y1) / 2, cz)) + n * 0.012; _to(sl)
+        sh = rounded_box('roof_shingles', (ln + 0.02, y1 - y0 + 0.03, 0.003), (cx, (y0 + y1) / 2, cz), bevel=0.0005,
+                         mat=M.get('shingle', M['planks']))       # the outside skin of the roof
+        sh.rotation_euler = (0, -ang, 0); sh.location = Vector((cx, (y0 + y1) / 2, cz)) + n * 0.0166; _to(sh)
         k = int((y1 - y0) / spacing)
         for i in range(k + 1):
             yy = y0 + (y1 - y0) * i / k

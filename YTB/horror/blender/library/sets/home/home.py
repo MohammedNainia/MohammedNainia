@@ -32,7 +32,7 @@ def build():
         out[name] = new
     x0, y0, x1, y1 = PL.FOOTPRINT
     K.mood('night', bounds=(x0 + 0.005, y0, PL.LEVEL['basement'], x1 - 0.005, y1 - 0.005, PL.LEVEL['attic']), haze_density=0.3)
-    g = K.painted('night_ground', (0.03, 0.04, 0.03), rough=0.95)                 # the garden ground, round the house
+    g = K.M.get('garden') or K.painted('night_ground', (0.03, 0.04, 0.03), rough=0.95)   # the garden ground, round the house
     for (a, b, c, d) in ((x0 - 2, x1 + 2, y1, y1 + 2), (x0 - 2, x0, y0 - 2, y1), (x1, x1 + 2, y0 - 2, y1), (x0, x1, y0 - 2, y0 - 0.002)):
         gb = K.block('night_ground', a, b, c, d, -0.03, -0.012, g, bevel=0); gb.modifiers.clear()   # flat, not rounded
     return out
