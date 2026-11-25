@@ -326,7 +326,7 @@ def _frame(holder, o, side, a, t, n):
             kx = x1 - 0.009 if o['hinge'] == 'start' else x0 + 0.009
             kn = sphere('door_knob', 0.0028, (0, 0, 0), mat=M['brass']); _to(kn); attach(kn, hg); kn.location = (kx, s * 0.006, 0.092)
             ang = o['angle']
-            if HOUSE and not o.get('keep'): ang = math.copysign(88.0, ang or 1.0)       # wide open, flat to the wall
+            if HOUSE and not o.get('keep'): ang = math.copysign(165.0, ang or 1.0)      # swung right round, nearly flat to the wall
             hg.rotation_euler = (0, 0, math.radians(ang) * (1 if o['hinge'] == 'start' else -1) * s)
         if o.get('spill') and not HOUSE:                                    # light from the room behind the door
             sp = point_light('door_spill', (0, 0, 0), o['spill'][0], radius=0.02, color=o['spill'][1]); _to(sp, 'Lights')

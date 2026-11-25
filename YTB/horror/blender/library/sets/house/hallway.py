@@ -32,7 +32,7 @@ def build(house=False):
     K.floor((X0, 0.0, XS, Y1), holes=[SW])
     K.ceiling((X0, 0.0, XS, Y1), holes=[(-0.03, 0.2, 0.03, 0.28)])                    # the attic hatch
     K.wall((X0, 0.0), (X0, Y1), inward=-1, openings=[
-        K.door(0.06, 0.14, angle=28, hinge='start', spill=(0.35, (1.0, 0.66, 0.35))),     # Haru's bedroom, ajar
+        K.door(0.06, 0.14, angle=-28, hinge='start', spill=(0.35, (1.0, 0.66, 0.35))),     # Haru's bedroom, ajar
         K.door(0.38, 0.46, angle=0, hinge='end')])                                         # bathroom, shut
     K.wall((X1, 0.0), (X1, SW[1]), inward=1)
     K.wall((X1, SW[3]), (X1, Y1), inward=1, openings=[K.door(0.05, 0.11, h=0.19, angle=0, hinge='end', keep=True)])   # linen cupboard
