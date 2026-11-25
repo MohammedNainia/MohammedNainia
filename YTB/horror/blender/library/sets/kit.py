@@ -89,6 +89,42 @@ def painted(name, c, rough=0.55):
     return clay(name, c, rough=rough, sss=0.0, bump=0.15, thumb=0.08, scale=2.0)
 
 
+def tiles(name, c, grout, scale=90.0, ratio=0.5, rough=0.25):
+    """glazed tiles with grout lines and a little uneven colour (Brick texture in object space); ratio < 1 gives
+    subway tiles, 1 gives square ones"""
+    m, nt, b = _nodes(name); N, L = nt.nodes, nt.links
+    tc = N.new('ShaderNodeTexCoord').outputs['Object']
+    mp = N.new('ShaderNodeMapping'); L.new(tc, mp.inputs['Vector']); mp.inputs['Rotation'].default_value = (math.radians(90), 0, 0)
+    br = N.new('ShaderNodeTexBrick'); L.new(mp.outputs['Vector'], br.inputs['Vector'])
+    br.inputs['Scale'].default_value = scale; br.inputs['Mortar Size'].default_value = 0.012
+    br.inputs['Brick Width'].default_value = 0.5; br.inputs['Row Height'].default_value = 0.5 * ratio
+    br.inputs['Color1'].default_value = (*c, 1); br.inputs['Color2'].default_value = tuple(v * 0.9 for v in c) + (1,)
+    br.inputs['Mortar'].default_value = (*grout, 1)
+    L.new(br.outputs['Color'], b.inputs['Base Color']); b.inputs['Roughness'].default_value = rough
+    bump = N.new('ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.3; bump.inputs['Distance'].default_value = 0.0004
+    inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1.0; L.new(br.outputs['Fac'], inv.inputs[1])
+    L.new(inv.outputs[0], bump.inputs['Height']); L.new(bump.outputs['Normal'], b.inputs['Normal'])
+    return m
+
+
+def checker(name, c1, c2, scale=60.0):
+    """a floor of square tiles in two colours, slightly worn"""
+    m, nt, b = _nodes(name); N, L = nt.nodes, nt.links
+    tc = N.new('ShaderNodeTexCoord').outputs['Object']
+    ck = N.new('ShaderNodeTexChecker'); L.new(tc, ck.inputs['Vector']); ck.inputs['Scale'].default_value = scale
+    ck.inputs['Color1'].default_value = (*c1, 1); ck.inputs['Color2'].default_value = (*c2, 1)
+    nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 25; L.new(tc, nz.inputs['Vector'])
+    mx = N.new('ShaderNodeMix'); mx.data_type = 'RGBA'; mx.blend_type = 'MULTIPLY'; mx.inputs[0].default_value = 0.35
+    L.new(ck.outputs['Color'], mx.inputs[6]); L.new(nz.outputs['Color'], mx.inputs[7])
+    L.new(mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.35
+    return m
+
+
+def mirror_mat(name='mirror'):
+    m, nt, b = _nodes(name); b.inputs['Metallic'].default_value = 1.0; b.inputs['Roughness'].default_value = 0.04
+    b.inputs['Base Color'].default_value = (0.8, 0.82, 0.8, 1); return m
+
+
 def materials():
     M.update({
         'wall': wallpaper('wallpaper_hall', (0.36, 0.38, 0.3), (0.24, 0.27, 0.2)),
@@ -108,6 +144,16 @@ def materials():
         'photo': painted('photo_dark', (0.12, 0.11, 0.1), rough=0.3),
         'shade': emissive('sconce_shade', (1.0, 0.65, 0.33), 2.5),
         'beyond': painted('room_beyond', (0.3, 0.24, 0.18), rough=0.9),
+        'tiles_wall': tiles('tiles_wall', (0.62, 0.64, 0.58), (0.25, 0.25, 0.22)),
+        'tiles_floor': checker('tiles_floor', (0.55, 0.54, 0.5), (0.08, 0.09, 0.09)),
+        'enamel': painted('enamel', (0.72, 0.7, 0.62), rough=0.22),
+        'chrome': painted('chrome', (0.6, 0.6, 0.62), rough=0.12),
+        'mirror': mirror_mat(),
+        'towel': BM.fabric('towel', '#7d8f86', 'knit', fuzz=1.0),
+        'bathmat': BM.fabric('bathmat', '#8a6f78', 'knit', fuzz=1.0),
+        'shower_curtain': painted('shower_curtain', (0.55, 0.6, 0.55), rough=0.5),
+        'duck': painted('duck', (0.75, 0.55, 0.08), rough=0.35),
+        'bulb': emissive('bare_bulb', (1.0, 0.85, 0.6), 8.0),
     })
     return M
 
@@ -252,6 +298,32 @@ def _frame(holder, o, side, a, t, n):
         if o.get('spill'):                                                  # light from the room behind the door
             sp = point_light('door_spill', (0, 0, 0), o['spill'][0], radius=0.02, color=o['spill'][1]); _to(sp, 'Lights')
             attach(sp, holder); sp.location = ((u0 + u1) / 2, -s * 0.05, 0.1)
+
+
+def cladding(a, b, inward, height=0.12, mat='tiles_wall', skip=()):
+    """tiles (or panelling) on the room side of a wall from the floor up to `height`, skipping door spans (u0, u1)"""
+    a, b = Vector((*a, 0)), Vector((*b, 0)); t = (b - a).normalized(); L_ = (b - a).length
+    holder = empty('cladding', tuple(a)); _to(holder); holder.rotation_euler = (0, 0, math.atan2(t.y, t.x))
+    edges = [0.0] + sum([[u0, u1] for (u0, u1) in skip], []) + [L_]
+    s_ = inward
+    for i in range(0, len(edges), 2):
+        if edges[i + 1] - edges[i] > 0.002:
+            y0, y1 = sorted((s_ * WT / 2, s_ * (WT / 2 + 0.002)))
+            ob = block('cladding', edges[i], edges[i + 1], y0, y1, 0.0, height, M[mat], bevel=0.0003); attach(ob, holder)
+            y0, y1 = sorted((s_ * WT / 2, s_ * (WT / 2 + 0.004)))
+            cap = block('cladding_cap', edges[i], edges[i + 1], y0, y1, height, height + 0.004, M[mat], bevel=0.0012); attach(cap, holder)
+    return holder
+
+
+def hollow(ob, inner):
+    """cut inner out of ob (a basin, a tub) with a boolean, then drop the cutter"""
+    md = ob.modifiers.new('hollow', 'BOOLEAN'); md.object = inner; md.operation = 'DIFFERENCE'; md.solver = 'EXACT'
+    bpy.context.view_layer.objects.active = ob
+    for m in list(ob.modifiers):
+        if m.name == 'hollow': break
+    bpy.ops.object.modifier_move_to_index(modifier='hollow', index=0)
+    bpy.ops.object.modifier_apply(modifier='hollow')
+    bpy.data.objects.remove(inner, do_unlink=True); return ob
 
 
 # ------------------------------------------------------------------ stairs
