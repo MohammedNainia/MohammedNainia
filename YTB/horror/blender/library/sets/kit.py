@@ -255,8 +255,8 @@ def door(u0, u1, h=DOOR_H, kind='door', angle=0.0, leaf=True, hinge='start', spi
     return dict(kind=kind, u0=u0, u1=u1, z0=0.0, z1=h, angle=angle, leaf=leaf, hinge=hinge, spill=spill, keep=keep)
 
 
-def window(u0, u1, z0, z1, curtains=True, moon=False):
-    return dict(kind='window', u0=u0, u1=u1, z0=z0, z1=z1, curtains=curtains, moon=moon)
+def window(u0, u1, z0, z1, curtains=True, moon=False, sky=True):
+    return dict(kind='window', u0=u0, u1=u1, z0=z0, z1=z1, curtains=curtains, moon=moon, sky=sky)
 
 
 def wall(a, b, openings=(), h=H, mat='wall', skirting=True, inward=None):
@@ -298,8 +298,9 @@ def _frame(holder, o, side, a, t, n):
         um, zm = (u0 + u1) / 2, (z0 + z1) / 2
         for (p0, p1, q0, q1) in ((um - 0.002, um + 0.002, z0, z1), (u0, u1, zm - 0.002, zm + 0.002)):
             bar = block('window_bar', p0, p1, -0.002, 0.002, q0, q1, M['trim'], bevel=0.0005); attach(bar, holder)
-        sky = block('sky', u0 - 0.07, u1 + 0.07, -s * 0.2, -s * 0.19, z0 - 0.07, z1 + 0.07, M['sky'], bevel=0); attach(sky, holder)
-        sky.visible_shadow = False
+        if o.get('sky', True):
+            sky = block('sky', u0 - 0.07, u1 + 0.07, -s * 0.2, -s * 0.19, z0 - 0.07, z1 + 0.07, M['sky'], bevel=0); attach(sky, holder)
+            sky.visible_shadow = False
         if o.get('moon'):
             mn = sphere('moon', 0.02, (0, 0, 0), mat=M['moon']); _to(mn); attach(mn, holder)
             mn.location = (um - 0.02, -s * 0.18, zm + 0.02); mn.visible_shadow = False
