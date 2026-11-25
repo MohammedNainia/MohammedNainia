@@ -30,6 +30,7 @@ WT = 0.01            # wall thickness
 H = 0.25             # ceiling height (2.5 m)
 DOOR_H = 0.2         # door opening height
 RNG = random.Random(13)
+HOUSE = False        # True while house.py assembles every room into one scene
 M = {}               # shared materials, made in begin()
 
 
@@ -173,6 +174,14 @@ def materials():
         'tiles_kitchen': tiles('tiles_kitchen', (0.6, 0.6, 0.52), (0.3, 0.29, 0.25), scale=110, ratio=1.0),
         'red': painted('faded_red', (0.45, 0.1, 0.08), rough=0.5),
         'glass': painted('jar_glass', (0.45, 0.5, 0.45), rough=0.1),
+        'bedsheet': BM.fabric('bedsheet', '#b9b4ad', 'weave', fuzz=0.6, scale=1500, dark=0.85),
+        'duvet': BM.fabric('duvet', '#4b3a52', 'knit', fuzz=0.9),
+        'sofa': BM.fabric('sofa_velvet', '#4a3a30', 'weave', fuzz=1.0, scale=500, dark=0.6),
+        'knit_blanket': BM.fabric('knit_blanket', '#7a4a3a', 'knit', fuzz=0.8),
+        'tv_screen': emissive('tv_screen', (0.55, 0.7, 1.0), 0.7),
+        'book1': painted('book_red', (0.32, 0.08, 0.06)), 'book2': painted('book_green', (0.1, 0.2, 0.12)),
+        'book3': painted('book_blue', (0.08, 0.12, 0.25)), 'book4': painted('book_ochre', (0.45, 0.32, 0.1)),
+        'coat': BM.fabric('coat_wool', '#3b3530', 'weave', fuzz=0.8, scale=600, dark=0.6),
     })
     return M
 
@@ -220,7 +229,7 @@ def floor(rect, holes=(), z=0.0, mat='floor'):
 
 def ceiling(rect, holes=(), z=H):
     for (a0, b0, a1, b1) in _cut(rect, holes):
-        block('ceiling', a0, a1, b0, b1, z, z + 0.008, M['ceiling'], bevel=0.0003)
+        block('ceiling', a0, a1, b0, b1, z - 0.008, z, M['ceiling'], bevel=0.0003)     # under the next floor, not into it
 
 
 def _cut(rect, holes):
@@ -288,7 +297,7 @@ def _frame(holder, o, side, a, t, n):
         um, zm = (u0 + u1) / 2, (z0 + z1) / 2
         for (p0, p1, q0, q1) in ((um - 0.002, um + 0.002, z0, z1), (u0, u1, zm - 0.002, zm + 0.002)):
             bar = block('window_bar', p0, p1, -0.002, 0.002, q0, q1, M['trim'], bevel=0.0005); attach(bar, holder)
-        sky = block('sky', u0 - 0.3, u1 + 0.3, -s * 0.2, -s * 0.19, z0 - 0.3, z1 + 0.3, M['sky'], bevel=0); attach(sky, holder)
+        sky = block('sky', u0 - 0.07, u1 + 0.07, -s * 0.2, -s * 0.19, z0 - 0.07, z1 + 0.07, M['sky'], bevel=0); attach(sky, holder)
         sky.visible_shadow = False
         if o.get('moon'):
             mn = sphere('moon', 0.02, (0, 0, 0), mat=M['moon']); _to(mn); attach(mn, holder)
@@ -300,9 +309,11 @@ def _frame(holder, o, side, a, t, n):
                 add_lumps(c, 0.0015, size=0.01); attach(c, holder)
     else:
         beyond = M['beyond'] if o.get('spill') else M['void']             # a lit room behind shows its walls
-        dark = block('doorway_dark', u0 - 0.05, u1 + 0.05, -s * 0.06, -s * 0.07, -0.01, z1 + 0.05, beyond, bevel=0); attach(dark, holder)
-        for (p0, p1, sgn) in ((u0 - 0.05, u0 - 0.04, 1), (u1 + 0.04, u1 + 0.05, 1)):
-            side_w = block('doorway_side', p0, p1, -s * 0.0, -s * 0.07, -0.01, z1 + 0.05, beyond, bevel=0); attach(side_w, holder)
+        if HOUSE: beyond = None                                             # in the house the next room is behind it
+        if beyond is not None:
+            dark = block('doorway_dark', u0 - 0.05, u1 + 0.05, -s * 0.06, -s * 0.07, -0.01, z1 + 0.05, beyond, bevel=0); attach(dark, holder)
+            for (p0, p1, sgn) in ((u0 - 0.05, u0 - 0.04, 1), (u1 + 0.04, u1 + 0.05, 1)):
+                side_w = block('doorway_side', p0, p1, -s * 0.0, -s * 0.07, -0.01, z1 + 0.05, beyond, bevel=0); attach(side_w, holder)
         if o.get('leaf'):
             hu = u0 if o['hinge'] == 'start' else u1
             hg = empty('door_hinge', (0, 0, 0)); _to(hg); attach(hg, holder); hg.location = (hu, -s * 0.0, 0)
@@ -314,7 +325,7 @@ def _frame(holder, o, side, a, t, n):
             kx = x1 - 0.009 if o['hinge'] == 'start' else x0 + 0.009
             kn = sphere('door_knob', 0.0028, (0, 0, 0), mat=M['brass']); _to(kn); attach(kn, hg); kn.location = (kx, s * 0.006, 0.092)
             hg.rotation_euler = (0, 0, math.radians(o['angle']) * (1 if o['hinge'] == 'start' else -1) * s)
-        if o.get('spill'):                                                  # light from the room behind the door
+        if o.get('spill') and not HOUSE:                                    # light from the room behind the door
             sp = point_light('door_spill', (0, 0, 0), o['spill'][0], radius=0.02, color=o['spill'][1]); _to(sp, 'Lights')
             attach(sp, holder); sp.location = ((u0 + u1) / 2, -s * 0.05, 0.1)
 
@@ -406,7 +417,7 @@ def gable(x0, x1, y, z0, z_eave, z_ridge, rx, inward=-1, round_window=None, moon
         fr = bpy.context.object; fr.name = 'round_window_frame'; fr.data.materials.append(M['wood']); _to(fr)
         for rot in (0, math.pi / 2):
             bar = rounded_box('round_window_bar', (2 * r, 0.003, 0.003), (cx, y, cz), bevel=0.0008, mat=M['wood']); bar.rotation_euler = (0, rot, 0); _to(bar)
-        sky = block('sky', cx - 0.4, cx + 0.4, y - inward * 0.3, y - inward * 0.29, cz - 0.4, cz + 0.4, M['sky'], bevel=0); sky.visible_shadow = False
+        sky = block('sky', cx - 0.12, cx + 0.12, y - inward * 0.3, y - inward * 0.29, cz - 0.12, cz + 0.12, M['sky'], bevel=0); sky.visible_shadow = False
         if moon:
             mn = sphere('moon', 0.02, (cx + 0.03, y - inward * 0.28, cz + 0.02), mat=M['moon']); _to(mn); mn.visible_shadow = False
     return ob
@@ -418,6 +429,7 @@ def draped(name, x0, x1, y0, y1, h, mat='sheet_cloth', lump=0.004, spread=0.012)
     add_lumps(body, lump, size=0.02)
     hem = rounded_box(name + '_hem', (x1 - x0 + spread * 2, y1 - y0 + spread * 2, 0.004), ((x0 + x1) / 2, (y0 + y1) / 2, 0.002),
                       bevel=0.002, mat=M[mat]); _to(hem); add_lumps(hem, 0.0015, size=0.01)
+    body['hem'] = hem.name
     return body
 
 
@@ -488,18 +500,19 @@ def sconce(loc, normal=(1, 0, 0), energy=0.5):
 
 
 # ------------------------------------------------------------------ lighting and camera marks
-def mood(kind, moon_from=None, moon_to=None, haze=True, bounds=None):
+def mood(kind, moon_from=None, moon_to=None, haze=True, bounds=None, moon_energy=26, haze_density=0.9):
     """lighting presets. night: one cold moon key through a window (+ thin haze), cold rim, faint cold fill; the
     practicals (sconces, door spills) stay as built"""
     sc = bpy.context.scene
     if kind == 'night':
         if moon_from:
-            m = area_light('moonlight', moon_from, moon_to, 26, 0.05, (0.55, 0.68, 1.0)); _to(m, 'Lights')
+            m = area_light('moonlight', moon_from, moon_to, moon_energy, 0.05, (0.55, 0.68, 1.0)); _to(m, 'Lights')
+        if HOUSE: return sc                                                 # the house sets one fill and one haze
         f = area_light('fill_cold', (0, -0.4, 0.15), (0, 0.2, 0.08), 0.25, 0.4, (0.5, 0.6, 0.9)); _to(f, 'Lights')
         if haze and bounds:
             hz = bpy.data.materials.new('haze'); hz.use_nodes = True; hn = hz.node_tree.nodes
             hn.remove(hn['Principled BSDF']); pv = hn.new('ShaderNodeVolumePrincipled')
-            pv.inputs['Density'].default_value = 0.9; pv.inputs['Anisotropy'].default_value = 0.55
+            pv.inputs['Density'].default_value = haze_density; pv.inputs['Anisotropy'].default_value = 0.55
             hz.node_tree.links.new(pv.outputs[0], hn['Material Output'].inputs['Volume'])
             x0, y0, z0, x1, y1, z1 = bounds
             bpy.ops.mesh.primitive_cube_add(size=1, location=((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2))
