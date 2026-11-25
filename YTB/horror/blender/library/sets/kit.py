@@ -154,6 +154,15 @@ def materials():
         'shower_curtain': painted('shower_curtain', (0.55, 0.6, 0.55), rough=0.5),
         'duck': painted('duck', (0.75, 0.55, 0.08), rough=0.35),
         'bulb': emissive('bare_bulb', (1.0, 0.85, 0.6), 8.0),
+        'bulb_off': painted('bulb_off', (0.55, 0.52, 0.45), rough=0.15),
+        'planks': boards('roof_planks', (0.12, 0.075, 0.045), (0.07, 0.042, 0.025), scale=30.0),
+        'sheet_cloth': BM.fabric('dust_sheet', '#b9b3a6', 'weave', fuzz=0.9, scale=600, dark=0.6),
+        'cardboard': painted('cardboard', (0.36, 0.25, 0.14), rough=0.9),
+        'tape': painted('tape', (0.5, 0.42, 0.25), rough=0.4),
+        'leather': painted('trunk_leather', (0.2, 0.08, 0.05), rough=0.5),
+        'dummy': BM.fabric('dummy_linen', '#a99c86', 'weave', fuzz=0.5, scale=500, dark=0.7),
+        'porcelain': painted('porcelain', (0.78, 0.68, 0.6), rough=0.25),
+        'plush': BM.fabric('teddy_plush', '#6b4a2c', 'knit', fuzz=1.0),
     })
     return M
 
@@ -324,6 +333,66 @@ def hollow(ob, inner):
     bpy.ops.object.modifier_move_to_index(modifier='hollow', index=0)
     bpy.ops.object.modifier_apply(modifier='hollow')
     bpy.data.objects.remove(inner, do_unlink=True); return ob
+
+
+# ------------------------------------------------------------------ attic: roof, gables
+def roof(x0, x1, y0, y1, z_eave, z_ridge, ridge_x=None, spacing=0.06):
+    """a pitched roof along y: two planked slopes from the eaves (x0, x1) to the ridge, rafters every `spacing`,
+    a ridge beam and a few collar ties; returns the ridge x"""
+    rx = (x0 + x1) / 2 if ridge_x is None else ridge_x
+    for xa in (x0, x1):
+        dx, dz = rx - xa, z_ridge - z_eave; ln = math.hypot(dx, dz); ang = math.atan2(dz, dx)
+        cx, cz = (xa + rx) / 2, (z_eave + z_ridge) / 2
+        n = Vector((-math.sin(ang), 0, math.cos(ang))) * (1 if xa < rx else -1)   # outward normal of the slope
+        sl = rounded_box('roof_slope', (ln + 0.01, y1 - y0 + 0.02, 0.006), (cx, (y0 + y1) / 2, cz), bevel=0.0005, mat=M['planks'])
+        sl.rotation_euler = (0, -ang, 0); sl.location = Vector((cx, (y0 + y1) / 2, cz)) + n * 0.012; _to(sl)
+        k = int((y1 - y0) / spacing)
+        for i in range(k + 1):
+            yy = y0 + (y1 - y0) * i / k
+            r = rounded_box('rafter', (ln, 0.006, 0.012), (cx, yy, cz), bevel=0.001, mat=M['wood'])
+            r.rotation_euler = (0, -ang, RNG.uniform(-0.01, 0.01)); r.location = Vector((cx, yy, cz)) + n * 0.003; _to(r)
+    block('ridge_beam', rx - 0.005, rx + 0.005, y0, y1, z_ridge - 0.012, z_ridge + 0.004, M['wood'], bevel=0.001)
+    zc = z_eave + (z_ridge - z_eave) * 0.62
+    xc = (rx - x0) * 0.38
+    for yy in (y0 + (y1 - y0) * 0.25, y0 + (y1 - y0) * 0.75):
+        block('collar_tie', rx - xc, rx + xc, yy - 0.003, yy + 0.003, zc - 0.005, zc + 0.005, M['wood'], bevel=0.001, tilt=0.01)
+    return rx
+
+
+def gable(x0, x1, y, z0, z_eave, z_ridge, rx, inward=-1, round_window=None, moon=True):
+    """the end wall under the roof (a pentagon of planks) with an optional round window (cx, cz, r)"""
+    import bmesh
+    bm = bmesh.new()
+    pts = [(x0, z0), (x1, z0), (x1, z_eave), (rx, z_ridge), (x0, z_eave)]
+    vs = [bm.verts.new((px, y, pz)) for px, pz in pts]; bm.faces.new(vs)
+    me = bpy.data.meshes.new('gable'); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new('gable', me); bpy.context.collection.objects.link(ob); _to(ob)
+    so = ob.modifiers.new('thick', 'SOLIDIFY'); so.thickness = WT; so.offset = 0
+    ob.data.materials.append(M['planks'])
+    if round_window:
+        cx, cz, r = round_window
+        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=0.05, location=(cx, y, cz), rotation=(math.pi / 2, 0, 0), vertices=48)
+        cut = bpy.context.object
+        bpy.context.view_layer.objects.active = ob; bpy.ops.object.modifier_apply(modifier='thick')
+        hollow(ob, cut)
+        bpy.ops.mesh.primitive_torus_add(major_radius=r + 0.003, minor_radius=0.004, location=(cx, y + inward * 0.004, cz),
+                                         rotation=(math.pi / 2, 0, 0), major_segments=48, minor_segments=12)
+        fr = bpy.context.object; fr.name = 'round_window_frame'; fr.data.materials.append(M['wood']); _to(fr)
+        for rot in (0, math.pi / 2):
+            bar = rounded_box('round_window_bar', (2 * r, 0.003, 0.003), (cx, y, cz), bevel=0.0008, mat=M['wood']); bar.rotation_euler = (0, rot, 0); _to(bar)
+        sky = block('sky', cx - 0.4, cx + 0.4, y - inward * 0.3, y - inward * 0.29, cz - 0.4, cz + 0.4, M['sky'], bevel=0); sky.visible_shadow = False
+        if moon:
+            mn = sphere('moon', 0.02, (cx + 0.03, y - inward * 0.28, cz + 0.02), mat=M['moon']); _to(mn); mn.visible_shadow = False
+    return ob
+
+
+def draped(name, x0, x1, y0, y1, h, mat='sheet_cloth', lump=0.004, spread=0.012):
+    """furniture hidden under a dust sheet: a soft lumpy shape whose hem spreads on the floor"""
+    body = rounded_box(name, (x1 - x0, y1 - y0, h), ((x0 + x1) / 2, (y0 + y1) / 2, h / 2), bevel=min(0.01, h / 3), mat=M[mat]); _to(body)
+    add_lumps(body, lump, size=0.02)
+    hem = rounded_box(name + '_hem', (x1 - x0 + spread * 2, y1 - y0 + spread * 2, 0.004), ((x0 + x1) / 2, (y0 + y1) / 2, 0.002),
+                      bevel=0.002, mat=M[mat]); _to(hem); add_lumps(hem, 0.0015, size=0.01)
+    return body
 
 
 # ------------------------------------------------------------------ stairs
