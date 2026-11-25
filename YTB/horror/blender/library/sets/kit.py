@@ -163,6 +163,16 @@ def materials():
         'dummy': BM.fabric('dummy_linen', '#a99c86', 'weave', fuzz=0.5, scale=500, dark=0.7),
         'porcelain': painted('porcelain', (0.78, 0.68, 0.6), rough=0.25),
         'plush': BM.fabric('teddy_plush', '#6b4a2c', 'knit', fuzz=1.0),
+        'lino': checker('linoleum', (0.42, 0.4, 0.33), (0.25, 0.3, 0.27), scale=45.0),
+        'cabinet': painted('cabinet_green', (0.24, 0.3, 0.24), rough=0.5),
+        'counter': painted('counter_top', (0.38, 0.33, 0.26), rough=0.4),
+        'fridge': painted('fridge_cream', (0.7, 0.67, 0.56), rough=0.25),
+        'fridge_in': emissive('fridge_inside', (0.85, 0.92, 1.0), 0.45),
+        'iron': painted('cast_iron', (0.05, 0.05, 0.055), rough=0.5),
+        'paper': painted('paper', (0.7, 0.66, 0.56), rough=0.9),
+        'tiles_kitchen': tiles('tiles_kitchen', (0.6, 0.6, 0.52), (0.3, 0.29, 0.25), scale=110, ratio=1.0),
+        'red': painted('faded_red', (0.45, 0.1, 0.08), rough=0.5),
+        'glass': painted('jar_glass', (0.45, 0.5, 0.45), rough=0.1),
     })
     return M
 
@@ -333,6 +343,22 @@ def hollow(ob, inner):
     bpy.ops.object.modifier_move_to_index(modifier='hollow', index=0)
     bpy.ops.object.modifier_apply(modifier='hollow')
     bpy.data.objects.remove(inner, do_unlink=True); return ob
+
+
+def chair(x, y, facing=0.0, seat=0.032, mat='wood'):
+    """a plain kitchen chair (spindle back), facing the given yaw in degrees (0 = facing -y)"""
+    h = empty('chair', (x, y, 0)); _to(h); h.rotation_euler = (0, 0, math.radians(facing))
+    parts = [('seat', -0.016, 0.016, -0.015, 0.017, seat - 0.004, seat)]
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            parts.append(('leg', sx * 0.013 - 0.0018, sx * 0.013 + 0.0018, sy * 0.012 - 0.0018, sy * 0.012 + 0.0018, 0, seat - 0.003))
+        parts.append(('back_post', sx * 0.014 - 0.0018, sx * 0.014 + 0.0018, 0.013, 0.017, seat, seat + 0.045))
+    parts.append(('back_rail', -0.016, 0.016, 0.0125, 0.0175, seat + 0.038, seat + 0.046))
+    for i in range(3): parts.append(('back_spindle', -0.006 + i * 0.006 - 0.0008, -0.006 + i * 0.006 + 0.0008, 0.014, 0.016, seat, seat + 0.04))
+    for nm, a, b, c, d, e, f in parts:
+        ob = block('chair_' + nm, a, b, c, d, e, f, M[mat], bevel=0.0007); attach(ob, h)
+    h.rotation_euler.z += math.radians(RNG.uniform(-6, 6))
+    return h
 
 
 # ------------------------------------------------------------------ attic: roof, gables
