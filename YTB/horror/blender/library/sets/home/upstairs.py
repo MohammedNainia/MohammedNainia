@@ -1,10 +1,9 @@
 """Haru's home, upstairs (see plan.py): built at its own floor level 0 (the house lifts it by plan.UP).
 
-Rooms: Haru's bedroom (front left), the bathroom, the old nursery kept shut (back left, a small narrow door), Mum's
-bedroom (front right), the box room, the sewing room, and the long landing down the middle with both stairwells,
-banisters, a linen cupboard and a window at the far end.
-Hiding places: under Haru's bed and Mum's double bed, inside both wardrobes, the toy chest, the linen cupboard,
-behind the shower curtain, among the boxes and sheets in the box room, behind the dress forms in the sewing room.
+An ordinary family upstairs: Haru's bedroom (front left), the bathroom (middle left), the guest bedroom (back left),
+Mum's bedroom (the whole right side, front and middle), a second bathroom (back right), and the long landing down the
+middle with both stairwells, banisters, a linen cupboard and a window at the far end.
+Places to hide: under the beds, inside the wardrobes and the linen cupboard, behind the shower curtains.
 
     blender -b -P library/sets/home/upstairs.py -- [--out DIR] [--res W H] [--samples N] [--marks a,b] [--blend F]
 """
@@ -19,11 +18,10 @@ import ground as G
 
 D = K.door; WIN = K.window
 MS, BS = PL.MAIN_STAIRS, PL.BACK_STAIRS
-ROOMS = {'haru_bedroom': PL.rect('A', 'front'), 'bathroom': PL.rect('A', 'middle'), 'nursery': PL.rect('A', 'back'),
-         'landing': (0.40, 0.0, 0.60, 1.2), 'mum_bedroom': PL.rect('C', 'front'), 'box_room': PL.rect('C', 'middle'),
-         'sewing_room': PL.rect('C', 'back')}
-FLOORS = {'haru_bedroom': 'floor', 'bathroom': 'tiles_floor', 'nursery': 'floor', 'landing': 'floor', 'mum_bedroom': 'floor',
-          'box_room': 'floor', 'sewing_room': 'floor'}
+ROOMS = {'haru_bedroom': PL.rect('A', 'front'), 'bathroom': PL.rect('A', 'middle'), 'guest_bedroom': PL.rect('A', 'back'),
+         'landing': (0.40, 0.0, 0.60, 1.2), 'mum_bedroom': (0.60, 0.0, 1.0, 0.80), 'bathroom2': PL.rect('C', 'back')}
+FLOORS = {'haru_bedroom': 'floor', 'bathroom': 'tiles_floor', 'guest_bedroom': 'floor', 'landing': 'floor', 'mum_bedroom': 'floor',
+          'bathroom2': 'tiles_floor'}
 WALLS = [
     ((0.0, 0.0), (0.0, 1.2), -1, [WIN(0.14, 0.30, 0.085, 0.19, moon=True), WIN(0.58, 0.66, 0.13, 0.19, curtains=False),
                                   WIN(0.95, 1.07, 0.09, 0.19)], 'wall'),                              # west
@@ -31,10 +29,10 @@ WALLS = [
     ((1.0, 0.0), (1.0, 1.2), 1, [WIN(0.15, 0.30, 0.085, 0.19, moon=True), WIN(0.6, 0.68, 0.11, 0.18), WIN(0.95, 1.07, 0.09, 0.19)], 'wall'),
     ((0.40, 0.0), (0.60, 0.0), 1, [WIN(0.06, 0.14, 0.09, 0.19, curtains=False, sky=False)], 'wild'),            # front of the landing
     ((0.40, 0.0), (0.40, 1.2), 1, [D(0.32, 0.40, angle=20), D(0.55, 0.63, angle=20),
-                                   D(1.135, 1.19, h=0.17, angle=0, keep=True)], 'wall'),              # landing | Haru, bath, nursery
-    ((0.60, 0.0), (0.60, 1.2), -1, [D(0.30, 0.38, angle=-20), D(0.50, 0.58, angle=-20), D(0.90, 0.98, angle=-20)], 'wall'),
+                                   D(1.135, 1.195, angle=20)], 'wall'),                               # landing | Haru, bath, guest
+    ((0.60, 0.0), (0.60, 1.2), -1, [D(0.30, 0.38, angle=-20), D(0.90, 0.98, angle=-20)], 'wall'),   # landing | Mum, bathroom 2
     ((0.0, 0.45), (0.40, 0.45), 1, [], 'wall'), ((0.0, 0.80), (0.40, 0.80), 1, [], 'wall_bath'),
-    ((0.60, 0.45), (1.0, 0.45), 1, [], 'wall'), ((0.60, 0.80), (1.0, 0.80), 1, [], 'wall'),
+    ((0.60, 0.80), (1.0, 0.80), 1, [], 'wall_bath'),
 ]
 
 
@@ -78,19 +76,13 @@ def furnish():
     K.block('toilet_tank', 0.32, 0.35, 0.80 - IN - 0.012, 0.80 - IN, 0.045, 0.078, M['enamel'], bevel=0.003)
     K._to(K.sphere('toilet_bowl', 0.017, (0.335, 0.80 - IN - 0.032, 0.035), scale=(1.0, 1.25, 0.55), mat=M['enamel']))
     K.block('bath_mat', tx1 + 0.004, tx1 + 0.03, ty0 + 0.04, ty0 + 0.11, 0.0, 0.0016, M['bathmat'], bevel=0.0008, coll=True)
-    # --- the old nursery (kept shut): a cot, a rocking horse, a music box, everything else under dust sheets
-    K.block('cot_base', 0.08, 0.2, 1.08, 1.19 - IN, 0.035, 0.04, M['wood'], bevel=0.001)
-    for xx in [0.082 + i * 0.0094 for i in range(13)]:
-        for yy in (1.08, 1.19 - IN - 0.002): K.block('cot_bar', xx - 0.001, xx + 0.001, yy - 0.001, yy + 0.001, 0.0, 0.09, M['wood'], bevel=0.0004)
-    K.block('cot_rail', 0.08, 0.2, 1.078, 1.082, 0.088, 0.093, M['wood'], bevel=0.001)
-    rh = PR.holder('rocking_horse', 0.25, 0.95, 30)
-    PR.part(rh, 'horse_body', -0.006, 0.006, -0.02, 0.02, 0.04, 0.055, 'cabinet', bevel=0.005)
-    PR.part(rh, 'horse_head', -0.005, 0.005, -0.03, -0.018, 0.05, 0.075, 'cabinet', bevel=0.004)
-    for ly in (-0.014, 0.014): PR.part(rh, 'horse_leg', -0.004, 0.004, ly - 0.002, ly + 0.002, 0.008, 0.042, 'wood', bevel=0.001)
-    PR.part(rh, 'horse_rocker', -0.006, 0.006, -0.03, 0.03, 0.002, 0.008, 'wood', bevel=0.002)
-    for (a, b, c, d, hh) in ((0.02, 0.1, 0.84, 0.93, 0.06), (0.28, 0.37, 1.08, 1.17, 0.12)):
-        sh = K.draped('dust_sheet', a, b, c, d, hh, lump=0.005)
-    K._to(K.cylinder('music_box', 0.008, 0.01, (0.34, 0.86, 0.005), mat=M['wood']))
+    # --- guest bedroom: a plain single bed, wardrobe, chest of drawers, chair, bedside lamp (off)
+    PR.bed(0.07, 0.95, 0, duvet='bedsheet', name='guest_bed')
+    PR.bedside(0.145, 1.12, 0, energy=0.0)
+    PR.wardrobe(0.3, 1.2 - IN - 0.046, 0, name='guest_wardrobe')
+    K.block('chest_of_drawers', 0.40 - IN - 0.03, 0.40 - IN, 0.82, 0.9, 0.0, 0.07, M['wood'], bevel=0.002)
+    for zz in (0.012, 0.032, 0.052): K.block('drawer_front', 0.40 - IN - 0.0312, 0.40 - IN - 0.03, 0.825, 0.895, zz, zz + 0.016, M['wood'], bevel=0.001)
+    K.chair(0.25, 0.86, facing=0)
     # --- landing: runner, banisters round both stairwells, linen cupboard, pictures, a little night-light
     K.runner(0.415, 0.485, 0.02, 0.83)
     K.banister(MS[0] - 0.002, MS[1], MS[3]); K.rail((MS[0], MS[1] - 0.002), (MS[2], MS[1] - 0.002))
@@ -99,28 +91,28 @@ def furnish():
     for yy, zz in ((0.5, 0.13), (0.58, 0.15), (0.2, 0.14)): K.picture((0.40 + IN + 0.001, yy, zz), (0.024, 0.03), normal=(1, 0, 0))
     nl = K.point_light('night_light', (0.41, 0.48, 0.02), 0.08, radius=0.003, color=(1.0, 0.75, 0.45)); K._to(nl, 'Lights')
     K._to(K.sphere('night_light_glow', 0.003, (0.405, 0.48, 0.02), mat=M['shade']))
-    # --- Mum's bedroom: double bed (room under it), big wardrobe, dressing table with a mirror, bedside lamp
-    PR.bed(0.83, 0.12, 0, w=0.16, l=0.21, duvet='knit_blanket', name='mum_bed')
-    PR.bedside(0.73, 0.29, 0, energy=0.0)
-    PR.wardrobe(0.68, 0.45 - IN - 0.05, 0, w=0.1, d=0.05, hgt=0.2, name='mum_wardrobe')
-    K.block('dressing_table', 0.97 - 0.03, 1.0 - IN, 0.33, 0.42, 0.0, 0.06, M['wood'], bevel=0.002)
-    K.block('dressing_mirror', 1.0 - IN - 0.004, 1.0 - IN - 0.002, 0.345, 0.405, 0.065, 0.15, M['mirror'], bevel=0.0005)
-    K.block('dressing_mirror_frame', 1.0 - IN - 0.003, 1.0 - IN, 0.34, 0.41, 0.06, 0.155, M['wood'], bevel=0.001)
-    K._to(K.cylinder('stool', 0.012, 0.035, (0.93, 0.375, 0.0175), mat=M['sofa']))
-    # --- box room: stacks of boxes, sheets over old furniture, a standing mirror, a dressmaker's dummy
-    PR.boxes(0.62, 0.72, 0.47, 0.78, seed=11); PR.boxes(0.85, 0.98, 0.47, 0.78, seed=12)
-    K.draped('dust_sheet', 0.74, 0.83, 0.62, 0.74, 0.08, lump=0.005)
-    K.draped('dust_sheet', 0.76, 0.8, 0.48, 0.52, 0.17, lump=0.003)        # tall: a mirror... or someone
-    # --- sewing room: a sewing table and machine, dress forms standing about, rolls of fabric
-    K.block('sewing_table', 0.85, 0.97, 1.2 - IN - 0.05, 1.2 - IN, 0.055, 0.06, M['wood'], bevel=0.0015, coll=True)
-    for xx in (0.855, 0.965): K.block('sewing_table_leg', xx - 0.003, xx + 0.003, 1.2 - IN - 0.045, 1.2 - IN - 0.005, 0, 0.055, M['iron'], bevel=0.001)
-    K.block('sewing_machine', 0.89, 0.93, 1.2 - IN - 0.035, 1.2 - IN - 0.015, 0.06, 0.085, M['iron'], bevel=0.003)
-    for (dx_, dy_) in ((0.7, 0.92), (0.76, 1.05), (0.68, 1.12)):        # dress forms, like people standing in the dark
-        K._to(K.cylinder('dummy_pole', 0.0018, 0.07, (dx_, dy_, 0.035), mat=M['wood']))
-        K._to(K.sphere('dummy_torso', 0.02, (dx_, dy_, 0.095), scale=(1.0, 0.7, 1.6), mat=M['dummy']))
-        K._to(K.cylinder('dummy_base', 0.012, 0.003, (dx_, dy_, 0.0015), mat=M['wood']))
-    for i in range(4): K._to(K.cylinder('fabric_roll', 0.006, 0.09, (0.98, 0.85 + i * 0.016, 0.045), mat=M[['curtain', 'red', 'duvet', 'knit_blanket'][i]]))
-    K.chair(0.91, 1.1, facing=0)
+    # --- Mum's bedroom (the whole right side, front and middle): double bed, wardrobe, dressing table, armchair
+    PR.bed(0.83, 0.2, 0, w=0.16, l=0.21, duvet='knit_blanket', name='mum_bed')
+    PR.bedside(0.73, 0.38, 0, energy=0.0); PR.bedside(0.93, 0.38, 0, energy=0.0)
+    PR.wardrobe(0.66, 0.80 - IN - 0.05, 0, w=0.1, d=0.05, hgt=0.2, name='mum_wardrobe')
+    K.block('dressing_table', 1.0 - IN - 0.03, 1.0 - IN, 0.55, 0.64, 0.0, 0.06, M['wood'], bevel=0.002)
+    K.block('dressing_mirror', 1.0 - IN - 0.004, 1.0 - IN - 0.002, 0.565, 0.625, 0.065, 0.15, M['mirror'], bevel=0.0005)
+    K.block('dressing_mirror_frame', 1.0 - IN - 0.003, 1.0 - IN, 0.56, 0.63, 0.06, 0.155, M['wood'], bevel=0.001)
+    K._to(K.cylinder('stool', 0.012, 0.035, (0.93, 0.595, 0.0175), mat=M['sofa']))
+    PR.armchair(0.68, 0.08, -150)
+    r = K.cylinder('rug', 0.07, 0.0012, (0.8, 0.12, 0.0006), mat=M['runner'], verts=64); K._to(r); K.HP.colliders().objects.link(r)
+    # --- second bathroom (back right): a shower with a curtain, sink and mirror, toilet
+    K.block('shower_tray', 1.0 - IN - 0.07, 1.0 - IN, 1.2 - IN - 0.07, 1.2 - IN, 0.0, 0.006, M['enamel'], bevel=0.002, coll=True)
+    K.block('shower_rail', 1.0 - IN - 0.07, 1.0 - IN, 1.2 - IN - 0.072, 1.2 - IN - 0.069, 0.21, 0.213, M['chrome'], bevel=0.001)
+    for i in range(7):
+        xx = 1.0 - IN - 0.066 + i * 0.0095
+        c = K.block('shower_curtain', xx - 0.005, xx + 0.005, 1.2 - IN - 0.073, 1.2 - IN - 0.069, 0.03, 0.21, M['shower_curtain'], bevel=0.002)
+        c.rotation_euler = (0, 0, math.radians(14 * (-1) ** i))
+    K.block('basin2', 0.7, 0.745, 1.2 - IN - 0.035, 1.2 - IN, 0.072, 0.088, M['enamel'], bevel=0.007)
+    K._to(K.cylinder('sink_pedestal2', 0.008, 0.074, (0.7225, 1.2 - IN - 0.018, 0.037), mat=M['enamel']))
+    K.block('mirror2', 0.705, 0.74, 1.2 - IN - 0.002, 1.2 - IN - 0.001, 0.11, 0.155, M['mirror'], bevel=0.0003)
+    K.block('toilet_tank2', 0.60 + IN, 0.60 + IN + 0.012, 1.0, 1.035, 0.045, 0.078, M['enamel'], bevel=0.003)
+    K._to(K.sphere('toilet_bowl2', 0.017, (0.60 + IN + 0.03, 1.0175, 0.035), scale=(1.25, 1.0, 0.55), mat=M['enamel']))
 
 
 def build(house=False):
@@ -137,6 +129,7 @@ def build(house=False):
         w = K.wall(a, b, inward=inward, openings=ops, mat='wall_bath' if kind == 'wall_bath' else 'wall')
         if kind == 'wild': w['wild'] = True
     K.cladding((0.0, 0.45), (0.0, 0.80), -1, height=0.12)
+    K.cladding((1.0, 0.80), (1.0, 1.2), 1, height=0.12)
     furnish()
     K.mood('night', moon_from=(-0.5, 0.22, 0.36), moon_to=(0.15, 0.22, 0.0), moon_energy=18)
     K.mood('night', moon_from=(0.5, 1.9, 0.42), moon_to=(0.5, 0.9, 0.0), moon_energy=16)
@@ -150,11 +143,10 @@ def build(house=False):
     K.mark('dollhouse_upstairs', (0.5, -1.05, 0.13), (0.5, 0.4, 0.1), lens=24)
     K.mark('haru_bedroom', (0.3, -0.12, 0.1), (0.12, 0.3, 0.05), lens=22)
     K.mark('bathroom', (0.36, 0.5, 0.12), (0.06, 0.62, 0.07), lens=22)
-    K.mark('nursery', (0.36, 0.84, 0.12), (0.15, 1.12, 0.05), lens=22)
+    K.mark('guest_bedroom', (0.36, 0.84, 0.12), (0.12, 1.08, 0.05), lens=22)
     K.mark('landing', (0.45, 0.02, 0.1), (0.46, 0.9, 0.08), lens=20)
-    K.mark('mum_bedroom', (0.7, -0.12, 0.1), (0.85, 0.3, 0.05), lens=22)
-    K.mark('box_room', (0.65, 0.5, 0.12), (0.85, 0.7, 0.06), lens=20)
-    K.mark('sewing_room', (0.65, 0.84, 0.12), (0.85, 1.1, 0.07), lens=20)
+    K.mark('mum_bedroom', (0.7, -0.12, 0.11), (0.82, 0.45, 0.05), lens=22)
+    K.mark('bathroom2', (0.65, 0.84, 0.12), (0.88, 1.12, 0.07), lens=20)
 
 
 if __name__ == '__main__':
@@ -168,6 +160,6 @@ if __name__ == '__main__':
     build()
     if opt('blend'): bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(opt('blend')))
     os.makedirs(OUT, exist_ok=True)
-    for m in (opt('marks') or 'haru_bedroom,bathroom,nursery,landing,mum_bedroom,box_room,sewing_room,dollhouse_upstairs').split(','):
+    for m in (opt('marks') or 'haru_bedroom,bathroom,guest_bedroom,landing,mum_bedroom,bathroom2,dollhouse_upstairs').split(','):
         K.shoot(m, OUT, fstop=float(opt('fstop', 1, '8')))
     print('DONE upstairs', OUT)

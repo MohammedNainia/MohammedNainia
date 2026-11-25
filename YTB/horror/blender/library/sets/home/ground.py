@@ -1,7 +1,7 @@
 """Haru's home, ground floor (see plan.py): walls for the whole floor from one list (so every door lines up and no wall
 is doubled), then each room's furniture. Hiding places: behind the floor-length living-room curtains, behind the sofa
 (it stands off the wall), under the dining table's long cloth, in the under-stairs cupboard, in the pantry, inside
-the kitchen base cupboards, under the dust sheet over the car in the garage, in the chest freezer, behind the
+the kitchen base cupboards, in the chest freezer, behind the
 hanging sheets in the laundry.
 
     blender -b -P library/sets/home/ground.py -- [--out DIR] [--res W H] [--samples N] [--marks a,b] [--blend F]
@@ -133,9 +133,7 @@ def furnish():
     PR.armchair(0.9, 0.12, -120)
     K._to(K.sphere('globe', 0.012, (0.93, 0.36, 0.075), mat=M['book3']))
     K._to(K.cylinder('globe_stand', 0.0015, 0.06, (0.93, 0.36, 0.03), mat=M['brass']))
-    # --- garage (C middle): an old car under a dust sheet, a workbench, a chest freezer, shelves of boxes
-    car = K.draped('dust_sheet', 0.72, 0.93, 0.5, 0.74, 0.07, lump=0.006)
-    car.scale = (1, 1, 1)
+    # --- garage (C middle): a workbench, a chest freezer, boxes along the wall (room for Mum's car)
     K.block('workbench', 1.0 - IN - 0.03, 1.0 - IN, 0.47, 0.6, 0.06, 0.065, M['wood'], bevel=0.0015)
     for yy in (0.475, 0.595): K.block('workbench_leg', 1.0 - IN - 0.028, 1.0 - IN - 0.024, yy - 0.002, yy + 0.002, 0, 0.06, M['wood'], bevel=0.0005)
     K.block('chest_freezer', 0.62, 0.68, 0.74, 0.79 - IN, 0.0, 0.05, M['washer'], bevel=0.003)

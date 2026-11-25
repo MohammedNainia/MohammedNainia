@@ -15,9 +15,9 @@ GROUND
     B back    back stairs up (x 0.40..0.48, y 0.84..1.14) from the kitchen, pantry (x 0.48..0.60, y 0.80..1.20)
     C front  study                C middle garage                C back  laundry (basement stairs down, garden door)
 UPSTAIRS
-    A front  Haru's bedroom       A middle bathroom             A back  spare room (the old nursery, kept shut)
+    A front  Haru's bedroom       A middle bathroom             A back  guest bedroom
     B         the landing, full depth (x 0.40..0.60): main stairwell, back stairwell, linen cupboard
-    C front  Mum's bedroom        C middle box room (junk)       C back  sewing room
+    C front + middle  Mum's bedroom                              C back  second bathroom
 ATTIC      the whole footprint under a pitched roof (ridge along y at x 0.50), crawl-spaces behind small doors
 BASEMENT   boiler room, storage, a low crawlspace
 
