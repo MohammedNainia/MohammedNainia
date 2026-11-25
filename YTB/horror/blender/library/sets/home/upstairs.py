@@ -30,7 +30,7 @@ WALLS = [
     ((0.40, 0.0), (0.60, 0.0), 1, [WIN(0.06, 0.14, 0.09, 0.19, curtains=False, sky=False)], 'wild'),            # front of the landing
     ((0.40, 0.0), (0.40, 1.2), 1, [D(0.32, 0.40, angle=20), D(0.55, 0.63, angle=20),
                                    D(1.135, 1.195, angle=20)], 'wall'),                               # landing | Haru, bath, guest
-    ((0.60, 0.0), (0.60, 1.2), -1, [D(0.30, 0.38, angle=-20), D(0.90, 0.98, angle=-20)], 'wall'),   # landing | Mum, bathroom 2
+    ((0.60, 0.0), (0.60, 1.2), -1, [D(0.44, 0.52, angle=-20), D(0.90, 0.98, angle=-20)], 'wall'),   # landing | Mum (past the stairwell), bathroom 2
     ((0.0, 0.45), (0.40, 0.45), 1, [], 'wall'), ((0.0, 0.80), (0.40, 0.80), 1, [], 'wall_bath'),
     ((0.60, 0.80), (1.0, 0.80), 1, [], 'wall_bath'),
 ]
@@ -79,7 +79,7 @@ def furnish():
     # --- guest bedroom: a plain single bed, wardrobe, chest of drawers, chair, bedside lamp (off)
     PR.bed(0.07, 0.95, 0, duvet='bedsheet', name='guest_bed')
     PR.bedside(0.145, 1.12, 0, energy=0.0)
-    PR.wardrobe(0.3, 1.2 - IN - 0.046, 0, name='guest_wardrobe')
+    PR.wardrobe(0.24, 1.2 - IN - 0.046, 0, name='guest_wardrobe')          # clear of the door
     K.block('chest_of_drawers', 0.40 - IN - 0.03, 0.40 - IN, 0.82, 0.9, 0.0, 0.07, M['wood'], bevel=0.002)
     for zz in (0.012, 0.032, 0.052): K.block('drawer_front', 0.40 - IN - 0.0312, 0.40 - IN - 0.03, 0.825, 0.895, zz, zz + 0.016, M['wood'], bevel=0.001)
     K.chair(0.25, 0.86, facing=0)

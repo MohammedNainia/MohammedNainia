@@ -38,7 +38,7 @@ WALLS = [  # (a, b, inward, openings, kw)
     ((0.60, 0.0), (0.60, 0.80), -1, [D(0.02, 0.10, angle=-20), D(0.60, 0.68, angle=-20)], {}),   # hall | study, garage
     ((0.0, 0.45), (0.40, 0.45), 1, [D(0.15, 0.23, angle=20)], {}),                                # living | dining
     ((0.0, 0.80), (0.40, 0.80), 1, [D(0.15, 0.23, angle=-20)], {}),                               # dining | kitchen
-    ((0.40, 0.80), (0.60, 0.80), 1, [D(0.0, 0.08, leaf=False), D(0.10, 0.18, angle=20)], {}),    # hall | back stairs, pantry
+    ((0.40, 0.80), (0.60, 0.80), 1, [D(0.0, 0.08, leaf=False), D(0.10, 0.18, leaf=False)], {}),    # hall | back stairs, pantry (open archways)
     ((0.60, 0.80), (1.0, 0.80), 1, [D(0.10, 0.18, angle=20)], {}),                                # garage | laundry
     ((0.40, 0.80), (0.40, 1.2), -1, [D(0.0, 0.06, leaf=False)], {}),                               # kitchen | back stairs
     ((0.48, 0.80), (0.48, 1.2), -1, [], {}),                                                        # back stairs | pantry
@@ -139,7 +139,7 @@ def furnish():
     for yy in (0.475, 0.595): K.block('workbench_leg', 1.0 - IN - 0.028, 1.0 - IN - 0.024, yy - 0.002, yy + 0.002, 0, 0.06, M['wood'], bevel=0.0005)
     K.block('chest_freezer', 0.62, 0.68, 0.74, 0.79 - IN, 0.0, 0.05, M['washer'], bevel=0.003)
     K.block('freezer_lid', 0.618, 0.682, 0.738, 0.79 - IN, 0.05, 0.054, M['washer'], bevel=0.002)
-    PR.boxes(0.615, 0.66, 0.47, 0.72, seed=3)
+    PR.boxes(0.615, 0.66, 0.47, 0.57, seed=3)                         # clear of the door from the hall
     # --- laundry (C back): washing machine, basket, washing drying on a line, the stairs down to the basement
     K.block('washing_machine', 0.62, 0.67, 1.2 - IN - 0.05, 1.2 - IN, 0.0, 0.07, M['washer'], bevel=0.004)
     K._to(K.cylinder('washer_window', 0.015, 0.002, (0.645, 1.2 - IN - 0.051, 0.04), rot=(math.pi / 2, 0, 0), mat=M['glass']))
