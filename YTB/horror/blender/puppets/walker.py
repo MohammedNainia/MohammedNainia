@@ -4,8 +4,9 @@
     floor = Floor()                             # every walkable surface (the Colliders collection) as one BVH
     for each frame:  W, xy, z, yaw = w.at(t); place the root; MC.apply(h, W, yaw); floor.stand(h, z)
 
-Legs on a floor play the 'walk' clip at its own speed (the stride matches the ground covered, no sliding); legs on
-the stairs play 'stairs_down' / 'stairs_up' with one clip step per stair. The yaw turns smoothly into each new leg,
+Every leg plays the upright 'walk' clip at its own stride (no sliding); on the stairs it plays slower (careful
+steps) and Floor.place() bends each leg with IK so the foot lands on the tread under it, so she stays upright instead
+of using a crouching stairs clip. The yaw turns smoothly into each new leg,
 clips cross-fade, and when the route ends she settles into a standing pose. Floor.stand() casts a ray down under
 each shoe and lifts or lowers her so the foot she stands on rests on the floor, step or rug below it.
 """
@@ -17,7 +18,8 @@ import numpy as np
 import mocap as MC
 
 STAIR_RUN = 0.023          # horizontal depth of one stair (house kit)
-CLIPS = {'walk': 'walk', 'stairs_down': 'stairs_down', 'stairs_up': 'stairs_up'}
+CLIPS = {'walk': 'walk', 'stairs_down': 'walk', 'stairs_up': 'walk'}
+STAIR_PACE = 0.7           # careful steps on the stairs: the walk played slower
 IDLE = ('look_behind', 0.15)
 
 
@@ -36,9 +38,8 @@ class Walker:
         K = lib.k
         H = lib.clips['walk'][1]; T = lib.length('walk')
         v_walk = K * float(np.linalg.norm((H[-1] - H[0])[:2])) / T * pace
-        speed = {'walk': v_walk}
-        for k in ('stairs_down', 'stairs_up'):
-            speed[k] = 2 * STAIR_RUN / lib.length(k)                     # one clip cycle = two steps = two stairs
+        speed = {'walk': v_walk, 'stairs_down': v_walk * STAIR_PACE, 'stairs_up': v_walk * STAIR_PACE}
+        self.rate = {'walk': 1.0, 'stairs_down': STAIR_PACE, 'stairs_up': STAIR_PACE}   # clip seconds per second
         self.legs = []; t = t0; prev_kind = None; phase = 0.0
         pts = [p for p, _ in route]
         for i in range(1, len(route)):
@@ -46,9 +47,8 @@ class Walker:
             d = b - a; L = Vector((d.x, d.y)).length
             if L < 1e-6: continue
             dur = L / speed[kind]
-            if kind != prev_kind: phase = 0.0
             self.legs.append(dict(a=a, b=b, kind=kind, t0=t, t1=t + dur, yaw=yaw_of(d), phase0=phase))
-            phase += dur; t += dur; prev_kind = kind
+            phase += dur * self.rate[kind]; t += dur; prev_kind = kind           # one continuous walk cycle
         self.t0, self.t_end = t0, t
 
     def _leg(self, t):
@@ -57,7 +57,7 @@ class Walker:
         return len(self.legs) - 1, self.legs[-1]
 
     def _pose(self, L, t):
-        c = L['phase0'] + max(0.0, t - L['t0'])
+        c = L['phase0'] + max(0.0, t - L['t0']) * self.rate[L['kind']]
         W, _ = self.lib.sample(CLIPS[L['kind']], c, loop=True)
         return W
 
@@ -126,4 +126,57 @@ class Floor:
             d = max(gs) - zlo - sink                                       # it rests on the highest thing under it
             best = d if best is None else max(best, d)
         if best is not None: h.root.location.z = z_hint + best
+        return h.root.location.z
+
+    def place(self, h, W, yaw, z_path, lift=0.35):
+        """Put her on the floor or the stairs with both feet: find the surface under each shoe, set the root between
+        the two (closer to the lower one), then bend each leg with two-bone IK so its ankle sits on its own surface
+        at the height the walk clip lifts it. Returns the root height."""
+        bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
+        ank = h.rest['foot.L'].z
+        sides = {}
+        for s in ('L', 'R'):
+            sole = next(o for o in h.meshes if o.name.startswith('sole.' + s))
+            ev = sole.evaluated_get(dg); me = ev.to_mesh()
+            co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co)
+            Mw = np.array(ev.matrix_world); P_ = co.reshape(-1, 3) @ Mw[:3, :3].T + Mw[:3, 3]; ev.to_mesh_clear()
+            zlo = float(P_[:, 2].min()); flat = P_[P_[:, 2] < zlo + 0.0025]
+            pick = flat[np.linspace(0, len(flat) - 1, min(10, len(flat))).astype(int)]
+            gs = [self.below(float(p[0]), float(p[1]), z_path + 0.07) for p in pick]
+            gs = [g for g in gs if g is not None]
+            A = h.P['foot.' + s].matrix_world.translation.copy()
+            sides[s] = dict(g=max(gs) if gs else z_path, A=A, hc=max(0.0, zlo - z_path),
+                            H=h.P['thigh.' + s].matrix_world.translation.copy(), K=h.P['shin.' + s].matrix_world.translation.copy())
+        g0, g1 = sorted(v['g'] for v in sides.values())
+        r = g0 + lift * (g1 - g0)
+        d = r - z_path; h.root.location.z = r
+        W = dict(W); changed = False
+        for s, v in sides.items():
+            H, K_, A = v['H'] + Vector((0, 0, d)), v['K'] + Vector((0, 0, d)), v['A'] + Vector((0, 0, d))
+            T = Vector((A.x, A.y, v['g'] + (A.z - r)))                     # the clip's ankle height, over this foot's own surface
+            if abs(T.z - A.z) < 1e-4: continue
+            a, b = (K_ - H).length, (A - K_).length
+            ST = T - H; dl = min(ST.length, (a + b) * 0.999); u = ST.normalized()
+            pole = (K_ - H) - u * (K_ - H).dot(u)
+            pole = pole.normalized() if pole.length > 1e-6 else Vector((0, -1, 0))
+            ca = max(-1.0, min(1.0, (a * a + dl * dl - b * b) / (2 * a * dl)))
+            E = H + (u * ca + pole * math.sqrt(1 - ca * ca)) * a; T2 = H + u * dl
+            R1 = (K_ - H).rotation_difference(E - H)
+            v1 = R1 @ (A - K_); R2 = v1.rotation_difference(T2 - E)
+            W['thigh.' + s] = R1 @ W['thigh.' + s]
+            W['shin.' + s] = R2 @ R1 @ W['shin.' + s]
+            changed = True
+        if changed: MC.apply(h, W, yaw)
+        # last: the walk clip never puts a foot quite to zero, so lower her until the planted shoe touches
+        bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get(); gaps = []
+        for s in ('L', 'R'):
+            sole = next(o for o in h.meshes if o.name.startswith('sole.' + s))
+            ev = sole.evaluated_get(dg); me = ev.to_mesh()
+            co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co)
+            Mw = np.array(ev.matrix_world); P_ = co.reshape(-1, 3) @ Mw[:3, :3].T + Mw[:3, 3]; ev.to_mesh_clear()
+            zlo = float(P_[:, 2].min()); flat = P_[P_[:, 2] < zlo + 0.0025]
+            gs = [self.below(float(p[0]), float(p[1]), zlo + 0.03) for p in flat[::max(1, len(flat) // 10)]]
+            gs = [g for g in gs if g is not None]
+            if gs: gaps.append(zlo - max(gs))
+        if gaps: h.root.location.z -= min(gaps) + 0.0006
         return h.root.location.z

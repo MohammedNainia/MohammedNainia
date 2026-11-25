@@ -35,7 +35,7 @@ def build(house=False):
         K.door(0.06, 0.14, angle=28, hinge='start', spill=(0.35, (1.0, 0.66, 0.35))),     # Haru's bedroom, ajar
         K.door(0.38, 0.46, angle=0, hinge='end')])                                         # bathroom, shut
     K.wall((X1, 0.0), (X1, SW[1]), inward=1)
-    K.wall((X1, SW[3]), (X1, Y1), inward=1, openings=[K.door(0.05, 0.11, h=0.19, angle=0, hinge='end')])   # linen cupboard
+    K.wall((X1, SW[3]), (X1, Y1), inward=1, openings=[K.door(0.05, 0.11, h=0.19, angle=0, hinge='end', keep=True)])   # linen cupboard
     K.wall((X0, Y1), (X1, Y1), inward=-1, openings=[K.window(0.035, 0.095, 0.08, 0.19, moon=True)])
     # the stairwell: walls going down below the floor, stairs coming down toward the camera, a landing at the bottom
     for (a, b, c, d) in ((XS, SW[1] - 0.12, XS + K.WT, SW[3]), (X1, SW[3], XS + K.WT, SW[3] + K.WT)):

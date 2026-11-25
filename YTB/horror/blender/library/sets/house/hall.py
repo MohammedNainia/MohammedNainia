@@ -30,7 +30,7 @@ def build(house=False):
     M = K.M; B = K.block; IN = K.WT / 2
     K.floor((X0, Y0, X1, Y1))
     K.ceiling((X0, Y0, X1, Y1), holes=[STAIRWELL])
-    K.wall((X1, Y0), (X1, Y1), inward=1, openings=[K.door(0.03, 0.11, angle=0, hinge='end')])            # the front door
+    K.wall((X1, Y0), (X1, Y1), inward=1, openings=[K.door(0.03, 0.11, angle=0, hinge='end', keep=True)])            # the front door
     K.wall((X0, Y1), (X1, Y1), inward=-1)
     K.runner(X0 + 0.02, X1 - 0.02, 0.01, 0.14)
     K.runner(X0 + 0.02, X1 - 0.02, 0.46, 0.59)

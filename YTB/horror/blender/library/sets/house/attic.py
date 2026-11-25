@@ -43,15 +43,17 @@ def build(house=False):
     for (a, b, c, d) in ((hx0 - 0.005, hy0, hx0, hy1), (hx1, hy0, hx1 + 0.005, hy1), (hx0 - 0.005, hy0 - 0.005, hx1 + 0.005, hy0),
                          (hx0 - 0.005, hy1, hx1 + 0.005, hy1 + 0.005)):
         B('hatch_frame', a, c, b, d, AZ, AZ + 0.004, M['wood'], bevel=0.001)
+    if house:                                       # in the house the ladder is folded up and the hatch shut
+        B('hatch_lid', hx0, hx1, hy0, hy1, AZ - 0.012, AZ - 0.006, M['wood'], bevel=0.001)
     top, bot = Vector((0, hy0 + 0.004, AZ)), Vector((0, 0.36, 0.0))     # down through the hatch into the hallway
     d = bot - top; ln = d.length; ang = math.atan2(-d.z, -d.y)
-    for sx in (-0.016, 0.016):
+    for sx in ((-0.016, 0.016) if not house else ()):
         r = K.rounded_box('ladder_rail', (0.004, ln, 0.006), (sx, (top.y + bot.y) / 2, (top.z + bot.z) / 2), bevel=0.001, mat=M['wood'])
         r.rotation_euler = (-ang, 0, 0); K._to(r)
-    for i in range(1, 12):
+    for i in (range(1, 12) if not house else ()):
         p = top + d * (i / 12)
         B('ladder_rung', -0.016, 0.016, p.y - 0.002, p.y + 0.002, p.z - 0.002, p.z + 0.002, M['wood'], bevel=0.0008)
-    glow = K.point_light('hallway_glow', (0.0, 0.24, 0.17), 1.0, radius=0.03, color=(1.0, 0.68, 0.38)); K._to(glow, 'Lights')
+    if not house: glow = K.point_light('hallway_glow', (0.0, 0.24, 0.17), 1.0, radius=0.03, color=(1.0, 0.68, 0.38)); K._to(glow, 'Lights')
 
     # clutter: cardboard boxes stacked under the left slope
     import random

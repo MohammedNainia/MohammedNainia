@@ -31,7 +31,7 @@ def build(house=False):
     K.floor((X0, Y0, X1, Y1))
     K.ceiling((X0, Y0, X1, Y1))
     K.wall((X0, Y0), (X0, Y1), inward=-1, openings=[K.window(0.07, 0.17, 0.085, 0.185, moon=True)])
-    K.wall((X1, Y0), (X1, Y1), inward=1, openings=[K.door(0.08, 0.16, angle=-20, hinge='start')])     # to the hall
+    K.wall((X1, Y0), (X1, Y1), inward=1, openings=[K.door(0.08, 0.16, angle=20, hinge='start')])      # to the hall (opens into the room)
     if not house:                                                                      # the kitchen builds this one
         K.wall((X0, Y1), (X1, Y1), inward=-1, openings=[K.door(0.2, 0.28, angle=0, hinge='start')])
 

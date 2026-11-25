@@ -13,9 +13,11 @@ house.py places it at the level below.
 
 Doors (wall, along-wall span from the wall's start):
     hallway west wall x=-0.065:  bedroom y 0.06..0.14, bathroom y 0.38..0.46
-    hall west wall x=0.065:      living room y 0.08..0.16, kitchen y 0.30..0.38
+    hall west wall x=0.065:      living room y 0.08..0.16 (the stairs fill the hall behind it: the kitchen is
+                                 reached through the living room)
     hall east wall x=0.165:      front door y 0.03..0.11
     kitchen west wall x=-0.245:  back door y 0.35..0.43
+    kitchen south wall y=0.25:   to the living room x -0.045..0.035
 Stairs: from the upstairs floor at y 0.45 down to the ground floor at y 0.15 (13 steps of 2 cm), inside x 0.065..0.165.
 
 Interior walls are built by one room only (so they are not doubled): the kitchen builds the kitchen / living room wall

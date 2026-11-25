@@ -43,10 +43,10 @@ for f in range(1, F + 1):
     W, xy, zh, yaw = w.at(t)
     h.root.location = (xy.x, xy.y, zh); h.root.rotation_euler = (0, 0, yaw)
     MC.apply(h, W, yaw)
+    z = floor.place(h, W, yaw, zh)                               # feet on the floor, the treads, the rugs (leg IK)
     for pv in ('chest', 'neck', 'head'):
         e = h.P[pv]; a = 0.005
         e.rotation_euler = (e.rotation_euler.x + chat.uniform(-a, a), e.rotation_euler.y, e.rotation_euler.z + chat.uniform(-a, a))
-    z = floor.stand(h, zh)
     j, je = boil.v(), boil.e()
     h.root.location += j; h.root.rotation_euler = (je.x, je.y, yaw + je.z)
     h.expr('neutral', blink=any(abs(t - b) < 0.09 for b in (1.5, 4.8, 8.2, 11.6, 15.0)))

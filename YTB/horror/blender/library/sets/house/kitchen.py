@@ -31,11 +31,11 @@ def build(house=False):
     K.floor((X0, Y0, X1, Y1), mat='lino')
     K.ceiling((X0, Y0, X1, Y1))
     K.wall((X0, Y1), (X1, Y1), inward=-1, openings=[K.window(0.1, 0.18, 0.1, 0.185, curtains=True, moon=True)])
-    K.wall((X1, Y0), (X1, Y1), inward=1, openings=[K.door(0.05, 0.13, angle=-25, hinge='end')])           # to the hall
-    K.wall((X0, Y0), (X0, Y1), inward=-1, openings=[K.door(0.1, 0.18, angle=0, hinge='start')])           # back door
+    K.wall((X1, Y0), (X1, Y1), inward=1)            # (no door to the hall: the stairs fill the hall there)
+    K.wall((X0, Y0), (X0, Y1), inward=-1, openings=[K.door(0.1, 0.18, angle=0, hinge='start', keep=True)])           # back door
     K.cladding((X0, Y1), (X1, Y1), -1, height=0.13, mat='tiles_kitchen')
     if house:                                       # the wall to the living room (open in the standalone preview)
-        K.wall((X0, Y0), (X1, Y0), inward=1, openings=[K.door(0.2, 0.28, angle=30, hinge='start')])
+        K.wall((X0, Y0), (X1, Y0), inward=1, openings=[K.door(0.2, 0.28, angle=-30, hinge='start')])
 
     # counter run along the north wall: base cupboards, worktop, sink under the window, stove at the west end
     cy0, cy1, ch = Y1 - IN - 0.045, Y1 - IN, 0.068

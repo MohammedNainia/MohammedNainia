@@ -16,18 +16,18 @@ P = {
     'hallway_s': (0.0, 0.10, U), 'hallway_stairs': (0.015, 0.425, U), 'hallway_n': (0.0, 0.52, U),
     'stair_top': (0.115, 0.43, U),
     # ground floor
-    'stair_bottom': (0.115, 0.13, 0.0), 'hall_s': (0.115, 0.075, 0.0), 'front_door': (0.15, 0.07, 0.0),
+    'stair_bottom': (0.115, 0.13, 0.0), 'hall_s': (0.115, 0.075, 0.0), 'front_door': (0.138, 0.07, 0.0),
     'living_door': (0.065, 0.12, 0.0), 'living_room': (-0.06, 0.12, 0.0),
-    'hall_under_stairs': (0.09, 0.3, 0.0), 'kitchen_door': (0.065, 0.34, 0.0), 'kitchen': (-0.09, 0.36, 0.0),
-    'kitchen_living_door': (-0.005, 0.25, 0.0), 'hall_n': (0.115, 0.52, 0.0),
+    'kitchen': (-0.09, 0.36, 0.0), 'kitchen_living_door': (-0.005, 0.25, 0.0), 'living_n': (0.012, 0.2, 0.0),
+    'kitchen_s': (-0.005, 0.3, 0.0),
 }
 EDGES = [
     ('bedroom', 'bedroom_door'), ('bedroom_door', 'hallway_s'), ('hallway_s', 'hallway_stairs'),
     ('hallway_stairs', 'hallway_n'), ('hallway_stairs', 'bathroom_door'), ('bathroom_door', 'bathroom'),
     ('hallway_stairs', 'stair_top'), ('stair_top', 'stair_bottom'),
     ('stair_bottom', 'hall_s'), ('hall_s', 'front_door'), ('hall_s', 'living_door'), ('living_door', 'living_room'),
-    ('hall_s', 'hall_under_stairs'), ('hall_under_stairs', 'kitchen_door'), ('kitchen_door', 'kitchen'),
-    ('hall_under_stairs', 'hall_n'), ('kitchen', 'kitchen_living_door'), ('kitchen_living_door', 'living_room'),
+    ('living_room', 'living_n'), ('living_n', 'kitchen_living_door'), ('kitchen_living_door', 'kitchen_s'),
+    ('kitchen_s', 'kitchen'),
 ]
 STAIRS = {('stair_top', 'stair_bottom')}
 

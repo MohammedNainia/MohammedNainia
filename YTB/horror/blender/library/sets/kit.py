@@ -250,8 +250,9 @@ def _cut(rect, holes):
     return out
 
 
-def door(u0, u1, h=DOOR_H, kind='door', angle=0.0, leaf=True, hinge='start', spill=None):
-    return dict(kind=kind, u0=u0, u1=u1, z0=0.0, z1=h, angle=angle, leaf=leaf, hinge=hinge, spill=spill)
+def door(u0, u1, h=DOOR_H, kind='door', angle=0.0, leaf=True, hinge='start', spill=None, keep=False):
+    """keep=True: an outside door or a cupboard; in the house the other doors swing wide open so she can walk through"""
+    return dict(kind=kind, u0=u0, u1=u1, z0=0.0, z1=h, angle=angle, leaf=leaf, hinge=hinge, spill=spill, keep=keep)
 
 
 def window(u0, u1, z0, z1, curtains=True, moon=False):
@@ -324,7 +325,9 @@ def _frame(holder, o, side, a, t, n):
                 pn = block('door_panel', x0 + 0.008, x1 - 0.008, s * 0.003, s * 0.0045, zz, zz + 0.06, M['door'], bevel=0.0012); attach(pn, hg)
             kx = x1 - 0.009 if o['hinge'] == 'start' else x0 + 0.009
             kn = sphere('door_knob', 0.0028, (0, 0, 0), mat=M['brass']); _to(kn); attach(kn, hg); kn.location = (kx, s * 0.006, 0.092)
-            hg.rotation_euler = (0, 0, math.radians(o['angle']) * (1 if o['hinge'] == 'start' else -1) * s)
+            ang = o['angle']
+            if HOUSE and not o.get('keep'): ang = math.copysign(88.0, ang or 1.0)       # wide open, flat to the wall
+            hg.rotation_euler = (0, 0, math.radians(ang) * (1 if o['hinge'] == 'start' else -1) * s)
         if o.get('spill') and not HOUSE:                                    # light from the room behind the door
             sp = point_light('door_spill', (0, 0, 0), o['spill'][0], radius=0.02, color=o['spill'][1]); _to(sp, 'Lights')
             attach(sp, holder); sp.location = ((u0 + u1) / 2, -s * 0.05, 0.1)
@@ -445,8 +448,10 @@ def stairs_down(x0, x1, y_top, y_dir, n=12, rise=0.018, run=0.025, mat='floor'):
         block('stair_runner', (x0 + x1) / 2 - 0.022, (x0 + x1) / 2 + 0.022, min(ya, yb) + 0.001, max(ya, yb) - 0.001, z, z + 0.0012,
               M['runner'], bevel=0.0004)
     yb = y_top + y_dir * run * n
-    for xx in (x0 - 0.004, x1):
-        block('stringer', xx, xx + 0.004, min(y_top, yb), max(y_top, yb), -rise * n - 0.01, 0.0, M['wood'], bevel=0.001)
+    dy, dz = y_dir * run * n, -rise * n; ln = math.hypot(dy, dz); ang = math.atan2(dz, dy)
+    for xx in (x0 - 0.002, x1 + 0.002):                                 # sloped side boards that follow the flight
+        sg = rounded_box('stringer', (0.004, ln + 0.02, 0.03), (xx, y_top + dy / 2, dz / 2 - 0.012), bevel=0.001, mat=M['wood'])
+        sg.rotation_euler = (ang, 0, 0); _to(sg)                           # its long side along the slope
 
 
 def banister(x, y0, y1, h=0.09, n=12):
