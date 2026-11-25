@@ -267,12 +267,34 @@ class HaruBurton(HP.Haru):
             self._attach(piece('eyelets.' + tag, eye, M['stripe'], 'shoes', co, voxel=0.0008, smooth=2, lump=0), 'foot.' + tag, False)
             self._attach(piece('laces.' + tag, s, M['canvas'], 'shoes', co, voxel=0.0009, smooth=2, lump=0), 'foot.' + tag, False)
 
-        top = piece('hair', hair_block(), M['hair'], 'hair', co, voxel=0.0025, smooth=6, lump=0, cuts=[(0.93, 'above')],
-                    inset=lambda z: 0.0035 * min(1.0, max(0.0, (0.99 - z) / 0.04)))   # its lower edge tucks under the ends
-        low = piece('hair_ends', hair_block(), M['hair'], 'hair', co, voxel=0.0025, smooth=6, lump=0, cuts=[(1.0, 'below')])
-        for ob in (top, low): hair_grooves(ob)
-        for ob, pv in ((top, 'head'), (low, 'chest')):
-            self._attach(ob, pv, contact=False); soft_rest(ob); self.soft.append(ob)
+        # the hair is ONE piece: the cap follows the head, the ends follow the chest, and the band between bends
+        # smoothly, so it never splits in two when she turns her head
+        hair = piece('hair', hair_block(), M['hair'], 'hair', co, voxel=0.0025, smooth=6, lump=0)
+        hair_grooves(hair)
+        def w_head(z):
+            t = min(1.0, max(0.0, (z / S - 0.9) / 0.1)); return t * t * (3 - 2 * t)
+        self._skin(hair, w_head)
+        soft_rest(hair); self.soft.append(hair)
+
+    def _skin(self, ob, w_head):
+        """bend a piece between the head and chest pivots with a two-bone armature whose bones follow the pivots"""
+        bpy.context.view_layer.update()
+        ad = bpy.data.armatures.new(f'{self.name}_rig'); rig = bpy.data.objects.new(f'{self.name}_rig', ad)
+        self.coll.objects.link(rig); rig.hide_render = True
+        bpy.context.view_layer.objects.active = rig; bpy.ops.object.mode_set(mode='EDIT')
+        for pv in ('head', 'chest'):
+            b = ad.edit_bones.new(pv); b.head = self.rest[pv]; b.tail = self.rest[pv] + Vector((0, 0, 0.01))
+        bpy.ops.object.mode_set(mode='OBJECT')
+        for pv in ('head', 'chest'):
+            c = rig.pose.bones[pv].constraints.new('CHILD_OF'); c.target = self.P[pv]
+            c.inverse_matrix = self.P[pv].matrix_world.inverted(); c.set_inverse_pending = False
+        gh, gc = ob.vertex_groups.new(name='head'), ob.vertex_groups.new(name='chest')
+        for v in ob.data.vertices:
+            w = w_head(v.co.z)
+            if w > 0: gh.add([v.index], w, 'REPLACE')
+            if w < 1: gc.add([v.index], 1 - w, 'REPLACE')
+        md = ob.modifiers.new('rig', 'ARMATURE'); md.object = rig; md.use_vertex_groups = True
+        self.rig = rig
 
     # ---- mechanical face: eyeballs that look around, eyelids that rotate over them, brows, replacement mouths
     def _empty(self, name, loc, mat3=None, parent=None):

@@ -16,6 +16,9 @@ from claylib import *
 if PUPPET == 'burton':
     import haru_burton as HB
     Puppet, EYE_Z = HB.HaruBurton, HB.EYE_Z * HP.S
+elif PUPPET == 'haru':
+    import haru_clay as HC
+    Puppet, EYE_Z = HC.HaruClay, HC.EYE_Z * HP.S
 else:
     Puppet, EYE_Z = HP.Haru, 0.1045
 
