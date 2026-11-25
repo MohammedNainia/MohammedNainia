@@ -299,11 +299,11 @@ def _frame(holder, o, side, a, t, n):
         for (p0, p1, q0, q1) in ((um - 0.002, um + 0.002, z0, z1), (u0, u1, zm - 0.002, zm + 0.002)):
             bar = block('window_bar', p0, p1, -0.002, 0.002, q0, q1, M['trim'], bevel=0.0005); attach(bar, holder)
         if o.get('sky', True):
-            sky = block('sky', u0 - 0.07, u1 + 0.07, -s * 0.2, -s * 0.19, z0 - 0.07, z1 + 0.07, M['sky'], bevel=0); attach(sky, holder)
+            sky = block('sky', u0 - 0.05, u1 + 0.05, -s * 0.045, -s * 0.04, z0 - 0.05, z1 + 0.05, M['sky'], bevel=0); attach(sky, holder)   # close behind: no edges from outside
             sky.visible_shadow = False
         if o.get('moon'):
-            mn = sphere('moon', 0.02, (0, 0, 0), mat=M['moon']); _to(mn); attach(mn, holder)
-            mn.location = (um - 0.02, -s * 0.18, zm + 0.02); mn.visible_shadow = False
+            mn = sphere('moon', 0.006, (0, 0, 0), mat=M['moon']); _to(mn); attach(mn, holder)
+            mn.location = (um - 0.008, -s * 0.038, zm + 0.01); mn.visible_shadow = False
         if o.get('curtains'):
             for cu in (u0 - 0.012, u1 + 0.012):
                 c = block('curtain', cu - 0.014, cu + 0.014, s * (WT / 2 + 0.004), s * (WT / 2 + 0.012), z0 - 0.04, z1 + 0.012,
@@ -400,7 +400,7 @@ def roof(x0, x1, y0, y1, z_eave, z_ridge, ridge_x=None, spacing=0.06):
     return rx
 
 
-def gable(x0, x1, y, z0, z_eave, z_ridge, rx, inward=-1, round_window=None, moon=True):
+def gable(x0, x1, y, z0, z_eave, z_ridge, rx, inward=-1, round_window=None, moon=True, sky=True):
     """the end wall under the roof (a pentagon of planks) with an optional round window (cx, cz, r)"""
     import bmesh
     bm = bmesh.new()
@@ -421,9 +421,11 @@ def gable(x0, x1, y, z0, z_eave, z_ridge, rx, inward=-1, round_window=None, moon
         fr = bpy.context.object; fr.name = 'round_window_frame'; fr.data.materials.append(M['wood']); _to(fr)
         for rot in (0, math.pi / 2):
             bar = rounded_box('round_window_bar', (2 * r, 0.003, 0.003), (cx, y, cz), bevel=0.0008, mat=M['wood']); bar.rotation_euler = (0, rot, 0); _to(bar)
-        sky = block('sky', cx - 0.12, cx + 0.12, y - inward * 0.3, y - inward * 0.29, cz - 0.12, cz + 0.12, M['sky'], bevel=0); sky.visible_shadow = False
-        if moon:
-            mn = sphere('moon', 0.02, (cx + 0.03, y - inward * 0.28, cz + 0.02), mat=M['moon']); _to(mn); mn.visible_shadow = False
+        if sky:
+            sk = block('sky', cx - r - 0.03, cx + r + 0.03, y - inward * 0.045, y - inward * 0.04, cz - r - 0.03, cz + r + 0.03, M['sky'], bevel=0)
+            sk.visible_shadow = False
+        if moon and sky:
+            mn = sphere('moon', 0.008, (cx + 0.012, y - inward * 0.038, cz + 0.01), mat=M['moon']); _to(mn); mn.visible_shadow = False
     return ob
 
 

@@ -89,6 +89,9 @@ def furnish():
     K.banister(BS[2] + 0.002, BS[1], BS[3]); K.rail((BS[0], BS[1] - 0.002), (BS[2], BS[1] - 0.002))
     PR.wardrobe(0.60 - IN - 0.04, 0.73, -90, w=0.09, d=0.035, hgt=0.2, name='linen_cupboard', mat='trim')
     for yy, zz in ((0.5, 0.13), (0.58, 0.15), (0.2, 0.14)): K.picture((0.40 + IN + 0.001, yy, zz), (0.024, 0.03), normal=(1, 0, 0))
+    hx0, hy0, hx1, hy1 = PL.ATTIC_HATCH                                 # the attic hatch, shut, a pull cord hanging
+    K.block('attic_hatch', hx0, hx1, hy0, hy1, K.H - 0.012, K.H - 0.006, M['trim'], bevel=0.001)
+    K._to(K.cylinder('hatch_cord', 0.0004, 0.03, ((hx0 + hx1) / 2, hy0 + 0.01, K.H - 0.027), mat=M['tape']))
     nl = K.point_light('night_light', (0.41, 0.48, 0.02), 0.08, radius=0.003, color=(1.0, 0.75, 0.45)); K._to(nl, 'Lights')
     K._to(K.sphere('night_light_glow', 0.003, (0.405, 0.48, 0.02), mat=M['shade']))
     # --- Mum's bedroom (the whole right side, front and middle): double bed, wardrobe, dressing table, armchair
@@ -124,7 +127,7 @@ def build(house=False):
             K.floor((x0, y0, x1, y1), holes=holes, mat=FLOORS[name])
         else:
             K.floor((x0, y0, x1, y1), mat=FLOORS[name])
-        K.ceiling((x0, y0, x1, y1))
+        K.ceiling((x0, y0, x1, y1), holes=[PL.ATTIC_HATCH] if name == 'landing' else [])
     for a, b, inward, ops, kind in WALLS:
         w = K.wall(a, b, inward=inward, openings=ops, mat='wall_bath' if kind == 'wall_bath' else 'wall')
         if kind == 'wild': w['wild'] = True

@@ -45,7 +45,7 @@ WALLS = [  # (a, b, inward, openings, kw)
 ]
 FLOORS = {'living_room': 'floor', 'dining_room': 'floor', 'kitchen': 'lino', 'hall': 'floor', 'back_stairs': 'floor',
           'pantry': 'lino', 'study': 'floor', 'garage': 'concrete', 'laundry': 'tiles_floor'}
-MS, BS = PL.MAIN_STAIRS, PL.BACK_STAIRS
+MS, BS, BMS = PL.MAIN_STAIRS, PL.BACK_STAIRS, PL.BASEMENT_STAIRS
 
 
 def flight(x0, y_bottom, x1, y_top, n=13):
@@ -139,15 +139,16 @@ def furnish():
     K.block('chest_freezer', 0.62, 0.68, 0.74, 0.79 - IN, 0.0, 0.05, M['washer'], bevel=0.003)
     K.block('freezer_lid', 0.618, 0.682, 0.738, 0.79 - IN, 0.05, 0.054, M['washer'], bevel=0.002)
     PR.boxes(0.615, 0.66, 0.47, 0.72, seed=3)
-    # --- laundry (C back): washing machine, basket, sheets hanging on a line, a door down to the basement (shut)
+    # --- laundry (C back): washing machine, basket, washing drying on a line, the stairs down to the basement
     K.block('washing_machine', 0.62, 0.67, 1.2 - IN - 0.05, 1.2 - IN, 0.0, 0.07, M['washer'], bevel=0.004)
     K._to(K.cylinder('washer_window', 0.015, 0.002, (0.645, 1.2 - IN - 0.051, 0.04), rot=(math.pi / 2, 0, 0), mat=M['glass']))
     K._to(K.cylinder('laundry_basket', 0.016, 0.03, (0.7, 1.12, 0.015), mat=M['sack']))
-    K.block('clothes_line', 0.66, 0.96, 0.98, 0.982, 0.2, 0.202, M['tape'], bevel=0.0003)
-    for i, xx in enumerate((0.69, 0.75, 0.82, 0.9)):
+    K.block('clothes_line', 0.64, 0.86, 0.98, 0.982, 0.2, 0.202, M['tape'], bevel=0.0003)
+    for i, xx in enumerate((0.67, 0.73, 0.8)):
         sh = K.block('hanging_sheet', xx - 0.025, xx + 0.025, 0.978, 0.986, 0.06 + 0.01 * (i % 2), 0.2, M['bedsheet'], bevel=0.002)
         K.add_lumps(sh, 0.0015, size=0.012)
-    K.block('basement_door_frame', 1.0 - IN - 0.004, 1.0 - IN, 0.86, 0.94, 0.0, 0.2, M['trim'], bevel=0.001)
+    K.stairs_down(BMS[0] + 0.003, BMS[2] - 0.003, BMS[1], 1, n=13, rise=PL.UP / 13, run=(BMS[3] - BMS[1]) / 13)
+    K.banister(BMS[0] - 0.002, BMS[1] + 0.03, BMS[3])
     bb = K.point_light('laundry_bulb', (0.8, 1.0, 0.22), 0.0, radius=0.004, color=(1.0, 0.85, 0.6)); K._to(bb, 'Lights')
 
 
@@ -168,7 +169,8 @@ def build(house=False):
         holes = []
         if name == 'hall': holes = [(MS[0], MS[1], MS[2], MS[3])]
         if name == 'back_stairs': holes = [(BS[0], BS[1], BS[2], BS[3])]
-        K.floor((x0, y0, x1, y1), mat=FLOORS[name])
+        fh = [(BMS[0], BMS[1], BMS[2], BMS[3])] if name == 'laundry' else []
+        K.floor((x0, y0, x1, y1), mat=FLOORS[name], holes=fh)
         K.ceiling((x0, y0, x1, y1), holes=holes)
     for a, b, inward, ops, kw in WALLS:
         w = K.wall(a, b, inward=inward, openings=ops)

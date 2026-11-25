@@ -44,3 +44,6 @@ GROUND = {
 MAIN_STAIRS = (0.50, 0.12, 0.60, 0.42)        # x0, y_bottom, x1, y_top (rising toward the back)
 BACK_STAIRS = (0.40, 0.84, 0.48, 1.14)        # rising toward the back, entered from the kitchen at y 0.84
 UNDER_STAIRS_DOOR = (0.30, 0.38)              # on the wall x 0.50, y span
+BASEMENT_STAIRS = (0.88, 0.84, 0.98, 1.14)    # x0, y_top (laundry floor), x1, y_bottom (basement floor): going down to the back
+BASEMENT = (0.40, 0.45, 1.0, 1.2)             # under the hall's back half, the garage, the pantry and the laundry
+ATTIC_HATCH = (0.46, 0.60, 0.54, 0.68)        # in the landing ceiling, with a pull-down ladder
