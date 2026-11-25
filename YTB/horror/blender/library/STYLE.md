@@ -39,6 +39,14 @@ canvas shoes, felt, corduroy. Seams, pilling and small wrinkles. Clothes are sep
 an oversized mustard-ochre knitted hoodie (kangaroo pocket, two drawstrings); charcoal grey trousers; small white
 canvas sneakers with grey rubber soles. Big dark eyes. Always readable by her silhouette: hair, hoodie, thin legs.
 
+## 3b. Materials: who gets what (decided)
+
+- **Haru and every normal character:** the Coraline puppet look. Smooth matte silicone faces, real knitted and woven
+  fabric clothes, sculpted hair. Never a clay or plaster texture on a normal person.
+- **The house and sets:** aged, worn real materials: old plaster and clay walls, faded wallpaper, worn wood, stained
+  tiles. Scanned textures (Poliigon free textures, downloaded by the user, kept out of git) replace the code-made ones.
+- **Monsters:** aged, cracked clay. Something old and crumbling against Haru's soft clean look reads as wrong at once.
+
 ## 4. Sets
 
 - Built like miniature film sets: real wood with grain and worn edges, wallpaper with a faded pattern and peeling
