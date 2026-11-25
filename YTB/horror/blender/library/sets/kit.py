@@ -450,14 +450,22 @@ def stairs_down(x0, x1, y_top, y_dir, n=12, rise=0.018, run=0.025, mat='floor'):
 
 
 def banister(x, y0, y1, h=0.09, n=12):
-    """posts at both ends, spindles between, a rounded handrail (a little out of true)"""
-    for yy in (y0, y1):
-        block('newel_post', x - 0.005, x + 0.005, yy - 0.005, yy + 0.005, 0, h + 0.012, M['wood'], bevel=0.0015)
-        sphere('newel_cap', 0.006, (x, yy, h + 0.016), mat=M['wood'])
+    """a banister along y at x (see rail)"""
+    return rail((x, y0), (x, y1), h, n)
+
+
+def rail(p0, p1, h=0.09, n=None):
+    """a banister from p0 to p1 (xy): newel posts at both ends, spindles between, a handrail (a little out of true)"""
+    a, b = Vector((*p0, 0)), Vector((*p1, 0)); d = b - a; L_ = d.length; n = n or max(3, int(L_ / 0.025))
+    holder = empty('rail', tuple(a)); _to(holder); holder.rotation_euler = (0, 0, math.atan2(d.y, d.x))
+    for u in (0.0, L_):
+        attach(block('newel_post', u - 0.005, u + 0.005, -0.005, 0.005, 0, h + 0.012, M['wood'], bevel=0.0015), holder)
+        cap = sphere('newel_cap', 0.006, (u, 0, h + 0.016), mat=M['wood']); _to(cap); attach(cap, holder)
     for i in range(1, n):
-        yy = y0 + (y1 - y0) * i / n
-        block('spindle', x - 0.0015, x + 0.0015, yy - 0.0015, yy + 0.0015, 0, h, M['wood'], bevel=0.0006, tilt=0.03)
-    block('handrail', x - 0.004, x + 0.004, y0, y1, h, h + 0.006, M['wood'], bevel=0.002, tilt=0.004)
+        u = L_ * i / n
+        attach(block('spindle', u - 0.0015, u + 0.0015, -0.0015, 0.0015, 0, h, M['wood'], bevel=0.0006, tilt=0.03), holder)
+    attach(block('handrail', 0, L_, -0.004, 0.004, h, h + 0.006, M['wood'], bevel=0.002, tilt=0.004), holder)
+    return holder
 
 
 # ------------------------------------------------------------------ dressing

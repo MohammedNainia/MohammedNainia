@@ -38,12 +38,12 @@ def build(house=False):
     K.wall((X1, SW[3]), (X1, Y1), inward=1, openings=[K.door(0.05, 0.11, h=0.19, angle=0, hinge='end')])   # linen cupboard
     K.wall((X0, Y1), (X1, Y1), inward=-1, openings=[K.window(0.035, 0.095, 0.08, 0.19, moon=True)])
     # the stairwell: walls going down below the floor, stairs coming down toward the camera, a landing at the bottom
-    for (a, b, c, d, z0) in ((XS, SW[1] - 0.12, XS + K.WT, SW[3], -0.24), (X1, SW[3], XS + K.WT, SW[3] + K.WT, -0.24),
-                             (X1, SW[1] - K.WT, XS + K.WT, SW[1], -0.012)):          # the near end only above the floor:
-        K.block('stairwell_wall', a, c, b, d, min(z0, -0.012) if z0 > -0.1 else -0.26, K.H, K.M['wall'], bevel=0.0004)
+    for (a, b, c, d) in ((XS, SW[1] - 0.12, XS + K.WT, SW[3]), (X1, SW[3], XS + K.WT, SW[3] + K.WT)):
+        K.block('stairwell_wall', a, c, b, d, -0.26, K.H, K.M['wall'], bevel=0.0004)
     K.stairs_down(X1 + 0.004, XS - 0.004, SW[3], -1, n=13, rise=0.02, run=0.023)     # one storey: 0.26 down to the hall
     if not house: K.block('lower_landing', X1, XS, SW[1] - 0.1, SW[1], -0.27, -0.26, K.M['floor'], bevel=0.0004, coll=True)
-    K.banister(X1 + 0.003, SW[1], SW[3])
+    K.banister(X1 + 0.003, SW[1], SW[3] - 0.05)                   # open at the top: the way onto the stairs
+    K.rail((X1, SW[1] - 0.003), (XS, SW[1] - 0.003))              # a low rail across the near end (an open landing)
 
     K.runner(-0.03, 0.03, 0.03, 0.56)
     K.picture((X0 + K.WT / 2 + 0.001, 0.24, 0.135), (0.028, 0.036), normal=(1, 0, 0))
