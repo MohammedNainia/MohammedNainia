@@ -1,12 +1,14 @@
-"""Room test: the Burton Haru puppet moves around her bedroom (23 s, 276 frames at 12 fps, stop motion, vertical 9:16).
+"""Room test: the Burton Haru puppet in her bedroom, played as a horror beat (26.5 s, 318 frames at 12 fps, stop motion, 9:16).
 
-Asleep on her back in bed -> eyes open -> sits up -> swings her legs over the edge -> stands -> walks across the room,
-glancing at the door -> sits on the chair -> close-up: six expressions -> the door creaks open behind her -> she jumps
-up and runs back -> leaps onto the bed and hugs her knees -> the door swings wider -> two eyes in the dark doorway ->
-she turns and stares into the lens.
+Frame one: she lies awake, frozen, staring; the door is already ajar. Her eyes slide to the door -> she sits up slowly
+-> pulls her knees in, shivering -> inches to the edge and slips off -> creeps across the room on tiptoe, hunched,
+hands clutched -> the door creaks: she freezes mid-step and stares -> creeps on, glances back at the bed -> sits on the
+chair and pulls her knees up -> close-up: worry, eyes darting, sadness, a breath of relief, a small smile -> the lamp
+stutters and the door bangs open -> she scrambles off the chair and runs, glancing back -> dives onto the bed and
+shoves herself back into the corner -> the lamp dies -> two eyes in the dark doorway -> she turns and stares at us.
 
-Contact: every frame she is put on whatever is under her (floor, mattress, chair seat): for each support, the lowest
-point of her meshes inside its footprint is found and she is lifted until nothing sinks into anything.
+Contact: the floor holds everything; the mattress and the chair seat hold her body, and her hands and feet only count
+when they are at their surface (see settle()).
 blender -b -P scenes/haru_room.py -- [--still F] [--range A B] [--res 1080 1920] [--samples 64] [--out DIR]
 """
 import bpy, sys, os, math, random, importlib.util
@@ -24,7 +26,7 @@ ST = importlib.util.module_from_spec(spec); spec.loader.exec_module(ST)
 seg, mix, add = ST.seg, ST.mix, ST.add
 
 OPTS = cli('haru_room')
-FPS, END = 12, 23.0
+FPS, END = 12, 26.5
 F = int(END * FPS)
 reset()
 sc = setup_render(res=OPTS['res'], samples=OPTS['samples'], frames=F)
@@ -175,50 +177,81 @@ door_l = area_light('hall', ((d0 + d1) / 2, WY + 0.15, 0.1), ((d0 + d1) / 2, 0.0
 # ------------------------------------------------------------------ the puppet
 h = HB.HaruBurton(loc=(-0.183, 0.12, 0), yaw=math.radians(90))
 contact_obs = list(h.meshes)
+LIMB = ('hand', 'sleeve', 'shin', 'ankle', 'sole', 'stripe', 'shoe', 'toecap', 'laces', 'eyelets')
 SUPPORTS = [((-9, 9, -9, 9), 0.0), (BED, MATT), (SEATR, SEAT)]
+BAND, SINK = 0.008, 0.0025      # a hand or foot counts as resting on a raised support only when it is within 8 mm of its top
+
+
+FEET = ('sole', 'stripe', 'shoe', 'toecap')
 
 
 def world_verts():
-    bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get(); out = []
-    for ob in contact_obs:
+    bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get(); out, kind = [], []
+    for i, ob in enumerate(contact_obs):
         ev = ob.evaluated_get(dg); me = ev.to_mesh()
         co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co)
+        k = (100 + i) if any(f in ob.name for f in FEET) else 1 if any(f in ob.name for f in LIMB) else 0
+        kind.append(np.full(len(co) // 3, k))
         Mw = np.array(ev.matrix_world); out.append(co.reshape(-1, 3) @ Mw[:3, :3].T + Mw[:3, 3]); ev.to_mesh_clear()
-    return np.concatenate(out)
+    return np.concatenate(out), np.concatenate(kind)
 
 
 def settle(supports=SUPPORTS, lift=0.0):
-    """lift her so nothing sinks into any support under her"""
+    """Put her on what is under her. The floor holds everything. A raised support (mattress, seat) holds her body
+    (bottom, thighs, back, head). Each shoe counts only when its lowest point over the support is near the surface
+    (a foot standing on it), so legs hanging over an edge or tucked under a seat never lift her; hands and arms sink
+    into the soft surfaces instead of propping her up."""
     h.root.location.z = 0.0
-    W = world_verts(); best = -1.0
-    for (x0, x1, y0, y1), top in supports:
+    W, kind = world_verts(); off = -1.0
+    for i, ((x0, x1, y0, y1), top) in enumerate(supports):
         m = (W[:, 0] > x0) & (W[:, 0] < x1) & (W[:, 1] > y0) & (W[:, 1] < y1)
-        if m.any(): best = max(best, top - float(W[m, 2].min()))
-    h.root.location.z = best + lift
+        if i > 0: m &= kind == 0
+        if m.any(): off = max(off, top - float(W[m, 2].min()))
+    for (x0, x1, y0, y1), top in supports[1:]:
+        inr = (W[:, 0] > x0) & (W[:, 0] < x1) & (W[:, 1] > y0) & (W[:, 1] < y1)
+        body = inr & (kind == 0)
+        if body.any() and float(W[body, 2].min()) + off < top + 0.001: continue   # sitting on it: feet can't lift her
+        for k in np.unique(kind[kind >= 100]):
+            m = inr & (kind == k)
+            if not m.any(): continue
+            lo = float(W[m, 2].min()) + off
+            if top - BAND < lo < top - SINK: off += top - SINK - lo        # a shoe may press 2.5 mm in, never lift her
+    h.root.location.z = off + lift
 
 
-# poses (pivot, axis): degrees.  SITE: on an edge (bed or chair), thighs level, shins hanging
+# ------------------------------------------------------------------ poses (pivot, axis): degrees
 SITL = ST.SIT
-SITE = {('thigh.L', 'x'): -90, ('thigh.R', 'x'): -90, ('shin.L', 'x'): 88, ('shin.R', 'x'): 88, ('chest', 'x'): 4,
-        ('upper_arm.L', 'x'): -8, ('upper_arm.R', 'x'): -8, ('upper_arm.L', 'y'): -16, ('upper_arm.R', 'y'): 16,
-        ('forearm.L', 'x'): -10, ('forearm.R', 'x'): -10, ('head', 'x'): 4}
 SITC = {('thigh.L', 'x'): -90, ('thigh.R', 'x'): -90, ('shin.L', 'x'): 90, ('shin.R', 'x'): 90, ('chest', 'x'): 5,
         ('thigh.L', 'z'): 3, ('thigh.R', 'z'): -3,
         ('upper_arm.L', 'x'): -28, ('upper_arm.R', 'x'): -28, ('upper_arm.L', 'y'): 4, ('upper_arm.R', 'y'): -4,
         ('forearm.L', 'x'): -42, ('forearm.R', 'x'): -42, ('head', 'x'): 3}
+SITE = add(SITC, {('shin.L', 'x'): -4, ('shin.R', 'x'): -4, ('chest', 'x'): 4, ('head', 'x'): 6})   # bed edge, hands on her lap
 PUSH = {('hips', 'x'): 32, ('thigh.L', 'x'): -100, ('thigh.R', 'x'): -100, ('shin.L', 'x'): 80, ('shin.R', 'x'): 80,
         ('foot.L', 'x'): -8, ('foot.R', 'x'): -8, ('head', 'x'): -22, ('chest', 'x'): 6,
         ('upper_arm.L', 'x'): -20, ('upper_arm.R', 'x'): -20, ('forearm.L', 'x'): -30, ('forearm.R', 'x'): -30}
-STAND = {}
-WALK_STRIDE, RUN_STRIDE = 0.072, 0.13           # puppet metres per cycle (two steps)
+CLUTCH = {('upper_arm.L', 'x'): -38, ('upper_arm.R', 'x'): -38, ('upper_arm.L', 'y'): 14, ('upper_arm.R', 'y'): -14,
+          ('forearm.L', 'x'): -100, ('forearm.R', 'x'): -100, ('forearm.L', 'z'): -25, ('forearm.R', 'z'): 25}
+HUNCH = add(CLUTCH, {('hips', 'x'): 14, ('chest', 'x'): 10, ('neck', 'x'): -4, ('head', 'x'): -14,
+                     ('thigh.L', 'x'): -14, ('thigh.R', 'x'): -14, ('shin.L', 'x'): 26, ('shin.R', 'x'): 26,
+                     ('foot.L', 'x'): -12, ('foot.R', 'x'): -12})
+# knees hugged, curled forward, toes tipped down: measured so her bottom and her soles land within 2 mm of each other
+HUG = add(ST.HUG, {('hips', 'x'): 12, ('thigh.L', 'x'): -28, ('thigh.R', 'x'): -28, ('shin.L', 'x'): 28, ('shin.R', 'x'): 28,
+                  ('foot.L', 'x'): -10, ('foot.R', 'x'): -10, ('forearm.L', 'x'): 10, ('forearm.R', 'x'): 10, ('neck', 'x'): -6, ('head', 'x'): -20})   # chin up: eyes over her knees
+HUGC = HUG                                                       # the same, with her feet up on the chair seat
+SNEAK_STRIDE, RUN_STRIDE = 0.05, 0.13
+
+
+def sneak(p):
+    """creeping on tiptoe: short careful steps, hunched, hands clutched at her chest"""
+    w = ST.walk(p)
+    legs = {k: v * 0.75 for k, v in w.items() if k[0].startswith(('thigh', 'shin', 'foot')) or k == ('hips', 'z')}
+    return add(HUNCH, legs)
 
 
 def trap(t, t0, t1, r=0.35):
-    """0 -> 1 over [t0, t1] at constant speed with eased ramps (walks start and stop gently)"""
     if t <= t0: return 0.0
     if t >= t1: return 1.0
-    T = t1 - t0; r = min(r, T / 2); v = 1.0 / (T - r)
-    u = t - t0
+    T = t1 - t0; r = min(r, T / 2); v = 1.0 / (T - r); u = t - t0
     if u < r: return 0.5 * v / r * u * u
     if u > T - r: w = T - u; return 1.0 - 0.5 * v / r * w * w
     return 0.5 * v * r + v * (u - r)
@@ -228,82 +261,109 @@ def lerp2(a, b, u): return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
 
 
 P_LIE, P_EDGE, P_UP = (-0.183, 0.12), (-0.15, 0.074), (-0.15, 0.035)
-P_CHAIR_FRONT, P_CHAIR = (CHAIR[0], 0.004), (CHAIR[0], 0.05)
-P_RUN0, P_RUN1, P_LAND = (0.08, -0.004), (-0.1, 0.03), (-0.165, 0.112)
-TILTS = [(0, 0), (7, -3), (-6, 4), (0, -7), (5, 6), (-4, -5), (0, 0)]
-PARADE = ['sad', 'smile', 'happy', 'surprised', 'suspicious', 'angry']
+P_MID, P_CHAIR_FRONT, P_CHAIR = (-0.03, 0.022), (CHAIR[0], 0.004), (CHAIR[0], 0.052)
+P_RUN0, P_RUN1, P_LAND, P_CORNER = (0.08, -0.004), (-0.09, 0.03), (-0.13, 0.11), (-0.19, 0.122)
+PARADE = [('worried', None), ('suspicious', 'dart'), ('sad', None), ('relieved', None), ('smile', None)]
+SHIVER = [(4.9, 7.6), (9.6, 10.6), (18.9, 19.3), (21.7, 24.0), (25.0, 26.5)]
 
 
 def beat(t, phase):
-    """pose spec, root xy, yaw (deg), lift, supports override, stride"""
-    sup, lift, stride = SUPPORTS, 0.0, WALK_STRIDE
-    breath = math.sin(t * 2 * math.pi / 2.8)
-    if t < 3.0: spec, xy, yaw = ST.LIE, P_LIE, 90
-    elif t < 4.2: spec, xy, yaw = mix(ST.LIE, SITL, seg(t, 3.0, 4.1)), P_LIE, 90
-    elif t < 5.4:
-        u = seg(t, 4.2, 5.3); spec = mix(SITL, SITE, u); xy = lerp2(P_LIE, P_EDGE, u); yaw = 90 * (1 - u)
-        spec = add(spec, {('head', 'z'): 20 * seg(t, 4.2, 4.6) - 20 * seg(t, 4.9, 5.3)})
-    elif t < 6.5:
-        spec = mix(SITE, PUSH, seg(t, 5.4, 5.8)) if t < 5.8 else mix(PUSH, STAND, seg(t, 5.8, 6.4))
-        xy = lerp2(P_EDGE, P_UP, seg(t, 5.5, 6.3)); yaw = 0
-    elif t < 7.0: spec, xy, yaw = STAND, P_UP, 90 * seg(t, 6.5, 6.95)
-    elif t < 10.3:
-        u = trap(t, 7.0, 10.3); xy = lerp2(P_UP, P_CHAIR_FRONT, u); yaw = 90
-        w = seg(t, 7.0, 7.3) * (1 - seg(t, 10.0, 10.3))
-        spec = mix(STAND, ST.walk(phase), w)
-        g = seg(t, 8.3, 8.6) - seg(t, 9.1, 9.4)                           # glances at the door, ahead to her left
-        spec = add(spec, {('head', 'z'): 38 * g, ('neck', 'z'): 12 * g, ('head', 'x'): -6 * g})
-    elif t < 10.9: spec, xy, yaw = STAND, P_CHAIR_FRONT, 90 * (1 - seg(t, 10.3, 10.85))
-    elif t < 11.9:
-        u = seg(t, 10.95, 11.85); spec = mix(STAND, PUSH, min(1, u * 1.6)) if u < 0.6 else mix(PUSH, SITC, (u - 0.6) / 0.4)
-        xy = lerp2(P_CHAIR_FRONT, P_CHAIR, seg(t, 11.0, 11.7)); yaw = 0
-    elif t < 16.0:
-        i = max(0, min(int((t - 12.4) / 0.6), len(TILTS) - 1)) if t >= 12.4 else 0
-        spec = add(SITC, {('head', 'y'): TILTS[i][0], ('head', 'x'): TILTS[i][1]}); xy, yaw = P_CHAIR, 0
-    elif t < 16.8:                                                         # creak: she twists toward the door
-        g = seg(t, 16.05, 16.3)
-        spec = add(SITC, {('head', 'z'): 62 * g, ('neck', 'z'): 18 * g, ('chest', 'z'): 16 * g, ('head', 'x'): -4 * g})
-        xy, yaw = P_CHAIR, 0
-    elif t < 17.4:
-        u = seg(t, 16.8, 17.2); spec = mix(SITC, STAND, u); xy = lerp2(P_CHAIR, P_RUN0, u); yaw = -90 * seg(t, 16.9, 17.35)
+    """pose spec, root xy, yaw (deg), lift, supports, stride"""
+    sup, lift, stride = SUPPORTS, 0.0, SNEAK_STRIDE
+    breath = math.sin(t * 2 * math.pi / 2.6)
+    if t < 3.0:                                                           # awake, frozen, staring; then eyes to the door
+        g = seg(t, 1.6, 2.6)
+        spec, xy, yaw = add(ST.LIE, {('head', 'z'): 38 * g, ('neck', 'z'): 8 * g}), P_LIE, 90
+    elif t < 4.8:                                                         # sits up slowly, still watching
+        u = seg(t, 3.0, 4.8); spec = add(mix(ST.LIE, SITL, u), {('head', 'z'): 38 * (1 - u) + 20 * u}); xy, yaw = P_LIE, 90
+    elif t < 5.6: spec, xy, yaw = add(mix(SITL, HUG, seg(t, 4.8, 5.5)), {('head', 'z'): 20}), P_LIE, 90
+    elif t < 6.8:                                                         # inches to the edge
+        u = seg(t, 5.6, 6.7); spec = mix(HUG, SITE, u); xy = lerp2(P_LIE, P_EDGE, u); yaw = 90 * (1 - u)
+    elif t < 8.0:
+        spec = mix(SITE, PUSH, seg(t, 6.8, 7.2)) if t < 7.2 else mix(PUSH, HUNCH, seg(t, 7.2, 7.8))
+        xy = lerp2(P_EDGE, P_UP, seg(t, 6.9, 7.7)); yaw = 90 * seg(t, 7.6, 8.0)
+    elif t < 12.4:                                                        # creeps across, freezes when the door creaks
+        if t < 9.6: xy = lerp2(P_UP, P_MID, trap(t, 8.0, 9.6))
+        elif t < 10.6: xy = P_MID
+        else: xy = lerp2(P_MID, P_CHAIR_FRONT, trap(t, 10.6, 12.3))
+        yaw = 90
+        moving = seg(t, 8.0, 8.2) * (1 - seg(t, 9.45, 9.6)) + seg(t, 10.6, 10.8) * (1 - seg(t, 12.1, 12.3))
+        spec = sneak(phase) if 9.6 <= t < 10.6 else mix(HUNCH, sneak(phase), moving)   # frozen mid-step
+        g = seg(t, 9.7, 9.78) * (1 - seg(t, 10.3, 10.6))                  # head snaps to the door, stares, then on
+        spec = add(spec, {('head', 'z'): 40 * g, ('neck', 'z'): 12 * g, ('chest', 'z'): 8 * g, ('head', 'x'): -8 * g})
+        b = seg(t, 11.2, 11.4) * (1 - seg(t, 11.8, 12.0))                 # a look back over her shoulder at the bed
+        spec = add(spec, {('head', 'z'): -55 * b, ('neck', 'z'): -15 * b})
+    elif t < 12.9: spec, xy, yaw = HUNCH, P_CHAIR_FRONT, 90 * (1 - seg(t, 12.4, 12.85))
+    elif t < 13.9:
+        u = seg(t, 12.95, 13.85); spec = mix(HUNCH, PUSH, min(1, u * 1.6)) if u < 0.6 else mix(PUSH, SITC, (u - 0.6) / 0.4)
+        xy = lerp2(P_CHAIR_FRONT, P_CHAIR, seg(t, 13.0, 13.7)); yaw = 0
+    elif t < 14.6: spec, xy, yaw = mix(SITC, HUGC, seg(t, 13.95, 14.5)), P_CHAIR, 0
     elif t < 18.6:
-        u = trap(t, 17.4, 18.6, 0.25); xy = lerp2(P_RUN0, P_RUN1, u); yaw = -90; stride = RUN_STRIDE
-        w = seg(t, 17.4, 17.6) * (1 - seg(t, 18.4, 18.6))
-        spec = mix(STAND, ST.run(phase), w); lift = 0.0035 * abs(math.sin(2 * math.pi * phase)) * w
-    elif t < 18.75: spec, xy, yaw = mix(STAND, ST.DIP, seg(t, 18.6, 18.75)), P_RUN1, -90
-    elif t < 19.25:
-        u = (t - 18.75) / 0.5
-        spec = mix(ST.DIP, ST.JUMP, seg(u, 0, 0.3)) if u < 0.45 else mix(ST.JUMP, ST.HUG, seg(u, 0.45, 1.0))
+        i = min(int((t - 14.6) / 0.8), 4); tilt = [(0, 0), (5, -3), (-6, 5), (0, -6), (4, 3)][i]
+        sigh = math.sin(math.pi * seg(t, 17.0, 17.6))                      # 'relieved': a long breath out
+        spec = add(HUGC, {('head', 'y'): tilt[0], ('head', 'x'): tilt[1] + 4 * sigh, ('chest', 'x'): 3 * sigh}); xy, yaw = P_CHAIR, 0
+    elif t < 19.2:                                                        # the lamp stutters, the door bangs open
+        g = seg(t, 18.9, 18.98)
+        spec = add(HUGC, {('head', 'z'): 60 * g, ('neck', 'z'): 18 * g, ('chest', 'z'): 14 * g}); xy, yaw = P_CHAIR, 0
+    elif t < 19.8:
+        u = seg(t, 19.2, 19.7)
+        spec = mix(HUGC, SITC, seg(t, 19.2, 19.4)) if t < 19.4 else mix(SITC, ST.run(0.25), seg(t, 19.4, 19.75))
+        xy = lerp2(P_CHAIR, P_RUN0, u); yaw = -90 * seg(t, 19.35, 19.75); stride = RUN_STRIDE
+    elif t < 21.0:
+        u = trap(t, 19.8, 21.0, 0.2); xy = lerp2(P_RUN0, P_RUN1, u); yaw = -90; stride = RUN_STRIDE
+        spec = ST.run(phase); lift = 0.0035 * abs(math.sin(2 * math.pi * phase))
+        b = seg(t, 20.3, 20.4) * (1 - seg(t, 20.55, 20.65))               # a glance back mid-run
+        spec = add(spec, {('head', 'z'): -60 * b, ('neck', 'z'): -15 * b})
+    elif t < 21.15: spec, xy, yaw = mix(ST.run(phase), ST.DIP, seg(t, 21.0, 21.15)), P_RUN1, -90
+    elif t < 21.65:                                                       # dives onto the bed
+        u = (t - 21.15) / 0.5
+        spec = mix(ST.DIP, ST.JUMP, seg(u, 0, 0.3)) if u < 0.45 else mix(ST.JUMP, HUG, seg(u, 0.45, 1.0))
         xy = lerp2(P_RUN1, P_LAND, seg(u, 0, 1)); yaw = -90 + 150 * seg(u, 0.1, 0.9)
-        sup = [SUPPORTS[0]]; lift = 0.045 * 4 * u * (1 - u) + MATT * seg(u, 0, 1)
+        sup = [SUPPORTS[0]]; lift = 0.04 * 4 * u * (1 - u) + MATT * seg(u, 0, 1)
+    elif t < 22.7:                                                        # shoves herself back into the corner
+        k = min(int((t - 21.75) / 0.32), 2) if t >= 21.75 else -1
+        t0 = 21.75 + 0.32 * max(k, 0)
+        u = 0 if k < 0 else (k + seg(t, t0, t0 + 0.2)) / 3
+        xy = lerp2(P_LAND, P_CORNER, u); yaw = 60
+        hop = 0.0 if k < 0 else math.sin(math.pi * seg(t, t0, t0 + 0.2))
+        spec = add(HUG, {('hips', 'x'): -6 * hop, ('chest', 'x'): 6 * hop}); lift = 0.002 * hop
     else:
-        spec, xy, yaw = ST.HUG, P_LAND, 60
-        rock = math.sin((t - 19.3) * 2 * math.pi / 1.4) * (1 - seg(t, 21.9, 22.2))
-        look = seg(t, 19.6, 19.9) * (1 - seg(t, 22.0, 22.25))             # watches the door, then turns to us
+        spec, xy, yaw = HUG, P_CORNER, 60
+        rock = math.sin((t - 22.7) * 2 * math.pi / 1.3) * (1 - seg(t, 25.2, 25.5))
+        look = seg(t, 22.8, 23.1) * (1 - seg(t, 25.25, 25.6))             # watches the door, then turns to us
         spec = add(spec, {('hips', 'x'): 3 * rock, ('head', 'z'): 42 * look, ('neck', 'z'): 10 * look})
-    spec = add(spec, {('chest', 'x'): 1.2 * breath * (0.6 if t < 4.2 else 1.0)})
+    spec = add(spec, {('chest', 'x'): 1.2 * breath * (0.5 if t < 4.8 else 1.0)})
     return spec, xy, yaw, lift, sup, stride
 
 
-BLINKS = [4.6, 6.8, 9.6, 11.3, 16.9, 19.7, 22.6]
+BLINKS = [2.4, 6.3, 8.7, 11.9, 13.5, 16.3, 22.5, 26.0]
 
 
 def face(t):
-    if t < 2.2: n = 'sleep'
-    elif t < 2.5: n = 'surprised'
-    elif t < 5.4: n = 'worried'
-    elif t < 8.4: n = 'neutral'
-    elif t < 9.4: n = 'suspicious'
-    elif t < 12.4: n = 'neutral' if t > 11.0 else 'relieved' if t > 10.4 else 'neutral'
-    elif t < 16.0: n = PARADE[min(int((t - 12.4) / 0.6), len(PARADE) - 1)]
-    elif t < 16.35: n = 'scared'
-    elif t < 21.9: n = 'terrified' if (t < 19.6 or t > 21.0) else 'scared'
+    gaze = None
+    if t < 1.6: n = 'stare'
+    elif t < 4.8: n = 'worried'
+    elif t < 7.8: n = 'scared'
+    elif t < 9.6: n = 'worried'
+    elif t < 10.6: n = 'terrified' if t > 9.75 else 'scared'
+    elif t < 12.4: n = 'suspicious'
+    elif t < 14.6: n = 'worried'
+    elif t < 18.6:
+        n, mode = PARADE[min(int((t - 14.6) / 0.8), 4)]
+        if mode == 'dart': gaze = ((-14, 0), (14, 0), (0, 0))[int((t - 15.4) / 0.27) % 3]
+    elif t < 18.9: n = 'surprised'
+    elif t < 21.7: n = 'terrified'
+    elif t < 25.6: n = 'scared'
     else: n = 'stare'
-    blink = any(abs(t - b) < 0.09 for b in BLINKS) and n not in ('sleep',)
-    return n, blink
+    blink = any(abs(t - b) < 0.09 for b in BLINKS)
+    return n, blink, gaze
+
+
+def shiver(t): return 2.0 if any(a <= t < b for a, b in SHIVER) else 0.0
 
 
 # ------------------------------------------------------------------ camera shots (stop-motion cuts)
+CUTS = (5.6, 14.6, 19.2, 21.7, 24.0, 25.0)
 cam = camera((0, -0.3, 0.09), (0, 0, 0.06), lens=35, fstop=5.6)
 cam.data.clip_start = 0.005
 
@@ -313,59 +373,61 @@ def head_pt():
 
 
 def shot(t, hp, root, cx):
-    """loc, target, lens, focus point, f-stop"""
-    if t < 6.6:
-        u = seg(t, 4.3, 6.4)
-        tgt = Vector((-0.17, 0.11, 0.05)).lerp(hp + Vector((0, 0, -0.025)), u)
-        return Vector((-0.13, -0.17, 0.08)).lerp(Vector((-0.12, -0.22, 0.085)), u), tgt, 38 - 4 * u, hp, 5.6
-    if t < 12.4:
-        tgt = Vector((cx, root.y + 0.02, 0.06)) if t < 10.9 else Vector((cx, root.y, 0.06)).lerp(hp + Vector((0, 0, -0.02)), seg(t, 10.9, 12.2))
-        return Vector((cx + 0.02, -0.27, 0.088)), tgt, 32, hp, 5.6
-    if t < 16.6:
-        push = seg(t, 12.4, 16.0)
-        return hp + Vector((0.012, -0.17, 0.003)), hp + Vector((0, 0, -0.006)), 58 + 12 * push, hp, 11.0
-    if t < 19.4:
+    if t < 5.6:                     # low by the bed
+        u = seg(t, 3.0, 5.0)
+        return Vector((-0.13, -0.16, 0.07)), Vector((-0.17, 0.11, 0.05)).lerp(hp + Vector((0, 0, -0.02)), u), 40, hp, 5.6
+    if t < 14.6:                    # follows her across the room, low
+        tgt = Vector((cx, root.y + 0.02, 0.055)) if t < 12.9 else Vector((cx, root.y, 0.055)).lerp(hp + Vector((0, 0, -0.02)), seg(t, 12.9, 14.0))
+        return Vector((cx + 0.03, -0.26, 0.07)), tgt, 32, hp, 5.6
+    if t < 19.2:                    # close: her face on the chair
+        return hp + Vector((0.01, -0.16, 0.002)), hp + Vector((0, 0, -0.008)), 55 + 12 * seg(t, 14.6, 18.6), hp, 11.0
+    if t < 21.7:                    # wide: she runs
         return Vector((cx, -0.33, 0.1)), Vector((cx, 0.05, 0.05)), 30, hp, 6.0
-    if t < 21.0:
-        return Vector((0.0, -0.01, 0.085)), hp + Vector((0, 0, -0.02)), 40, hp, 5.6
-    if t < 21.9:
+    if t < 24.0:                    # the bed, from the door side
+        return Vector((0.0, -0.01, 0.085)), hp + Vector((0, 0, -0.02)), 38, hp, 5.6
+    if t < 25.0:                    # the doorway
         ep = Vector((d0 + 0.022, WY + 0.09, 0.112))
-        return Vector((0.16, -0.05, 0.085)).lerp(Vector((0.175, -0.01, 0.09)), seg(t, 21.0, 21.9)), ep, 50, ep, 4.0
+        return Vector((0.16, -0.05, 0.085)).lerp(Vector((0.175, -0.01, 0.09)), seg(t, 24.0, 25.0)), ep, 50, ep, 4.0
     d = Vector((math.sin(math.radians(60)), -math.cos(math.radians(60)), 0))
-    return hp + d * 0.17 + Vector((0, 0, 0.004)), hp + Vector((0, 0, -0.006)), 62, hp, 11.0
+    return hp + d * 0.16 + Vector((0, 0, 0.004)), hp + Vector((0, 0, -0.008)), 60 + 6 * seg(t, 25.0, 26.5), hp, 11.0
 
 
 # ------------------------------------------------------------------ animate
+shade_em = SHADE.node_tree.nodes['Emission'].inputs[1]
 boil = Boil(5, amp=0.00018, rot=0.004)
 chat = random.Random(7)
 phase, prev_xy, cx, last_sid = 0.0, None, None, -1
 for f in range(1, F + 1):
     t = (f - 1) / FPS
-    spec0, xy, yaw, lift, sup, stride = beat(t, phase)
+    _, xy, _, _, _, stride = beat(t, phase)
     if prev_xy is not None: phase += math.dist(xy, prev_xy) / stride
     prev_xy = xy
     spec, xy, yaw, lift, sup, stride = beat(t, phase)
     spec = add(spec, {(b, a): chat.uniform(-ST.CHATTER, ST.CHATTER) for b in ST.CHATTER_BONES for a in ('x', 'z')})
+    sv = shiver(t)
+    if sv: spec = add(spec, {(b, a): chat.uniform(-sv, sv) for b in ('chest', 'neck', 'head', 'upper_arm.L', 'upper_arm.R') for a in ('x', 'z')})
     h.place(loc=(xy[0], xy[1], 0), yaw=math.radians(yaw)); h.pose(spec); settle(sup, lift)
     j, je = boil.v(), boil.e()
     h.root.location += j; h.root.rotation_euler = (je.x, je.y, h.yaw + je.z)
-    n, bl = face(t)
-    h.expr(n, blink=bl)
+    n, bl, gz = face(t)
+    h.expr(n, blink=bl, gaze=gz)
     h.key(f)
 
-    # set animation: the door creaks open, then wider; the hall light; eyes in the dark
-    ang = -24 * seg(t, 16.0, 16.5) - 34 * seg(t, 19.8, 21.0)
+    # the set acts too: door ajar from the first frame, a creak, then banging open; the lamp stutters and dies
+    ang = -9 - 8 * seg(t, 9.6, 9.9) - 30 * seg(t, 18.85, 18.95) - 12 * seg(t, 23.2, 24.2)
     hinge.rotation_euler = (0, 0, math.radians(ang)); key(hinge, f, rot=tuple(hinge.rotation_euler))
-    door_l.data.energy = 0.25 * seg(t, 16.0, 16.5) + 0.25 * seg(t, 19.8, 21.0); door_l.data.keyframe_insert('energy', frame=f)
-    show = 1.0 if t >= 21.15 else 1e-4
-    blink_e = 0.15 if abs(t - 21.6) < 0.06 else 1.0
+    door_l.data.energy = 0.08 + 0.05 * seg(t, 9.6, 9.9) + 0.25 * seg(t, 18.85, 18.95); door_l.data.keyframe_insert('energy', frame=f)
+    show = 1.0 if t >= 24.2 else 1e-4
+    blink_e = 0.15 if abs(t - 24.6) < 0.06 else 1.0
     for e in eyes: e.scale = (show, show * 0.5, show * 0.75 * blink_e); key(e, f, scale=tuple(e.scale))
-    lamp.data.energy = 0.6 * (1 + boil.r.uniform(-0.03, 0.03)); lamp.data.keyframe_insert('energy', frame=f)
-    key_l.data.energy = 3.2 * (1 + boil.r.uniform(-0.012, 0.012)); key_l.data.keyframe_insert('energy', frame=f)
+    lit = 0.0 if (18.6 <= t < 18.7 or 18.78 <= t < 18.86 or t >= 23.4) else 1.0
+    lamp.data.energy = 0.6 * lit * (1 + boil.r.uniform(-0.03, 0.03)); lamp.data.keyframe_insert('energy', frame=f)
+    shade_em.default_value = 3.0 * lit + 0.05; shade_em.keyframe_insert('default_value', frame=f)
+    key_l.data.energy = 3.2 * (1 + boil.r.uniform(-0.012, 0.012)) * (0.8 if t >= 23.4 else 1.0); key_l.data.keyframe_insert('energy', frame=f)
 
     bpy.context.view_layer.update()
     hp = head_pt(); root = h.root.location.copy()
-    sid = sum(t >= c for c in (6.6, 12.4, 16.6, 19.4, 21.0, 21.9))       # which shot: snap the follow on each cut
+    sid = sum(t >= c for c in CUTS)
     cx = root.x if (cx is None or sid != last_sid) else cx + (root.x - cx) * 0.35; last_sid = sid
     loc, tgt, lens, fp, fs = shot(t, hp, root, cx)
     cam.location = loc; look_at(cam, tgt); key(cam, f, loc=tuple(cam.location), rot=tuple(cam.rotation_euler))
