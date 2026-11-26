@@ -418,3 +418,31 @@ The good version names a camera behavior and forbids the rest, gives one primary
 - If a style lens was named, would a reader be able to tell which one from the output alone?
 - Does the output stay clear of any specific shot, line, character, or plot beat from a real film?
 - Is the output proportional to what was asked?
+
+## Using it for Haru the Unfortunate (YTB/horror/blender)
+
+Our films are not AI video: every shot is a real camera in a Blender set, so Steps 8–10 (keyframe and video
+prompts, model adapters) are skipped. Run the rest, and translate the shot list into our code like this.
+
+- **Channel rules win over every playbook.** Haru is always the lead. Wordless reels 10–20 s, narrated 35–50 s.
+  The first second must already show something wrong (this is the vertical "hook", paid in picture, no text hook).
+  Captions, when there are any, are white. Sound quiet and natural, about -18 LUFS. Normal houses and rooms, no
+  random props. The script goes to the user for approval before anything is built.
+- **Format × genre.** Horror delivered vertically, as worked in `genre-playbooks.md`: 9:16 (1080x1920), face in the
+  upper-middle third, top 12% and bottom 20% kept clear, ASL floor 0.7 s, horror build ASL 3–8 s, one burst at the end.
+- **Scale 1:10.** Haru is 12.6 cm tall, one storey is 0.26 m, the village lane is 0.42 m wide. Convert every real
+  distance from a shot plan by /10 (a camera "2 m behind her" sits at 0.2).
+- **Lenses.** Our cameras use a 36 mm sensor with auto fit, so in a vertical frame the focal length reads as a
+  full-frame lens on the long (vertical) side: 20 mm ~ 84° vfov, 24 mm ~ 74°, 35 mm ~ 54°, 50 mm ~ 40°. The horror
+  bias of 24–35 mm carries over unchanged. Keep f-stop high (8) or the 1:10 scale gives toy-like blur, unless the
+  blur is the point.
+- **Where the shots live.** House: `library/sets/home/shots.py` (one setup per room, moves 'push' / 'crane' /
+  'locked'). Village: camera marks in `library/sets/village/village.py` (`K.mark`) and the street setups in
+  `scenes/village_walk.py`. New setups go in the scene script with `K.mark(name, location, target, lens)`.
+- **Shot list → code.** Each row becomes a time range in the scene's frame loop (12 fps, held on twos): camera
+  location + aim + lens keyed per frame, a cut = a jump in location on one frame. Pushes ease over the row's
+  duration and tighten 15–25%. Never let the frame show past the edge of the set (the void beside the house, the
+  end of the road, above the haze).
+- **Prove the framing before the full render.** Render the start, middle and end frame of every row with
+  `--stills a,b,c --res 540 960 --samples 16`, tile them into a contact sheet, check that nothing blocks Haru
+  (lamps, cars, door jambs, curtains) and that adjacent shots clear the cut geometry, then render the film.
