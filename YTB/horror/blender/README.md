@@ -33,6 +33,15 @@ links when you need detail.
   a clear ending that leaves one unspoken question, and a loop (last frame cuts back to the first).
 - **Length (new, from the research below): narrated reels 35 to 50 s, wordless reels 10 to 20 s.** The old rule "2:00 to 2:59" in HANDOFF.md is outdated.
 - **The first second must show something wrong** (see section 9): bright, readable, the scary thing big in frame, hook text from frame 0.
+- **Opening rules (Nov 26, from the Studio data in section 9, test 2):**
+  - Frame 0 is bright and readable: Haru's face or the wrong thing clearly lit. Never open dark, never fade in from black.
+  - **Every reel, wordless ones too, has one white hook line on screen from frame 0** that sets up the premise
+    ("Every door on the street was open."). It stays about 2 s.
+  - A clear sound inside the first 0.5 s (a knock, a creak, a voice), then it may go quiet.
+  - Hard cap 50 s. No more 1:30 to 3:00 Shorts.
+  - The last frame loops back into the first.
+  - After 48 h check "Stayed to watch" in Studio: under 60% means the opening failed; the target is 65 to 70% or more.
+  - No paid promotion: ad views skip the Shorts feed test and blur the numbers.
 - Captions white, short sentence-safe chunks; other speakers in pink italic. Loudness -14 LUFS (two-pass loudnorm).
 - Renders happen on the user's PC (RTX 5090). Final mp4s are not committed (`*.mp4` is gitignored); raw renders are pushed with `git add -f`.
 
@@ -137,6 +146,14 @@ From `YTB/horror/research/COMPETITORS.md` (thelovelyhorrorshow 10M, LIGHTS ARE O
 **Test 1, Don't Turn Around (wordless, 12 s)**: 1,000 views in 84 minutes (460 above our usual), but only **25.9% stayed to watch**
 (74.1% swiped away), so YouTube stopped pushing it. Cause: the first frame was a calm grey wide shot; the scary part came at 4 s.
 Lesson: **something wrong on screen in the first second.**
+
+**Test 2, the whole channel (Studio, lifetime, Nov 26)**: almost every Short stops at 0.9k to 1.5k views. Channel stayed to watch
+is 51.4%; per Short it runs 28% to 64%, and none reached about 70%, so none passed the first feed test. The one "28k" Short
+(Perfect Life) got 26.9k of those views from YouTube ads (20.2k skippable, 6.7k Shorts ads); organically it also stopped near 1.3k.
+The wordless reels were looped more than once by those who stayed (102% to 142% viewed) but lost the most at the swipe
+(Don't Turn Around 28.6%, Something Came In 36.7%, Lights Off 38.2%). The best openings stated the premise at once
+(Baby Monitor Singing 64.2%, Mum Calls 63.8%, Three Kids 63.2%). Lesson: **the content holds, the first frame does not; say the premise
+on screen at frame 0, even in wordless reels.**
 
 ## 10. In progress when this session ended
 
