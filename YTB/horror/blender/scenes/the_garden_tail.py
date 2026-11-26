@@ -290,6 +290,8 @@ def face(t):
 # ------------------------------------------------------------------ cameras
 cam = camera((0, -0.3, 0.09), (0, 0, 0.06), lens=30, fstop=8.0)
 cam.data.clip_start = 0.002
+rake = HC.ClayRake()                                                # the clay key on her close-up, from the bedside lamp's side
+LAMP_SRC = Vector((-0.038, WY - 0.026, 0.069))
 
 
 def head_pt(): return h.P['head'].matrix_world @ Vector((0, -0.012, 0.009))
@@ -347,6 +349,7 @@ for f in range(1, F + 1):
     bpy.context.view_layer.update()
     hp = head_pt()
     loc, tgt, lens, fp, fs = shot(t, hp)
+    rake.aim(f, hp, loc, LAMP_SRC, on=t >= 13.4)
     cam.location = loc; look_at(cam, tgt); key(cam, f, loc=tuple(cam.location), rot=tuple(cam.rotation_euler))
     cam.data.lens = lens; cam.data.keyframe_insert('lens', frame=f)
     cam.data.dof.focus_distance = (loc - fp).length; cam.data.dof.keyframe_insert('focus_distance', frame=f)

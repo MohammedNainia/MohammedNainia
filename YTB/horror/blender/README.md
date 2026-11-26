@@ -42,6 +42,10 @@ links when you need detail.
   - The last frame loops back into the first.
   - After 48 h check "Stayed to watch" in Studio: under 60% means the opening failed; the target is 65 to 70% or more.
   - No paid promotion: ad views skip the Shorts feed test and blur the numbers.
+- **The clay key (Nov 26):** on every close-up and medium of Haru, add `HC.ClayRake()` and call `rake.aim(f, head, cam, src, on)`
+  each frame: a small warm light that skims across her face from the side of a real source (lamp, candle, window, phone),
+  0.22 W at 6 cm. Soft head-on light makes her clay look like a smooth ball; raking light shows the dents, thumbprints and
+  hair grooves. Wide and "something is wrong" shots stay dark. 0.5 W is too much (greys her hair, washes the hoodie).
 - Captions white, short sentence-safe chunks; other speakers in pink italic. Loudness -14 LUFS (two-pass loudnorm).
 - Renders happen on the user's PC (RTX 5090). Final mp4s are not committed (`*.mp4` is gitignored); raw renders are pushed with `git add -f`.
 

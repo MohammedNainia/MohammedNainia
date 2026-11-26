@@ -428,7 +428,9 @@ prompts, model adapters) are skipped. Run the rest, and translate the shot list 
   The first second must already show something wrong, bright and readable, never a dark open or a fade from black,
   **plus one white hook line on screen from frame 0, wordless reels included**, and a clear sound inside 0.5 s.
   Hard cap 50 s; the last frame loops into the first. Target "Stayed to watch" 65 to 70%+ (see
-  `YTB/horror/blender/README.md` section 3 and section 9, test 2). Captions are white. Sound quiet and natural, about -18 LUFS. Normal houses and rooms, no
+  `YTB/horror/blender/README.md` section 3 and section 9, test 2). Captions are white.
+  Every close-up and medium of Haru gets the clay key (`HC.ClayRake`, motivated by a real source on that side),
+  or her plasticine reads as a smooth ball. Sound quiet and natural, about -18 LUFS. Normal houses and rooms, no
   random props. The script goes to the user for approval before anything is built.
 - **Format × genre.** Horror delivered vertically, as worked in `genre-playbooks.md`: 9:16 (1080x1920), face in the
   upper-middle third, top 12% and bottom 20% kept clear, ASL floor 0.7 s, horror build ASL 3–8 s, one burst at the end.

@@ -215,3 +215,30 @@ class HaruClay(HP.Haru):
         HP.Haru.key(self, f)
         for hs in self.eyes.values():
             for h in hs: h.keyframe_insert('delta_location', frame=f)
+
+
+class ClayRake:
+    """The clay key: one small warm light that skims across Haru's face from the side, so the dents, thumbprints and
+    hair grooves throw tiny shadows and she reads as plasticine (soft head-on light makes her look like a smooth ball).
+    Use it on close-ups and mediums only; wide and "something is wrong" shots stay dark. It is always motivated: it comes
+    from the side where a real source is (a lamp, a candle, a window, a phone), never from nowhere.
+        rake = HC.ClayRake()                       # once, after the set is built
+        rake.aim(f, head, cam.location, src, on)   # every frame: head = her head point, src = the motivating source
+    energy 0.22 W at 6 cm, 1.8 cm above her head point, is the channel default: texture shows, her hair stays black
+    and her face keeps a dark side (0.5 W already greys the hair and washes the hoodie)."""
+
+    def __init__(self, energy=0.22, color=(1.0, 0.7, 0.42), size=0.012, dist=0.06, lift=0.018):
+        self.energy, self.dist, self.lift = energy, dist, lift
+        self.ob = C.area_light('clay_rake', (0, 0, 0), (0, 0, -1), 0.0, size, color)
+
+    def aim(self, f, head, cam_loc, src, on=True):
+        head, cam_loc, src = Vector(head), Vector(cam_loc), Vector(src)
+        view = (head - cam_loc).normalized()
+        side = src - head; side -= view * side.dot(view)              # only the sideways part: it must rake, not face her
+        if side.length < 1e-6: side = view.cross(Vector((0, 0, 1)))
+        side.normalize()
+        L = self.ob; L.location = head + side * self.dist + Vector((0, 0, self.lift)) - view * 0.012
+        C.look_at(L, head)
+        L.data.energy = self.energy if on else 0.0
+        L.keyframe_insert('location', frame=f); L.keyframe_insert('rotation_euler', frame=f)
+        L.data.keyframe_insert('energy', frame=f)
