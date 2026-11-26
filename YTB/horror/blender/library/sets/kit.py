@@ -345,6 +345,9 @@ def attach(child, par):
 
 def block(name, x0, x1, y0, y1, z0, z1, mat, bevel=0.0008, coll=False, tilt=0.0):
     ob = rounded_box(name, (x1 - x0, y1 - y0, z1 - z0), ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), bevel=bevel, mat=mat)
+    if bevel <= 0:                                                      # a true flat box (no bevel, no subdivision blob)
+        ob.modifiers.clear()
+        for p in ob.data.polygons: p.use_smooth = False
     if tilt: ob.rotation_euler = (RNG.uniform(-tilt, tilt), RNG.uniform(-tilt, tilt), RNG.uniform(-tilt, tilt))
     _to(ob)
     if coll: HP.colliders().objects.link(ob)
