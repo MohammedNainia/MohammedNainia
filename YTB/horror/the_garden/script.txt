@@ -1,0 +1,31 @@
+Haru #6 "The Sunflower in Our Garden" (wordless, about 13.5 s, 9:16, Blender clay)
+Follows "The Gathering". Set: Haru's bedroom upstairs (library/sets/home/upstairs.py, her bed under the window),
+plus the back garden outside the window. New opening rules: bright frame 0, white hook line from frame 0,
+a clear sound inside 0.5 s, loop back to frame 0.
+
+HOOK LINE (white, frame 0 to 2.2 s):
+  "The sunflower in our garden was facing my window."
+
+0.0  FRAME 0. Inside the bedroom, warm bedside lamp on. Haru sits up in bed, back to the camera, left of frame.
+     The window fills the right half: the sunflower's head is pressed close outside the glass, lit warm by her
+     lamp, slanted void eyes, thin mouth. Bright and readable, the face big in frame.
+0.2  SOUND: a soft "tok". The head taps the glass once. Crickets under everything.
+1.0  Haru climbs out of bed, never taking her eyes off it. (Medium, from the bed's foot, 28 mm.)
+3.0  Close-up of her hands on the curtains. A short breath.
+4.0  She yanks the curtains shut. SOUND: curtain swish, then quiet.
+5.0  WIDE from behind Haru: closed curtains lit from behind by the garden streetlamp. One big round shadow
+     with petals sits on the curtain. Hold.
+6.5  The shadow head tilts slowly sideways, like a dog listening. SOUND: a dry creak of the stem.
+8.5  Haru takes one step back.
+9.5  Two more shadows rise slowly beside it from below the sill: people, head and shoulders, each with a small
+     candle glow. The villagers from The Gathering. SOUND: the far hummed chant comes back, very faint.
+11.5 All three shadows tilt their heads at the same moment. The hum stops dead.
+12.3 Close-up: Haru turns toward the camera, terrified (wide eyes).
+13.5 HARD CUT to frame 0: the curtains are open again and the flower is at the glass. The loop.
+
+NOTES
+- No narration and no captions beyond the hook line.
+- Sound: quiet and natural, about -18 LUFS. A tap, crickets, a swish, a creak, a breath, a faint hum.
+- New set work: a back garden under the bedroom window with a giant sunflower (re-using the Gathering flower
+  head) tall enough to reach the window, a streetlamp behind it for the shadows, and working curtains.
+- Avoids "it gets closer every time": the flower never moves closer; the scare is the others joining it.
