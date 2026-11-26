@@ -37,7 +37,7 @@ floor = WK.Floor()
 # the camera crew (home/shots.py): one setup per room, inside it, panning after her; a cut when she changes room
 import shots as SH
 HOLD = 4                                           # a new room must hold for this many frames before the cut
-lift = K.area_light('cam_fill', (0, 0, 0.2), (0, 0, 0.1), 0.4, 0.5, (0.6, 0.68, 0.95)); K._to(lift, 'Lights')
+lift = K.point_light('cam_fill', (0, 0, 0.2), 0.12, radius=0.03, color=(0.6, 0.68, 0.95)); K._to(lift, 'Lights')   # soft, all round: no horizon line
 cam = camera((0.5, -0.6, 0.15), (0.5, 0.3, 0.1), lens=18, fstop=11.0); cam.data.clip_start = 0.004
 boil = Boil(5, amp=0.00012, rot=0.003)
 chat = random.Random(4)

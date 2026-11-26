@@ -18,7 +18,7 @@ ROOMS = [
     ('dining_room', G, (0.0, 0.45, 0.40, 0.80), (0.37, 0.48), 18),
     ('kitchen', G, (0.0, 0.80, 0.40, 1.20), (0.03, 0.83), 18),
     ('hall', G, (0.40, 0.0, 0.60, 0.80), (0.47, 0.025), 20),
-    ('back_stairs', G, (0.40, 0.80, 0.48, 1.20), (0.03, 0.83), 18),          # seen from the kitchen, through its door
+    ('back_stairs', G, (0.40, 0.80, 0.48, 1.20), (0.49, 0.68), 20),          # low in the hall, looking up the flight through the archway
     ('pantry', G, (0.48, 0.80, 0.60, 1.20), (0.47, 0.6), 22),
     ('study', G, (0.60, 0.0, 1.0, 0.45), (0.63, 0.03), 18),
     ('garage', G, (0.60, 0.45, 1.0, 0.80), (0.97, 0.48), 18),
@@ -30,15 +30,14 @@ ROOMS = [
     ('bathroom', U, (0.0, 0.45, 0.40, 0.80), (0.37, 0.48), 18),
     ('guest_bedroom', U, (0.0, 0.80, 0.40, 1.20), (0.37, 0.83), 18),
     ('landing_front', U, (0.40, 0.0, 0.60, 0.50), (0.45, 0.03), 20),
-    ('landing_mid', U, (0.40, 0.50, 0.60, 1.05), (0.55, 0.40), 20),           # up over the main stairwell, looking down the landing
-    ('landing_back', U, (0.40, 1.05, 0.60, 1.20), (0.585, 1.10), 16),         # the far end, clear of the window curtains: she passes it, turns down the stairs
+    ('landing_mid', U, (0.40, 0.50, 0.60, 1.20), (0.55, 0.40), 20),           # up over the main stairwell, looking down the landing
     ('mum_bedroom', U, (0.60, 0.0, 1.0, 0.80), (0.63, 0.03), 18),
     ('bathroom2', U, (0.60, 0.80, 1.0, 1.20), (0.63, 0.83), 18),
 ]
 # on a flight: (rect, z split) -> the shot above the split, the shot below it
 FLIGHTS = [
     ((0.50, 0.12, 0.60, 0.42), G, U, 0.13, 'landing_front', 'hall'),        # main stairs
-    ((0.40, 0.84, 0.48, 1.14), G, U, 0.12, 'landing_back', 'kitchen'),      # back stairs
+    ((0.40, 0.84, 0.48, 1.14), G, U, 0.12, 'back_stairs', 'back_stairs'),   # back stairs: she comes down toward the hall camera
     ((0.88, 0.84, 0.98, 1.14), B, G, -0.13, 'laundry', 'basement'),         # basement stairs
 ]
 BY_NAME = {r[0]: r for r in ROOMS}
@@ -46,12 +45,12 @@ BY_NAME = {r[0]: r for r in ROOMS}
 
 # how each camera moves while she is in its room (the push-in, crane and dolly of github.com/kevinbadi/blender-skills,
 # slowed down for horror): 'push' creeps toward her, 'crane' rises to look down on her, 'locked' stays still
-MOVES = {'landing_back': 'crane', 'landing_mid': 'push', 'back_stairs': 'locked'}
+MOVES = {'landing_mid': 'push', 'back_stairs': 'crane'}
 
 
 def _shot(name):
     n, lvl, rect, (cx, cy), lens = BY_NAME[name]
-    up = 0.05 if n in ('landing_mid', 'landing_back') else 0.0              # these two hang higher, looking down
+    up = {'landing_mid': 0.05, 'back_stairs': -0.06}.get(n, 0.0)            # high over the stairwell; low looking up the stairs
     return {'name': n, 'loc': (cx, cy, lvl + EYE + up), 'lens': lens, 'move': MOVES.get(n, 'push')}
 
 
