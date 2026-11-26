@@ -110,9 +110,9 @@ def front_door(fh, u, mat, porch_on, h=0.2, w=0.08):
 
 
 # ------------------------------------------------------------------ one house
-def house(name, x0, x1, side, depth, storeys, roof, facade, door_mat, lit, porch_on):
+def house(name, x0, x1, side, depth, storeys, roof, facade, door_mat, lit, porch_on, y_front=None):
     M = K.M; w = x1 - x0; cx = (x0 + x1) / 2
-    y_front = VP.FRONT_N if side == 'N' else VP.FRONT_S
+    y_front = y_front if y_front is not None else (VP.FRONT_N if side == 'N' else VP.FRONT_S)
     h = PR.holder(name, cx, y_front, 0 if side == 'N' else 180)        # local: front at y 0 facing -y, house toward +y
     E = storeys * U
     PR.part(h, name + '_body', -w / 2, w / 2, 0.0, depth, 0.0, E, facade, bevel=0.002)
@@ -137,7 +137,8 @@ def house(name, x0, x1, side, depth, storeys, roof, facade, door_mat, lit, porch
     PR.part(h, name + '_chimney', ch[0] - 0.03, ch[0] + 0.03, ch[1] - 0.03, ch[1] + 0.03, E, R + 0.08, 'brick_wall', bevel=0.002)
     # the front: a door and windows on each storey; side walls get one or two dark windows
     fh = face_holder(h, name + '_front', (0, 0, 0), 0)
-    du = VP.door_x([r[0] for r in VP.HOUSES].index(name))[1]
+    names = [r[0] for r in VP.HOUSES]
+    du = VP.door_x(names.index(name))[1] if name in names else 0.0
     front_door(fh, du, door_mat, porch_on)
     li = list(lit) + [0] * 8; k = 0
     for s in range(storeys):
@@ -267,7 +268,7 @@ def tree(x, y, s=1.0, seed=0):
 
 
 def street_lamp(x, side):
-    M = K.M; y = 0.63 if side == 'N' else -0.03; d = -1 if side == 'N' else 1
+    M = K.M; y = VP.SIDEWALK_N[0] + 0.03 if side == 'N' else VP.SIDEWALK_S[1] - 0.03; d = -1 if side == 'N' else 1
     K._to(K.cylinder('lamp_post', 0.0045, 0.42, (x, y, 0.21), mat=M['iron']))
     K.block('lamp_arm', x - 0.003, x + 0.003, min(y, y + d * 0.07), max(y, y + d * 0.07), 0.415, 0.421, M['iron'], bevel=0.001)
     K.block('lamp_head', x - 0.014, x + 0.014, y + d * 0.07 - 0.02, y + d * 0.07 + 0.02, 0.405, 0.418, M['iron'], bevel=0.003)
@@ -309,41 +310,135 @@ def street():
     K.block('centre_line', X0, X1, 0.297, 0.303, VP.ROAD_Z, VP.ROAD_Z + 0.0004, K.painted('road_paint', (0.32, 0.3, 0.22), rough=0.8), bevel=0)
 
 
+# ------------------------------------------------------------------ street life
+def car(x, y, yaw, colour, z=VP.ROAD_Z):
+    """an ordinary small parked car: body, cabin with dark glass, four wheels, lights off"""
+    M = K.M; h = PR.holder('parked_car', x, y, yaw, z=z)                  # wheels on the road, not the sidewalk level
+    PR.part(h, 'car_body', -0.21, 0.21, -0.085, 0.085, 0.022, 0.07, colour, bevel=0.018)
+    PR.part(h, 'car_cabin', -0.11, 0.08, -0.075, 0.075, 0.066, 0.122, colour, bevel=0.016)
+    for sy in (-1, 1): PR.part(h, 'car_window', -0.1, 0.07, sy * 0.0755 - 0.0012, sy * 0.0755 + 0.0012, 0.078, 0.114, 'glass_dark', bevel=0.004)
+    PR.part(h, 'car_windscreen', 0.074, 0.083, -0.068, 0.068, 0.074, 0.116, 'glass_dark', bevel=0.004)
+    PR.part(h, 'car_rear_window', -0.115, -0.106, -0.068, 0.068, 0.076, 0.114, 'glass_dark', bevel=0.004)
+    for wx in (-0.13, 0.13):
+        for sy in (-1, 1):
+            wh = K.cylinder('car_wheel', 0.03, 0.022, (0, 0, 0), rot=(math.pi / 2, 0, 0), mat=M['iron'], verts=24); K._to(wh); K.attach(wh, h)
+            wh.location = (wx, sy * 0.078, 0.03); wh.rotation_euler = (math.pi / 2, 0, 0)
+    for sy in (-1, 1):
+        PR.part(h, 'car_headlight', 0.205, 0.212, sy * 0.06 - 0.012, sy * 0.06 + 0.012, 0.048, 0.06, 'bulb_off', bevel=0.003)
+        PR.part(h, 'car_taillight', -0.212, -0.205, sy * 0.065 - 0.01, sy * 0.065 + 0.01, 0.05, 0.06, 'red', bevel=0.002)
+    return h
+
+
+def wheelie_bin(x, y, mat):
+    K.block('bin', x - 0.022, x + 0.022, y - 0.024, y + 0.024, 0.0, 0.07, K.M[mat], bevel=0.003)
+    K.block('bin_lid', x - 0.024, x + 0.024, y - 0.026, y + 0.026, 0.07, 0.076, K.M[mat], bevel=0.002)
+
+
+def mailbox(x, y):
+    K._to(K.cylinder('mailbox_post', 0.003, 0.07, (x, y, 0.035), mat=K.M['wood']))
+    K.block('mailbox', x - 0.012, x + 0.012, y - 0.02, y + 0.02, 0.07, 0.092, K.M['iron'], bevel=0.004)
+
+
+def bushes(x0, x1, y, door_x, seed):
+    r = random.Random(seed); x = x0 + 0.04
+    while x < x1 - 0.04:
+        if abs(x - door_x) > 0.08:
+            b = K.sphere('bush', r.uniform(0.022, 0.034), (x, y, 0.018), scale=(1.2, 1, 0.9), mat=K.M['hedge']); K._to(b)
+            K.add_lumps(b, 0.004, size=0.015)
+            if r.random() < 0.4:                                       # a few pale flowers
+                for _ in range(4):
+                    f = K.sphere('flower', 0.0035, (x + r.uniform(-0.02, 0.02), y + r.uniform(-0.015, 0.015), 0.038 + r.uniform(0, 0.008)),
+                                 mat=K.M[r.choice(('flower_pink', 'flower_white'))]); K._to(f)
+        x += r.uniform(0.06, 0.1)
+
+
+def wire(name, a, b, sag=0.03, n=12):
+    cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.0007; cu.bevel_resolution = 1
+    sp = cu.splines.new('POLY'); sp.points.add(n)
+    for i in range(n + 1):
+        u = i / n; p = Vector(a).lerp(Vector(b), u); p.z -= sag * 4 * u * (1 - u)
+        sp.points[i].co = (p.x, p.y, p.z, 1)
+    ob = bpy.data.objects.new(name, cu); ob.data.materials.append(K.M['iron']); K._to(ob); return ob
+
+
+def power_poles(xs, y):
+    M = K.M; tops = []
+    for x in xs:
+        K._to(K.cylinder('power_pole', 0.006, 0.54, (x, y, 0.27), mat=M['bark']))
+        K.block('pole_crossarm', x - 0.003, x + 0.003, y - 0.045, y + 0.045, 0.5, 0.507, M['bark'], bevel=0.001)
+        for dy in (-0.04, 0.0, 0.04): K._to(K.cylinder('insulator', 0.0018, 0.008, (x, y + dy, 0.511), mat=M['porcelain']))
+        tops.append(x)
+    for a, b in zip(tops, tops[1:]):
+        for dy in (-0.04, 0.0, 0.04): wire('power_wire', (a, y + dy, 0.515), (b, y + dy, 0.515), sag=0.035)
+    for x in tops[1::2]:                                               # service wires across the lane to the north houses
+        wire('service_wire', (x, y + 0.04, 0.515), (x + 0.15, VP.FRONT_N + 0.05, 0.47), sag=0.05)
+
+
+def back_row(side, y_front, seed):
+    """a second row of houses behind the street (seen between the front houses and over their roofs)"""
+    r = random.Random(seed); x = -4.9
+    facades = ('brick_wall', 'plaster_cream', 'siding_grey', 'plaster_blue', 'siding_cream')
+    i = 0
+    while x < 4.6:
+        w = r.uniform(0.6, 0.8)
+        house(f'back_{side}_{i}', x, x + w, side, r.uniform(0.7, 0.8), r.choice((1, 2, 2)), r.choice(('side', 'front')),
+              r.choice(facades), 'door_black', tuple(int(r.random() < 0.15) for _ in range(5)), False, y_front=y_front)
+        x += w + r.uniform(0.06, 0.14); i += 1
+
+
 def build():
     materials()
+    M = K.M
+    for name, col in (('car_red', (0.22, 0.04, 0.035)), ('car_grey', (0.18, 0.2, 0.22)), ('car_cream', (0.5, 0.46, 0.36)),
+                      ('car_green', (0.05, 0.12, 0.08)), ('car_blue', (0.06, 0.1, 0.2)), ('bin_green', (0.04, 0.1, 0.05)),
+                      ('bin_black', (0.02, 0.02, 0.022)), ('flower_pink', (0.5, 0.25, 0.3)), ('flower_white', (0.6, 0.6, 0.55))):
+        M[name] = K.painted(name, col, rough=0.35 if name.startswith('car') else 0.7)
     before = set(bpy.data.objects)
     street()
-    for args in VP.HOUSES:
+    for i, args in enumerate(VP.HOUSES):
         house(*args)
         name, x0, x1, side = args[:4]
-        door_u = VP.door_x(VP.HOUSES.index(args))[0]
-        garden(x0 - 0.1, x1 + 0.1, side, door_u, hedge=name in ('north_5', 'south_2', 'south_4'))
-    haru_house(); garden(-0.1, 1.15, 'N', VP.HOME_AT[0] + VP.HOME_DOOR_X)
+        dx = VP.door_x(i)[0]
+        garden(x0 - 0.04, x1 + 0.04, side, dx, hedge=name in VP.HEDGED)
+        fy = VP.door_y(side) + (-0.035 if side == 'N' else 0.035)
+        bushes(x0, x1, fy, dx, seed=i)
+        sw = VP.SIDEWALK_N[1] - 0.026 if side == 'N' else VP.SIDEWALK_S[0] + 0.026
+        if i % 3 != 2:
+            wheelie_bin(dx + (0.075 if i % 2 else -0.075), sw, 'bin_green' if i % 2 else 'bin_black')
+        gy = VP.SIDEWALK_N[1] + 0.03 if side == 'N' else VP.SIDEWALK_S[0] - 0.03
+        mailbox(dx + 0.055, gy)
+    haru_house(); hx = VP.HOME_AT[0] + VP.HOME_DOOR_X
+    garden(-0.04, 1.04, 'N', hx); bushes(0.0, 1.0, VP.FRONT_N - 0.035, hx, seed=99); mailbox(hx + 0.055, VP.SIDEWALK_N[1] + 0.03)
+    wheelie_bin(hx - 0.09, VP.SIDEWALK_N[1] - 0.026, 'bin_green')
     for c in VP.CIVIC:                                                 # the hospital and the police station
-        civic(*c); forecourt(c[1] - 0.05, c[2] + 0.05, c[3], VP.civic_door_x(c[0]))
+        civic(*c); forecourt(c[1] - 0.03, c[2] + 0.03, c[3], VP.civic_door_x(c[0]))
     for x in VP.LAMPS_N: street_lamp(x, 'N')
     for x in VP.LAMPS_S: street_lamp(x, 'S')
-    for i, (tx, ty, s) in enumerate(((4.85, -0.8, 1.1), (5.3, -1.2, 1.25), (5.55, -0.65, 0.95), (-5.6, 1.6, 1.2),
-                                     (1.12, 1.9, 0.9), (-1.72, 2.1, 1.0), (2.55, 2.0, 1.1), (-1.6, -1.9, 1.0))):
+    for x, side, col in VP.CARS:                                       # parked along the curbs
+        car(x, VP.ROAD[3] - 0.1 if side == 'N' else VP.ROAD[1] + 0.1, 0 if side == 'N' else 180, col)
+    power_poles(VP.POLES_S, VP.SIDEWALK_S[0] + 0.012)
+    back_row('N', 2.15, 11); back_row('S', -1.45, 12)
+    for i, (tx, ty, s) in enumerate(((4.7, -0.55, 1.0), (5.05, -0.95, 1.2), (4.55, 1.1, 1.0), (-4.95, 1.2, 1.1), (-4.85, -0.75, 1.05),
+                                     (1.05, 1.95, 0.9), (-1.3, 1.75, 1.0), (2.9, 1.8, 1.1), (-2.5, -1.3, 0.95), (0.55, -1.3, 1.0))):
         tree(tx, ty, s, seed=i)
-    # night: a cold low moon (sun lamp), dark blue sky, a thin haze down the street
+    # night: a cold moon (sun lamp), dark blue sky, a thin haze down the lane
     K.world((0.012, 0.022, 0.06), 0.3)
     sun = bpy.data.lights.new('moon_sun', 'SUN'); sun.energy = 1.0; sun.color = (0.5, 0.62, 1.0); sun.angle = math.radians(1.5)
     so = bpy.data.objects.new('moon_sun', sun); K._to(so, 'Lights'); so.rotation_euler = (math.radians(62), 0, math.radians(-35))
     hz = bpy.data.materials.new('street_haze'); hz.use_nodes = True; hn = hz.node_tree.nodes
     hn.remove(hn['Principled BSDF']); pv = hn.new('ShaderNodeVolumePrincipled')
-    pv.inputs['Density'].default_value = 0.06; pv.inputs['Anisotropy'].default_value = 0.5; pv.inputs['Color'].default_value = (0.75, 0.82, 1.0, 1)
+    pv.inputs['Density'].default_value = 0.08; pv.inputs['Anisotropy'].default_value = 0.5; pv.inputs['Color'].default_value = (0.75, 0.82, 1.0, 1)
     hz.node_tree.links.new(pv.outputs[0], hn['Material Output'].inputs['Volume'])
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0.5, 0.3, 0.6)); b = bpy.context.object; b.name = 'haze'
-    b.location.x = 0.0; b.scale = (12.0, 5.0, 1.25); b.data.materials.append(hz); K._to(b)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0.0, 0.2, 0.6)); b = bpy.context.object; b.name = 'haze'
+    b.scale = (11.0, 4.5, 1.25); b.data.materials.append(hz); K._to(b)
     bpy.context.scene.cycles.volume_bounces = 0; bpy.context.scene.cycles.volume_step_rate = 4.0
     # camera marks
-    K.mark('street_overview', (-3.6, 0.25, 0.55), (0.9, 0.55, 0.12), lens=24)
-    K.mark('street_level', (-2.9, 0.12, 0.09), (1.5, 0.55, 0.12), lens=24)
-    K.mark('haru_house', (0.5, -0.25, 0.12), (0.5, 1.08, 0.3), lens=22)
-    K.mark('sidewalk', (1.7, 0.72, 0.1), (-1.5, 0.66, 0.08), lens=24)
-    K.mark('hospital', (-3.75, -0.32, 0.12), (-4.18, 1.08, 0.36), lens=22)
-    K.mark('police', (3.45, 0.95, 0.12), (3.78, -0.5, 0.28), lens=22)
+    K.mark('street_overview', (-4.6, 0.2, 0.42), (0.5, 0.35, 0.14), lens=26)
+    K.mark('street_level', (-3.3, 0.06, 0.075), (1.0, 0.4, 0.13), lens=24)
+    K.mark('haru_house', (0.62, -0.07, 0.11), (0.5, 0.72, 0.3), lens=20)
+    K.mark('sidewalk', (1.5, 0.49, 0.09), (-1.5, 0.5, 0.09), lens=24)
+    K.mark('hospital', (-3.6, -0.05, 0.11), (-3.9, 0.72, 0.28), lens=22)
+    K.mark('police', (3.25, 0.4, 0.1), (3.02, -0.3, 0.24), lens=22)
     return [o for o in bpy.data.objects if o not in before]
 
 

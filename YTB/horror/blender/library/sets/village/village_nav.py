@@ -10,8 +10,8 @@ import heapq
 from mathutils import Vector
 import village_plan as VP
 
-WALK_N, WALK_S = 0.705, -0.10                # the middle of each sidewalk (clear of the lamp posts at the curb)
-CROSS_X = (-3.75, -2.3, 0.62, 2.2, 3.55)     # where she crosses the road
+WALK_N, WALK_S = 0.49, -0.07                 # the middle of each sidewalk (clear of the lamps, bins and poles)
+CROSS_X = VP.CROSS_X                         # where she crosses the road (clear of the parked cars)
 P, EDGES = {}, []
 
 
@@ -31,7 +31,7 @@ for i, h in enumerate(VP.HOUSES):
     x, _ = VP.door_x(i); gates[side].append((name, x))
 gates['N'].append(('haru', VP.HOME_AT[0] + VP.HOME_DOOR_X))
 for c in VP.CIVIC: gates[c[3]].append((c[0], VP.civic_door_x(c[0])))          # the hospital, the police station
-ends = (-5.4, 5.4)
+ends = (-4.9, 4.9)
 for side in ('N', 'S'):
     xs = [x for _, x in gates[side]] + list(CROSS_X) + list(ends)
     at = _sidewalk(side, xs)
