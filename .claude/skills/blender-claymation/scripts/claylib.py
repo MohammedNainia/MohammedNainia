@@ -27,6 +27,8 @@ def cli(name):
         a = argv[i].lstrip('-')
         if a == 'still':
             o['still'] = int(argv[i + 1]); i += 2
+        elif a == 'stills':                       # --stills 13,40,61: several frames from one scene build
+            o['stills'] = [int(v) for v in argv[i + 1].split(',') if v]; i += 2
         elif a == 'range':
             o['range'] = (int(argv[i + 1]), int(argv[i + 2])); i += 3
         elif a == 'res':
@@ -47,6 +49,12 @@ def run(sc, o):
     os.makedirs(o['out'], exist_ok=True)
     if o['blend']:
         bpy.ops.wm.save_as_mainfile(filepath=o['blend'])
+    for fr in o.get('stills') or []:
+        sc.frame_set(fr)
+        sc.render.filepath = os.path.join(o['out'], 'still_%04d.png' % fr)
+        bpy.ops.render.render(write_still=True)
+        print('STILL', sc.render.filepath, flush=True)
+    if o.get('stills'): return
     if o['still'] is not None:
         sc.frame_set(o['still'])
         sc.render.filepath = os.path.join(o['out'], 'still_%04d.png' % o['still'])
