@@ -1,7 +1,6 @@
 """Walking test in the big home (library/sets/home): Haru walks a route from the route map (home/nav.py), for example
 from her bed, out of her room, along the landing, down the main stairs and through the hall into the kitchen.
-A high camera follows her from above and in front; the floors above her (and her own floor's ceiling) are hidden,
-so she is always seen. Proves the route map, the walker (puppets/walker.py) and the feet on floors and treads.
+Filmed like a movie: every room has its own camera (home/shots.py), set inside the room near its front corner andlooking deeper in; it pans after her and cuts to the next room's camera when she walks through a door.
 
     blender -b -P scenes/home_walk.py -- [--still F] [--range A B] [--res 1080 1920] [--samples 64] [--out DIR]
         [--from haru_bed] [--to kitchen] [--via a,b]
@@ -34,25 +33,15 @@ END = w.t_end + 1.2
 F = int(END * FPS); sc.frame_start, sc.frame_end = 1, F
 floor = WK.Floor()
 
-# what to hide on each floor she is on: every floor above, and this floor's ceiling; the attic and roof always
-ORDER = ['basement', 'ground', 'upstairs', 'attic']
-hide_sets = {}
-for i, fl in enumerate(ORDER[:3]):
-    s = [o for f2 in ORDER[i + 1:] for o in floors[f2]]
-    for o in floors[fl]:                                                 # the ceiling and what hangs from it (hatch, cords)
-        if o.type != 'MESH': continue
-        zlo = min((o.matrix_world @ Vector(c)).z for c in o.bound_box)
-        if o.name.startswith('ceiling') or zlo > PL.LEVEL[fl] + 0.17: s.append(o)
-    hide_sets[fl] = s
-everything = {o for f2 in ORDER for o in floors[f2]}
-def on_floor(z):
-    return 'upstairs' if z > PL.UP * 0.5 else 'ground' if z > -PL.UP * 0.5 else 'basement'
 
-lift = K.area_light('follow_fill', (0, 0, 0.6), (0, 0, 0), 1.2, 0.3, (0.6, 0.68, 0.95)); K._to(lift, 'Lights')
-cam = camera((0, -0.4, 0.6), (0, 0, 0), lens=30, fstop=11.0); cam.data.clip_start = 0.005
+# the camera crew (home/shots.py): one setup per room, inside it, panning after her; a cut when she changes room
+import shots as SH
+HOLD = 4                                           # a new room must hold for this many frames before the cut
+lift = K.area_light('cam_fill', (0, 0, 0.2), (0, 0, 0.1), 0.4, 0.5, (0.6, 0.68, 0.95)); K._to(lift, 'Lights')
+cam = camera((0.5, -0.6, 0.15), (0.5, 0.3, 0.1), lens=18, fstop=11.0); cam.data.clip_start = 0.004
 boil = Boil(5, amp=0.00012, rot=0.003)
 chat = random.Random(4)
-cs = None; last = None
+cur = None; pend = None; pend_n = 0; aim = None; cuts = []
 for f in range(1, F + 1):
     t = (f - 1) / FPS
     W, xy, zh, yaw = w.at(t)
@@ -66,18 +55,21 @@ for f in range(1, F + 1):
     h.root.location += j; h.root.rotation_euler = (je.x, je.y, yaw + je.z)
     h.expr('neutral', blink=any(abs(t - b) < 0.09 for b in (1.5, 4.8, 8.2, 11.6, 15.0, 18.4, 21.8)))
     h.key(f)
-    fl = on_floor(zh)
-    if fl != last:                                                       # show her floor, hide what is over her
-        hid = set(hide_sets[fl])
-        for o in everything:
-            o.hide_render = o in hid; o.keyframe_insert('hide_render', frame=f)
-        last = fl
-    p = Vector((xy.x, xy.y, z))
-    cs = p.copy() if cs is None else cs.lerp(p, 0.15)
-    loc = Vector((cs.x, cs.y - 0.22, cs.z + 0.55)); tgt = Vector((cs.x, cs.y + 0.01, cs.z + 0.03))
-    cam.location = loc; look_at(cam, tgt); key(cam, f, loc=tuple(cam.location), rot=tuple(cam.rotation_euler))
-    cam.data.dof.use_dof = True; cam.data.dof.focus_distance = (loc - tgt).length; cam.data.dof.keyframe_insert('focus_distance', frame=f)
-    lift.location = (cs.x, cs.y - 0.05, cs.z + 0.3); lift.keyframe_insert('location', frame=f)
+    s = SH.shot_for(xy.x, xy.y, z)
+    tgt = Vector((xy.x, xy.y, z + 0.085))                                 # her chest
+    if cur is None: cur = s; f0 = f; aim0 = tgt.copy()
+    elif s['name'] != cur['name']:
+        if pend == s['name']: pend_n += 1
+        else: pend, pend_n = s['name'], 1
+        if pend_n >= HOLD: cur = s; aim = None; pend = None; cuts.append((f, s['name'])); f0 = f; aim0 = tgt.copy()
+    else: pend = None
+    aim = tgt.copy() if aim is None else aim.lerp(tgt, 0.3)               # the operator pans after her, a beat behind
+    loc = SH.moved(cur, cur['loc'], aim0, (f - f0) / FPS)                 # and the camera creeps in (or rises)
+    cam.location = loc; look_at(cam, aim); key(cam, f, loc=tuple(cam.location), rot=tuple(cam.rotation_euler))
+    cam.data.lens = cur['lens']; cam.data.keyframe_insert('lens', frame=f)
+    cam.data.dof.use_dof = True; cam.data.dof.focus_distance = (loc - aim).length; cam.data.dof.keyframe_insert('focus_distance', frame=f)
+    lift.location = loc; lift.keyframe_insert('location', frame=f)
+print('SHOTS', cuts[:1] and '', SH.shot_for(*route[0][0]).get('name'), cuts)
 print('FRAMES', F, 'END', round(END, 2))
 constant_interp()
 run(sc, OPTS)
