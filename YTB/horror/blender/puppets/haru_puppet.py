@@ -109,7 +109,7 @@ def piece(name, shape, mat, part, coll, voxel=0.0045, smooth=6, lump=0.00022, cu
     ob['part'] = part; ob.color = (*ID[part], 1)
     if lump:   # hand-made shape: broad thumb dents, pressed pits, fine lumps (scaled by how lumpy this piece is)
         k = lump / 0.00022
-        CV.geometry(ob, dents=0.0002 * k, pits=0.0, lumps=0.00007 * k)
+        CV.geometry(ob, dents=0.0009 * k, pits=0.00016 * k, lumps=0.00016 * k)   # deep enough to read on a phone
     return ob
 
 

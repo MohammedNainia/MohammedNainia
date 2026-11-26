@@ -23,7 +23,7 @@ def _lin(c):
     return tuple(c)
 
 
-def clay(name, color, rough=0.82, sss=0.08, bump=0.6, prints=1.0, specks=1.0, grooves=0.0, film=0.15, gloss=False):
+def clay(name, color, rough=0.82, sss=0.08, bump=0.6, prints=1.0, specks=1.0, grooves=0.0, film=0.22, gloss=False, size=1.0):
     """color: '#hex' (sRGB) or a linear RGB tuple. gloss=True gives a glossy bead (eyes)."""
     c = _lin(color)
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
@@ -39,13 +39,14 @@ def clay(name, color, rough=0.82, sss=0.08, bump=0.6, prints=1.0, specks=1.0, gr
     b.inputs['Subsurface Radius'].default_value = (min(1, c[0] * 2 + 0.2), min(1, c[1] * 2 + 0.2), min(1, c[2] * 2 + 0.2))
     b.inputs['Subsurface Scale'].default_value = 0.0015
     b.inputs['Coat Weight'].default_value = film                  # the thin oily film: soft, diffused sheen
-    b.inputs['Coat Roughness'].default_value = 0.45
+    b.inputs['Coat Roughness'].default_value = 0.4
     b.inputs['Coat IOR'].default_value = 1.4
     b.inputs['Sheen Weight'].default_value = 0.05; b.inputs['Sheen Roughness'].default_value = 0.6
 
     tc = N.new('ShaderNodeTexCoord')
     mp = N.new('ShaderNodeMapping'); mp.name = mp.label = 'boil'
-    mp.inputs['Scale'].default_value = (10.0, 10.0, 10.0)        # sizes below are per 0.1 m (puppet decimetre)
+    mp.inputs['Scale'].default_value = (10.0 * size,) * 3          # sizes below are per 0.1 m (puppet decimetre);
+    # size < 1 for a piece modelled big and scaled down in the scene (its marks must stay thumb-sized on screen)
     Lk.new(tc.outputs['Object'], mp.inputs['Vector'])
     V = mp.outputs['Vector']
 
@@ -117,7 +118,7 @@ def clay(name, color, rough=0.82, sss=0.08, bump=0.6, prints=1.0, specks=1.0, gr
         depth = op('MULTIPLY_ADD', tex('ShaderNodeTexNoise', 9, Detail=1).outputs['Fac'], 1.4, -0.2)
         h = acc(op('MULTIPLY', g, depth), grooves)
     bp = N.new('ShaderNodeBump')
-    bp.inputs['Strength'].default_value = bump; bp.inputs['Distance'].default_value = 0.0004
+    bp.inputs['Strength'].default_value = bump; bp.inputs['Distance'].default_value = 0.0006 / size
     Lk.new(h, bp.inputs['Height']); Lk.new(bp.outputs['Normal'], b.inputs['Normal'])
     Lk.new(bp.outputs['Normal'], b.inputs['Coat Normal'])
     # roughness: matte, uneven; handled spots a little shinier

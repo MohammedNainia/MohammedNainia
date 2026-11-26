@@ -97,9 +97,12 @@ pv.inputs['Density'].default_value = 0.35                            # thinner h
 hair_l = area_light('hair_rim', (-0.11, 0.21, 0.16), (-0.175, 0.12, 0.1), 0.6, 0.05, (1.0, 0.68, 0.4))   # the lamp's warmth on her hair
 
 # ------------------------------------------------------------------ the sunflower (the Gathering's flower, at about a quarter of the size)
-STEM = painted('sf_stem', (0.05, 0.08, 0.03), rough=0.8)
-SEEDS = painted('sf_seeds', (0.1, 0.058, 0.024), rough=0.9)
-PETAL = painted('sf_petal', (0.45, 0.31, 0.05), rough=0.75)
+import clay_v3 as CV                                                # real plasticine, not paint: prints, dents, a waxy film
+def fclay(name, c, **kw): return CV.clay(name, c, size=SF, **kw)   # modelled big, shown at SF: keep the marks thumb-sized
+SF = 0.24
+STEM = fclay('sf_stem', (0.05, 0.08, 0.03), bump=0.7)
+SEEDS = fclay('sf_seeds', (0.1, 0.058, 0.024), bump=0.9, specks=2.0)
+PETAL = fclay('sf_petal', (0.45, 0.31, 0.05), bump=0.6)
 VOIDC = painted('sf_void', (0.0, 0.0, 0.0), rough=1.0)
 coll = bpy.context.collection
 
@@ -109,7 +112,6 @@ def piece(name, s, mat, voxel=0.0012, smooth=3):
     ob.data.transform(Matrix.Scale(1 / HP.S, 4)); return ob
 
 
-SF = 0.24
 HEAD_P = Vector((XW + 0.035, GYC, GZC + 0.005))                      # the head, just outside the window, looking in (-x)
 sf = empty('sunflower', (HEAD_P.x + 0.075 * SF, HEAD_P.y, HEAD_P.z - 0.86 * SF))
 sf.scale = (SF, SF, SF); sf.rotation_euler = (0, 0, -math.pi / 2)    # its local -y (the face) now looks along -x
@@ -131,7 +133,7 @@ for layer, (n, rr, yy, droop) in enumerate(((24, 0.148, 0.006, 0.15), (24, 0.142
         a = 2 * math.pi * (i + 0.5 * layer) / n + rl.uniform(-0.04, 0.04)
         c = Vector((math.cos(a) * rr, yy, math.sin(a) * rr))
         s.ellipsoid(c, (0.045 * rl.uniform(0.85, 1.1), 0.005, 0.015), rot=(droop * math.sin(a), -a, 0))
-attach(piece('sf_petals', s, PETAL, voxel=0.0015), sf_face)
+petals = piece('sf_petals', s, PETAL, voxel=0.0015); add_lumps(petals, 0.0025, size=0.012); attach(petals, sf_face)
 s = HP.Shape()
 for sx in (-1, 1): s.ellipsoid((sx * 0.042, -0.027, 0.028), (0.024, 0.008, 0.011), rot=(0, sx * 0.45, 0))
 attach(piece('sf_eyes', s, VOIDC, voxel=0.001), sf_face)
@@ -149,9 +151,9 @@ for sx in (-1, 1):                                                  # two glints
     attach(sphere('sf_pupil', 0.0034, mat=GLINT), sf_face, (sx * 0.036, -0.035, 0.026))
 
 # ------------------------------------------------------------------ two villagers from the Gathering, outside, below the sill
-SKIN = painted('vl_skin', (0.46, 0.34, 0.27), rough=0.7)
-HAIR = painted('vl_hair_dark', (0.025, 0.018, 0.014), rough=0.85)
-COAT = painted('vl_coat', (0.05, 0.05, 0.06), rough=0.9)
+SKIN = CV.clay('vl_skin', (0.46, 0.34, 0.27), sss=0.1)
+HAIR = CV.clay('vl_hair_dark', (0.025, 0.018, 0.014), grooves=0.3)
+COAT = CV.clay('vl_coat', (0.05, 0.05, 0.06), bump=0.7)
 WAX = painted('vl_wax', (0.6, 0.56, 0.45), rough=0.5)
 FLAME = emissive('vl_flame', (1.0, 0.62, 0.25), 18.0)
 
@@ -165,7 +167,7 @@ def villager(name, p, v):
         sh = Vector((sx * 0.022, 0, top - 0.003)); el = Vector((sx * 0.02, -0.012, top - 0.035)); hd = Vector((sx * 0.005, -0.031, top - 0.03))
         s.capsule(sh, el, 0.0055, 0.005, 12).capsule(el, hd, 0.005, 0.0042, 12)
     hold = empty(name, tuple(p)); hold.rotation_euler = (0, 0, -math.pi / 2); hold.scale = (VS, VS, VS)   # facing the window (-x)
-    attach(piece(name + '_body', s, COAT, voxel=0.0008), hold)
+    body = piece(name + '_body', s, COAT, voxel=0.0008); add_lumps(body, 0.0008, size=0.008); attach(body, hold)
     neck = attach(empty(name + '_neck'), hold, (0, 0, top + 0.012))
     sk = HP.Shape().ellipsoid((0, 0, 0.012), (0.0105, 0.0115, 0.0125)).ellipsoid((0, -0.0105, 0.009), (0.0022, 0.003, 0.0035))
     hr = HP.Shape().ellipsoid((0, 0.002, 0.016), (0.0116, 0.0122, 0.0105)) if v == 0 else \

@@ -63,7 +63,7 @@ class HaruClay(HP.Haru):
         def clay(k, **kw): return CV.clay(f'{n}_{k}', PAL[k], **kw)
         return {'hoodie': clay('hoodie', sss=0.06, bump=0.7),
                 'pants': clay('pants', sss=0.04, bump=0.7),
-                'skin': clay('skin', rough=0.82, sss=0.12, bump=0.4, prints=0.6),
+                'skin': clay('skin', rough=0.8, sss=0.12, bump=0.85, prints=1.2),
                 'hair': clay('hair', rough=0.7, sss=0.03, bump=0.6, prints=0.4, grooves=0.3, specks=0, film=0.2),
                 'shoe': clay('shoe', sss=0.08, bump=0.5, specks=1.2),
                 'sole': clay('sole', bump=0.5),
