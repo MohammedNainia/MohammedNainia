@@ -4,7 +4,7 @@ Scene scripts build a miniature set in real-world metres, key every frame with C
 interpolation (stop motion "on twos" at 12 fps), and add per-frame boil and light flicker.
 """
 import bpy, bmesh, math, random, sys, os
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Matrix
 
 FPS = 12  # stop motion "on twos"
 
@@ -229,10 +229,27 @@ def smooth(ob):
     return ob
 
 
+def _new_obj(name, bm, loc=(0, 0, 0), rot=(0, 0, 0)):
+    """mesh object straight from bmesh, linked to the active collection and made active: no bpy.ops, so building
+    thousands of pieces does not slow down as the scene grows (operators re-evaluate the whole scene every call)"""
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(ob)
+    ob.location = loc; ob.rotation_euler = rot
+    vl = bpy.context.view_layer
+    for o in vl.objects.selected: o.select_set(False)
+    vl.objects.active = ob; ob.select_set(True)
+    return ob
+
+
+def _bm_uv():
+    bm = bmesh.new(); bm.loops.layers.uv.new('UVMap'); return bm
+
+
 def sphere(name, r=1.0, loc=(0, 0, 0), scale=(1, 1, 1), mat=None, segs=48, rings=24, lumpy=0.0, seed=0):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=segs, ring_count=rings, radius=r, location=loc)
-    ob = bpy.context.active_object
-    ob.name = name
+    bm = _bm_uv()
+    bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=rings, radius=r, calc_uvs=True)
+    ob = _new_obj(name, bm, loc)
     ob.scale = scale
     smooth(ob)
     if lumpy:
@@ -255,11 +272,9 @@ def add_lumps(ob, strength, seed=0, size=0.02):
 
 
 def rounded_box(name, size, loc=(0, 0, 0), bevel=0.004, mat=None, rot=(0, 0, 0), lumpy=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot)
-    ob = bpy.context.active_object
-    ob.name = name
-    ob.scale = size
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    bm = _bm_uv()
+    bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Diagonal((*size, 1.0)), calc_uvs=True)
+    ob = _new_obj(name, bm, loc, rot)
     b = ob.modifiers.new('bevel', 'BEVEL')
     b.width = bevel
     b.segments = 4
@@ -275,9 +290,9 @@ def rounded_box(name, size, loc=(0, 0, 0), bevel=0.004, mat=None, rot=(0, 0, 0),
 
 
 def cylinder(name, r, depth, loc=(0, 0, 0), verts=48, mat=None, rot=(0, 0, 0)):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=depth, location=loc, rotation=rot)
-    ob = bpy.context.active_object
-    ob.name = name
+    bm = _bm_uv()
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=verts, radius1=r, radius2=r, depth=depth, calc_uvs=True)
+    ob = _new_obj(name, bm, loc, rot)
     if mat:
         assign(ob, mat)
     return ob

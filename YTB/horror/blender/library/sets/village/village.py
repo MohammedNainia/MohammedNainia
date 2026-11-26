@@ -17,6 +17,8 @@ import village_plan as VP
 
 RNG = random.Random(7)
 U = VP.UP
+OPEN_DOORS = False          # set True before build(): every street house's front door stands open onto a lit hall
+DOOR_HINGES = []            # (hinge, house name) for each open door, so a scene can swing them
 
 
 # ------------------------------------------------------------------ materials
@@ -43,6 +45,11 @@ def materials():
     M['hedge'] = K.painted('hedge', (0.02, 0.04, 0.02), rough=0.95)
     M['bark'] = K.painted('bark', (0.04, 0.03, 0.022), rough=0.9)
     M['picket'] = K.scan_overlay(K.painted('picket', (0.5, 0.49, 0.45), rough=0.6), 'plaster_white', 0.1, amount=0.6, grime=0.5)
+    M['hall_floor'] = K.painted('hall_floor', (0.16, 0.09, 0.05), rough=0.5)
+    M['hall_paper'] = K.painted('hall_paper', (0.42, 0.36, 0.26), rough=0.85)
+    M['hall_rug'] = K.painted('hall_rug', (0.2, 0.05, 0.04), rough=0.95)
+    M['coat_dark'] = K.painted('coat_dark', (0.03, 0.035, 0.045), rough=0.9)
+    M['coat_brown'] = K.painted('coat_brown', (0.12, 0.07, 0.04), rough=0.9)
     return M
 
 
@@ -93,13 +100,20 @@ def window(fh, u0, u1, z0, z1, lit):
         for a, b in ((u0, u0 + w), (u1 - w, u1)): PR.part(fh, 'win_curtain', a, b, -0.0012, -0.0008, z0, z1, 'curtain_lit', bevel=0.0002)
 
 
-def front_door(fh, u, mat, porch_on, h=0.2, w=0.08):
-    u0, u1 = u - w / 2, u + w / 2; t = 0.008
+def front_door(fh, u, mat, porch_on, h=0.2, w=0.08, open_=False):
+    u0, u1 = u - w / 2, u + w / 2; t = 0.008; leaf = None
     for (a, b, c, d) in ((u0 - t, u0, 0, h + t), (u1, u1 + t, 0, h + t), (u0, u1, h, h + t)):
         PR.part(fh, 'door_frame', a, b, -0.008, 0.0, c, d, 'trim', bevel=0.001)
-    PR.part(fh, 'front_door', u0, u1, -0.004, 0.0, 0.0, h, mat, bevel=0.001)
-    for zz in (0.03, 0.115): PR.part(fh, 'door_panel', u0 + 0.01, u1 - 0.01, -0.0055, -0.004, zz, zz + 0.07, mat, bevel=0.0012)
-    kn = K.sphere('door_knob', 0.0028, (0, 0, 0), mat=K.M['brass']); K._to(kn); K.attach(kn, fh); kn.location = (u1 - 0.012, -0.007, 0.095)
+    if open_:                                                          # the leaf on a hinge at its left jamb, swung into the hall
+        hg = PR.hinge(fh, 'door_hinge', u0, 0.0, 0.0); leaf = hg
+        PR.part(hg, 'front_door', 0.0, w, 0.0, 0.004, 0.0, h, mat, bevel=0.001)
+        for zz in (0.03, 0.115): PR.part(hg, 'door_panel', 0.01, w - 0.01, -0.0015, 0.0, zz, zz + 0.07, mat, bevel=0.0012)
+        kn = K.sphere('door_knob', 0.0028, (0, 0, 0), mat=K.M['brass']); K._to(kn); K.attach(kn, hg); kn.location = (w - 0.012, -0.003, 0.095)
+        hg.rotation_euler = (0, 0, math.radians(92))
+    else:
+        PR.part(fh, 'front_door', u0, u1, -0.004, 0.0, 0.0, h, mat, bevel=0.001)
+        for zz in (0.03, 0.115): PR.part(fh, 'door_panel', u0 + 0.01, u1 - 0.01, -0.0055, -0.004, zz, zz + 0.07, mat, bevel=0.0012)
+        kn = K.sphere('door_knob', 0.0028, (0, 0, 0), mat=K.M['brass']); K._to(kn); K.attach(kn, fh); kn.location = (u1 - 0.012, -0.007, 0.095)
     PR.part(fh, 'door_step', u0 - 0.02, u1 + 0.02, -0.04, 0.0, 0.0, 0.014, 'curb', bevel=0.001, coll=True)
     PR.part(fh, 'porch_roof', u0 - 0.03, u1 + 0.03, -0.05, 0.0, h + 0.02, h + 0.028, 'trim', bevel=0.0015)
     lamp = K.sphere('porch_lamp', 0.006, (0, 0, 0), scale=(1, 1, 1.3), mat=K.M['lamp_glow' if porch_on else 'bulb_off']); K._to(lamp)
@@ -107,6 +121,47 @@ def front_door(fh, u, mat, porch_on, h=0.2, w=0.08):
     if porch_on:
         lt = K.point_light('porch_light', (0, 0, 0), 0.35, radius=0.006, color=(1.0, 0.72, 0.42)); K._to(lt, 'Lights')
         K.attach(lt, fh); lt.location = (u1 + 0.025, -0.03, h - 0.03)
+    return leaf
+
+
+# ------------------------------------------------------------------ an open doorway: a hole through the front, a lit hall
+def _cut(body, name, x0, x1, y0, y1, z0, z1):
+    c = K.block(name, x0, x1, y0, y1, z0, z1, K.M['curb'], bevel=0)
+    c.parent = body.parent; c.matrix_parent_inverse = body.matrix_parent_inverse.copy()
+    c.hide_render = True; c.display_type = 'WIRE'; c.visible_camera = False
+    b = body.modifiers.new(name, 'BOOLEAN'); b.object = c; b.operation = 'DIFFERENCE'; b.solver = 'EXACT'
+    return c
+
+
+def hall(h, body, du, door_h=0.2, w=0.08, deep=0.16):
+    """behind an open front door: a narrow hall with wallpaper, a floor, a ceiling bulb, coats on hooks, nobody"""
+    M = K.M; hw = 0.07
+    _cut(body, 'door_hole', du - w / 2, du + w / 2, -0.01, 0.02, 0.0, door_h)
+    _cut(body, 'hall_hole', du - hw, du + hw, 0.012, deep + 0.004, 0.0, door_h + 0.05)
+    PR.part(h, 'hall_floor', du - hw, du + hw, 0.0, deep, -0.002, 0.002, 'hall_floor', bevel=0)
+    PR.part(h, 'hall_wall', du - hw, du + hw, deep - 0.002, deep, 0.0, door_h + 0.05, 'hall_paper', bevel=0)
+    for sx in (-1, 1): PR.part(h, 'hall_wall', du + sx * hw - 0.002, du + sx * hw + 0.002, 0.012, deep, 0.0, door_h + 0.05, 'hall_paper', bevel=0)
+    PR.part(h, 'hall_ceiling', du - hw, du + hw, 0.012, deep, door_h + 0.048, door_h + 0.05, 'hall_paper', bevel=0)
+    PR.part(h, 'hall_runner', du - 0.022, du + 0.022, 0.03, deep - 0.01, 0.002, 0.0028, 'hall_rug', bevel=0)
+    for k, zc in enumerate((0.135, 0.13)):                             # two coats on hooks on the right wall, a picture opposite
+        PR.part(h, 'hall_coat', du + hw - 0.012, du + hw - 0.002, 0.05 + k * 0.03, 0.072 + k * 0.03, zc - 0.075, zc, 'coat_' + ('dark', 'brown')[k], bevel=0.004)
+    PR.part(h, 'hall_picture', du - hw + 0.002, du - hw + 0.004, 0.07, 0.11, 0.12, 0.155, 'trim', bevel=0.0006)
+    bulb = K.sphere('hall_bulb', 0.004, (0, 0, 0), mat=M['lamp_glow']); K._to(bulb); K.attach(bulb, h); bulb.location = (du, deep * 0.55, door_h + 0.04)
+    lt = K.point_light('hall_light', (0, 0, 0), 1.2, radius=0.006, color=(1.0, 0.74, 0.46)); K._to(lt, 'Lights')
+    K.attach(lt, h); lt.location = (du, deep * 0.5, door_h + 0.03)
+
+
+def bake_cuts():
+    """apply every doorway boolean once and delete the cutters, so nothing re-evaluates them per frame"""
+    dg = bpy.context.evaluated_depsgraph_get(); cutters = set()
+    for ob in list(bpy.data.objects):
+        bs = [m for m in ob.modifiers if m.type == 'BOOLEAN']
+        if not bs: continue
+        cutters.update(m.object for m in bs)
+        me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg)); old = ob.data
+        ob.modifiers.clear(); ob.data = me
+        if old.users == 0: bpy.data.meshes.remove(old)
+    for c in cutters: bpy.data.objects.remove(c)
 
 
 # ------------------------------------------------------------------ one house
@@ -115,7 +170,7 @@ def house(name, x0, x1, side, depth, storeys, roof, facade, door_mat, lit, porch
     y_front = y_front if y_front is not None else (VP.FRONT_N if side == 'N' else VP.FRONT_S)
     h = PR.holder(name, cx, y_front, 0 if side == 'N' else 180)        # local: front at y 0 facing -y, house toward +y
     E = storeys * U
-    PR.part(h, name + '_body', -w / 2, w / 2, 0.0, depth, 0.0, E, facade, bevel=0.002)
+    body = PR.part(h, name + '_body', -w / 2, w / 2, 0.0, depth, 0.0, E, facade, bevel=0.002)
     PR.part(h, name + '_plinth', -w / 2 - 0.004, w / 2 + 0.004, -0.004, depth + 0.004, 0.0, 0.02, 'curb', bevel=0.001)
     ov = 0.035
     if roof == 'side':                                                 # ridge along the street, gables at the sides
@@ -139,7 +194,9 @@ def house(name, x0, x1, side, depth, storeys, roof, facade, door_mat, lit, porch
     fh = face_holder(h, name + '_front', (0, 0, 0), 0)
     names = [r[0] for r in VP.HOUSES]
     du = VP.door_x(names.index(name))[1] if name in names else 0.0
-    front_door(fh, du, door_mat, porch_on)
+    open_ = OPEN_DOORS and name in names
+    hg = front_door(fh, du, door_mat, porch_on, open_=open_)
+    if open_: hall(h, body, du); DOOR_HINGES.append((hg, name))
     li = list(lit) + [0] * 8; k = 0
     for s in range(storeys):
         z0 = s * U + 0.085
@@ -196,7 +253,7 @@ def civic(name, x0, x1, side, depth, storeys, facade, door_off):
     M = K.M; w = x1 - x0; cx = (x0 + x1) / 2
     h = PR.holder(name, cx, VP.door_y(side), 0 if side == 'N' else 180)
     E = storeys * U
-    PR.part(h, name + '_body', -w / 2, w / 2, 0.0, depth, 0.0, E, facade, bevel=0.002)
+    body = PR.part(h, name + '_body', -w / 2, w / 2, 0.0, depth, 0.0, E, facade, bevel=0.002)
     PR.part(h, name + '_plinth', -w / 2 - 0.005, w / 2 + 0.005, -0.005, depth + 0.005, 0.0, 0.025, 'curb', bevel=0.001)
     PR.part(h, name + '_parapet', -w / 2 - 0.006, w / 2 + 0.006, -0.006, depth + 0.006, E, E + 0.03, 'curb', bevel=0.002)
     PR.part(h, name + '_roof_plant', -0.1, 0.1, depth * 0.5, depth * 0.7, E, E + 0.07, 'metal_shelf', bevel=0.004)
@@ -407,6 +464,7 @@ def build():
             wheelie_bin(dx + (0.075 if i % 2 else -0.075), sw, 'bin_green' if i % 2 else 'bin_black')
         gy = VP.SIDEWALK_N[1] + 0.03 if side == 'N' else VP.SIDEWALK_S[0] - 0.03
         mailbox(dx + 0.055, gy)
+    if OPEN_DOORS: bake_cuts()
     haru_house(); hx = VP.HOME_AT[0] + VP.HOME_DOOR_X
     garden(-0.04, 1.04, 'N', hx); bushes(0.0, 1.0, VP.FRONT_N - 0.035, hx, seed=99); mailbox(hx + 0.055, VP.SIDEWALK_N[1] + 0.03)
     wheelie_bin(hx - 0.09, VP.SIDEWALK_N[1] - 0.026, 'bin_green')

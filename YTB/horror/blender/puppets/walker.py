@@ -18,7 +18,7 @@ import numpy as np
 import mocap as MC
 
 STAIR_RUN = 0.023          # horizontal depth of one stair (house kit)
-CLIPS = {'walk': 'walk', 'stairs_down': 'walk', 'stairs_up': 'walk'}
+CLIPS = {'walk': 'walk', 'stairs_down': 'walk', 'stairs_up': 'walk', 'sneak': 'sneak_walk'}
 STAIR_PACE = 0.7           # careful steps on the stairs: the walk played slower
 IDLE = ('look_behind', 0.15)
 
@@ -40,6 +40,10 @@ class Walker:
         v_walk = K * float(np.linalg.norm((H[-1] - H[0])[:2])) / T * pace
         speed = {'walk': v_walk, 'stairs_down': v_walk * STAIR_PACE, 'stairs_up': v_walk * STAIR_PACE}
         self.rate = {'walk': 1.0, 'stairs_down': STAIR_PACE, 'stairs_up': STAIR_PACE}   # clip seconds per second
+        if 'sneak_walk' in lib.clips:                                     # creeping: the sneak clip at its own stride
+            Hs = lib.clips['sneak_walk'][1]
+            speed['sneak'] = K * float(np.linalg.norm((Hs[-1] - Hs[0])[:2])) / lib.length('sneak_walk') * pace
+            self.rate['sneak'] = 1.0
         self.legs = []; t = t0; prev_kind = None; phase = 0.0
         pts = [p for p, _ in route]
         for i in range(1, len(route)):
