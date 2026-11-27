@@ -99,7 +99,8 @@ class Door:
     warm spill that falls across the floor when it opens ('lit'), or nothing (the next room is really there)."""
 
     def __init__(self, holder, u0, u1, h=K.DOOR_H, side=1, hinge='start', color='white', handle='lever',
-                 peephole=False, letterbox=False, beyond='dark', spill=(0.6, (1.0, 0.62, 0.32)), frame=True):
+                 peephole=False, letterbox=False, beyond='dark', spill=(0.6, (1.0, 0.62, 0.32)), frame=True,
+                 undercut=0.001):
         s = self.s = side; self.hinge = hinge; self.sg = 1 if hinge == 'start' else -1
         self.holder = holder; self.u0, self.u1, self.h = u0, u1, h
         if frame: _frame(holder, u0, u1, 0.0, h, s, False)
@@ -108,7 +109,7 @@ class Door:
         hg = self.hg = empty('door_hinge', (0, 0, 0)); K._to(hg); K.attach(hg, holder); hg.location = (hu, 0, 0)
         w = (u1 - u0) - 0.003; T = 0.0022                                  # leaf width; half thickness (4.4 cm)
         x0, x1 = (0.0015, w) if hinge == 'start' else (-w, -0.0015)
-        self.leaf = _part(hg, 'door_leaf', x0, x1, -T, T, 0.001, h - 0.001, paint, bevel=0.0009)
+        self.leaf = _part(hg, 'door_leaf', x0, x1, -T, T, undercut, h - 0.001, paint, bevel=0.0009)   # undercut: the gap light shows under
         st = 0.008; mid = (x0 + x1) / 2; k = h / 0.2                       # stiles and rails; panel rows scale with height
         rows = ((0.022 * k, 0.088 * k), (0.104 * k, 0.186 * k))
         for ss in (1, -1):                                                 # raised panels on both faces

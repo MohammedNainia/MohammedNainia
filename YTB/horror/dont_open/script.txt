@@ -1,0 +1,35 @@
+Haru #7 "Don't Open Your Door" (wordless with on-screen texts, about 18 s, 9:16, Blender clay)
+Set: Haru's bedroom upstairs at night (library/sets/home/upstairs.py), her bed facing her bedroom door, the
+upstairs hallway behind the door with its light on. Built with the new kits: the working door (openings.py,
+beyond='lit'), the phone and hallway bulb (practicals.py), and the clay key aimed from the phone.
+Opening rules: bright frame 0, white hook line from frame 0, a clear sound inside 0.5 s, loop back to frame 0.
+
+HOOK LINE (white, frame 0 to 2.5 s):
+  "Mum texted me this at 2am."
+
+TEXTS (on the phone screen, readable, shown as message bubbles from "Mum"):
+  1. "Don't open your door."
+  2. "I'm still at work."
+
+0.0  FRAME 0. Insert, close: Haru's hand holding the phone, screen bright and filling the middle of the frame.
+     A message bubble from "Mum": "Don't open your door." Bright and readable.
+0.1  SOUND: the phone buzzes twice on her duvet. Quiet room tone under everything.
+2.5  Close-up of Haru in bed, lit only by the phone from below, cold. Her eyes rise from the phone to the door.
+4.5  Her view across the dark room: her closed bedroom door, a thin warm line of hallway light under it and
+     around the frame. Hold. SOUND: silence, then one floorboard creaks outside.
+7.0  Two dark shapes break the line of light under the door: feet. Someone is standing right outside. Hold.
+9.0  Back on Haru: she pulls the duvet up to her chin. A short held breath.
+10.0 Close on the door handle: it turns slowly all the way down. SOUND: the latch clicks.
+12.0 SOUND: the phone buzzes. Insert: the second bubble appears under the first: "I'm still at work."
+14.0 Wide from behind Haru in bed: the door swings open a hand's width. Warm light spills across the floor
+     toward her bed. In the gap, only darkness at head height. Nothing visible. SOUND: a long low door creak.
+16.5 Close-up on Haru, wide eyes. Her phone screen goes black and her face goes dark.
+17.5 Black. SOUND: the phone buzzes. HARD CUT to frame 0: the screen lights with "Don't open your door." The loop.
+
+NOTES
+- No narration. The only words are the hook line and the two texts.
+- Mum is never seen (she is "at work"), so no new character is needed. Whoever is outside is never shown:
+  only feet in the light, the handle, and darkness in the gap.
+- Sound: quiet and natural, about -18 LUFS. Phone buzzes, room tone, a floorboard, the latch, the creak, a breath.
+- Clay key on every close-up of Haru, aimed from the phone (cold), per the phone-light settings in the README.
+- Title idea: "Mum texted me this at 2am #shorts".
