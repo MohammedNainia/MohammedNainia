@@ -135,6 +135,12 @@ length in `index.json`).
   `W.lamp(f, W)`, `D.swing(f, deg)`, `D.turn(f, 0..1)`, `D.light(f, W)`. Thin curtains let the streetlamp through, so
   anything standing outside throws its shadow on them. Test scene: `scenes/openings_test.py` (stills in
   `docs/openings_kit.jpg`). Openings without rig=True stay the old static ones, so earlier sets are unchanged.
+- **Lights kit**: `library/sets/practicals.py`: `PL.Lamp`, `PL.Bulb` (hanging, `.sway()`), `PL.Candle` (`.burn()`),
+  `PL.Phone` (parent `.h` to a hand), `PL.TV` (`static=True` + `.snow()`), `PL.CeilingLight`, `PL.switch()`. Every
+  light has `.level(f, 0..1)`, `.on/.off`, `.flicker(f0, f1, 'dying'|'candle'|'tv'|'buzz')`, `.fade()` and `.src()`;
+  aim the clay key from the real source: `rake.aim(f, head, cam, L.src(), on)`. Phone light on Haru's face: phone
+  ~5 cm in front of her chest tilted up 53 deg, energy 0.004, rake 0.05 W cold (more burns her face white). Test
+  scene: `scenes/practicals_test.py` (stills in `docs/practicals_kit.jpg`).
 
 ## 7. Voices and sound (unchanged by Blender)
 
