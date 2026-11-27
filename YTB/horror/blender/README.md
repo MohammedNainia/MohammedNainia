@@ -142,6 +142,16 @@ length in `index.json`).
   ~5 cm in front of her chest tilted up 53 deg, energy 0.004, rake 0.05 W cold (more burns her face white). Test
   scene: `scenes/practicals_test.py` (stills in `docs/practicals_kit.jpg`).
 
+- **Woods kit (Nov 27, `library/sets/outside/woods.py`):** `ground()`, `trees()` (tiered clay pines, a clear trail north),
+  `Campfire(x, y)` (`burn(f0, f1, level=...)`, level 0.3 = embers), `Tent(name, x, y, yaw, colour)` (translucent nylon that
+  glows from a light inside; `zip(f, 0..1)` cuts the door open from the ground up), `Torch(...)` (a spot light practical),
+  `Fence(y)` (chain link, barbed top, gate `gate(f, deg)`, padlock, the Sector B13 sign from `make_textures.py`),
+  `mood('night' | 'dawn')`. Test: `scenes/woods_test.py` (set `WOODS_DAWN=1` for dawn).
+- **Camp cast (`puppets/cast_camp.py`):** `Friend(MIKA | JUN)` are Haru's own rig with new colours and hair (every clip
+  and face works), `Handler()` is the same rig x1.4 in a grey coverall, hood and black visor, `Creature()` is the 3.4 m B13
+  creature (`walk(t)`, `reach(side, u)`, `look(yaw, pitch)`, `key(f)`), `fingers()` is its hand alone for close shots.
+  Test: `scenes/cast_test.py`. Look-dev: `docs/sector_b13_lookdev.jpg`.
+
 ## 7. Voices and sound (unchanged by Blender)
 
 - Narrator: Haru = **Samara X** (Artlist voice id 224933), Eleven v3, stability 0.5, one generation per line. Artlist had **49 credits left**,
