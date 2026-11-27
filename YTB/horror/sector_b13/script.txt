@@ -1,0 +1,59 @@
+Haru #8 "Sector B13 · File 01" (NARRATED, about 47 s, 9:16, Blender clay)
+A complete story that closes, and the first file of a Sector B13 series. If people finish it and ask for more, that is
+the signal to build the long episode.
+Test: a narrated Haru reel (narrated stories keep 55-64% in the feed; the wordless Haru reels average 33%).
+Goal: 50% or more stayed to watch at 48 h.
+
+Cast: Haru (leads, narrates), her friends Mika and Jun (two new clay friends), the B13 creature (tall, thin, grey, long
+fingers; seen in pieces until the end), two B13 handlers in grey suits and masks.
+Sets: a woods clearing at night (campfire, three small tents, treeline); a tall rusty fence deeper in the trees with a
+sign and a gate; the same clearing at dawn.
+Opening rules: a white hook line from frame 0, a sound inside 0.5 s (her breathing on frame 0), and a loop back to frame 0.
+Frame 0 is lit bright by her torch.
+
+Voices:
+  Haru: Samara X (Eleven v3, stability 0.5, one generation per line), breathless whispering.
+  Mika: a second young voice, calm and friendly. The creature uses the same voice for its last line.
+
+HOOK LINE (white, frame 0 to 3 s):
+  "Three of us went camping."
+  "I'm the only one still in the tent."
+
+0.0   FRAME 0. Extreme close-up: Haru's face inside her tent, lit from below by her torch, bright and cold. Wide eyes,
+      her chest heaving. SOUND 0.0: fast, shaky breathing through her nose, held back. Tent fabric rustles.
+      n1 Haru [whispering, breathless]: Three of us went camping. I'm the only one still in the tent.
+4.0   FLASHBACK, warm. Wide: the campfire. Haru, Mika and Jun on logs, laughing. Mika's marshmallow is on fire.
+      SOUND: fire crackle, laughter, night insects.
+      n2 Haru [softly]: It was the best night. Fire, stupid stories, Mika burning every marshmallow.
+9.0   Earlier, at dusk: torch beams on a tall rusty fence. A sign: "SECTOR B13. DO NOT ENTER." Under it, smaller:
+      "IF IT CALLS YOUR NAME, DO NOT ANSWER." The gate hangs open.
+      n3 Haru [softly]: On the walk in, we passed a fence. Sector B13. And the gate was open.
+15.0  Night. The three tents, the fire down to embers. SOUND: a scream from Jun's tent, cut short. Then a second,
+      from Mika's. Inside Haru's tent her eyes snap open.
+      n4 Haru [scared, whispering]: At three, Jun screamed. Then Mika. Then nothing.
+20.0  Haru's tent from outside: a tall, thin shadow passes along the wall. Long fingers drag across the fabric.
+      SOUND: claws on nylon, slow.
+23.5  Close-up of Haru. A voice right outside the tent, warm and normal.
+      MIKA: Haru? It's okay. It's gone. You can come out now.
+27.5  Low, inside the tent: the zip starts to open by itself, tooth by tooth. Grey fingertips in the gap.
+      Haru presses both hands over her mouth.
+      n5 Haru [whispering]: I didn't answer. Mika was the second one who screamed.
+32.0  The zip stops. The fingers slide back out. Hold on the gap. Haru doesn't move.
+      n6 Haru [whispering]: I didn't say a word. All night.
+35.0  DAWN, cold blue light, mist. Through the gap in her tent: two handlers in grey suits and masks lead the
+      creature across the clearing on a long pole and collar, back toward the trees. It is twice their height.
+      n7 Haru [softly]: At sunrise, two people in grey suits walked it back behind the fence. Like a dog.
+41.0  At the gate. The creature stops and turns its head toward Haru's tent.
+      CREATURE (Mika's voice, warm): Bye, Haru.
+43.0  The gate closes. A handler locks it. SOUND: the gate clangs, the padlock clicks.
+44.0  Black. White card, typed like the sign: "SECTOR B13 · FILE 01". SOUND: one low hum.
+46.5  HARD CUT to frame 0: the torch clicks on, her face, her breathing. The loop.
+
+NOTES
+- YouTube title: "Three of us went camping. I'm the only one still in the tent. #shorts"
+- Pinned comment: "File 02?" (it invites replies, and the replies tell us whether to build the long episode).
+- No music. Fire, insects, wind in the trees, then silence after the screams. Breathing carries the tension.
+- The narration sets the timing: the animation follows a time map built from the recorded lines.
+- New to build: woods clearing (night and dawn), tents (one with a working zip), a campfire practical, the fence, sign
+  and gate, two friend puppets, the creature, two handlers. All of it is reusable for later files.
+- Sector B13 is our own organisation (not from any other franchise), so we own the series.

@@ -1,0 +1,49 @@
+Haru #8 "The Hall Light" (NARRATED, about 40 s, 9:16, Blender clay)
+Test: a narrated Haru reel. The narrated stories keep 55-64% of viewers in the feed; the wordless Haru reels average 33%.
+Goal: 50% or more stayed to watch at 48 h.
+
+Set: Haru's bedroom at night (the same room as Lights Off and Don't Open). Her bedside lamp, her bed facing her bedroom
+door, the upstairs hallway behind it with a ceiling bulb on a wall switch right outside her door. Built with the kits:
+the door with the hallway lit behind it (openings.py), and the lamp, bulb and switch (practicals.py). The clay key on
+every close-up and medium shot.
+Opening rules: bright frame 0, white hook line from frame 0, a sound and her voice inside 0.5 s, loop back to frame 0.
+
+Voices:
+  Haru: Samara X (Eleven v3, stability 0.5, one generation per line), as in VOICE.md.
+  Mum: a second British woman's voice. Line M1 is far away and muffled (another room); M2 is a close whisper with no
+  room sound, right against the door.
+
+HOOK LINE (white, frame 0 to 3 s):
+  "If the hall light is on after midnight,"
+  "don't leave your room."
+
+0.0   FRAME 0: medium on Haru sitting up in bed, bedside lamp on, warm and bright. Over her shoulder, her closed door.
+      SOUND 0.1: a switch clicks outside, and a bright line of light appears under the door.
+      n1 Haru [whispering]: If the hall light is on after midnight, don't leave your room.
+3.8   Wide of the bedroom, lamp on, door closed.
+      n2 Haru [softly]: That's Mum's rule. She made it the day we moved in. The hall light's on a timer. It goes off
+      at twelve. Every night.
+10.5  Insert: her phone on the bedside table lights up: 2:13. Then the lamp clicks off. Close-up: Haru lit only by
+      the cold phone and the warm line under the door.
+      n3 Haru [nervous]: Last night I woke up at two... and there was light under my door.
+15.0  Her view of the door: the line of light goes off. On. Off. On. Each one a switch click.
+      n4 Haru [whispering]: Then it went off. And on. And off. Like someone was standing at the switch... playing
+      with it.
+21.5  Close-up on Haru, frozen, the light flicking across her face.
+      n5 Haru [scared]: Then Mum called me. From the other end of the house.
+24.5  Hold on the door, light on.
+      M1 Mum (far away, muffled): Haru? Did you leave the hall light on?
+27.5  Haru opens her mouth to answer.
+      n6 Haru [whispering]: I started to answer her. And right outside my door...
+31.0  Her view: two dark shapes break the line of light under the door. Someone is standing there, close.
+      M2 Mum (close whisper, right against the door): Don't answer her.
+34.0  Close-up: Haru presses both hands over her mouth. Eyes wide.
+      n7 Haru [whispering]: I still don't know which one was Mum.
+38.0  Wide: the door, the line of light, the two shadows. SOUND: the switch clicks and the light under the door goes
+      out. Black.
+39.5  Black. HARD CUT to frame 0: the switch clicks, and the light under the door comes on. The loop.
+
+NOTES
+- The title on YouTube: "If the hall light is on after midnight, don't leave your room #shorts"
+- No music: room tone, switch clicks, one floorboard before the feet, her breath.
+- The narration sets the timing: the animation follows a time map built from the recorded lines.
