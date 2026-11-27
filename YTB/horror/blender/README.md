@@ -46,6 +46,13 @@ links when you need detail.
   each frame: a small warm light that skims across her face from the side of a real source (lamp, candle, window, phone),
   0.22 W at 6 cm. Soft head-on light makes her clay look like a smooth ball; raking light shows the dents, thumbprints and
   hair grooves. Wide and "something is wrong" shots stay dark. 0.5 W is too much (greys her hair, washes the hoodie).
+- **One Haru clay (Nov 27):** every Haru, built or imported, wears the same clay from one place: `LOOK`, `PAL` and
+  `LUMPS` in `puppets/haru_clay.py`. The code puppet (`HC.HaruClay`) uses `haru_materials()`. Any imported model
+  (Artlist GLB, sculpt) goes through `HC.apply_haru_clay(objects)` right after import and scaling to 12.6 cm: it sorts
+  every face into skin / hoodie / hair / trousers / shoes by its painted colour and height, drops the painted textures,
+  puts our clay on and adds the same clay lumps. Then check it with `scenes/haru_clay_match.py --glb <model>` (the new
+  model beside the code puppet, same lights) and read the PARTS counts. Never give Haru a material made anywhere else,
+  and change her look only in `haru_clay.py` so every reel follows.
 - Captions white, short sentence-safe chunks; other speakers in pink italic. Loudness -14 LUFS (two-pass loudnorm).
 - Renders happen on the user's PC (RTX 5090). Final mp4s are not committed (`*.mp4` is gitignored); raw renders are pushed with `git add -f`.
 

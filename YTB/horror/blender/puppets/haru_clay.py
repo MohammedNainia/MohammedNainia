@@ -57,21 +57,110 @@ def hair_shape():
     return s
 
 
+# ---------------------------------------------------------------- THE Haru clay (one recipe for every Haru, built or imported)
+# Every Haru on the channel gets her materials from here: the code puppet (HaruClay) and any imported model
+# (an Artlist GLB, a sculpt) through apply_haru_clay(). Change her look here and only here.
+LOOK = {'hoodie': dict(sss=0.06, bump=0.7),
+        'pants': dict(sss=0.04, bump=0.7),
+        'skin': dict(rough=0.8, sss=0.12, bump=0.85, prints=1.2),
+        'hair': dict(rough=0.7, sss=0.03, bump=0.6, prints=0.4, grooves=0.3, specks=0, film=0.2),
+        'shoe': dict(sss=0.08, bump=0.5, specks=1.2),
+        'sole': dict(bump=0.5),
+        'mouth': dict(bump=0.2, prints=0, specks=0),
+        'mouth_in': dict(bump=0.2, prints=0, specks=0),
+        'brow': dict(bump=0.25, prints=0, specks=0),
+        'white': dict(rough=0.6, sss=0.05, bump=0.2, prints=0, specks=0)}
+LUMPS = dict(dents=0.0009, pits=0.00016, lumps=0.00016)      # shape imperfections for a 12.6 cm Haru (haru_puppet.piece)
+
+
+def haru_materials(name='haru'):
+    """the full set of Haru clay materials, named '<name>_<part>'"""
+    M = {k: CV.clay(f'{name}_{k}', PAL[k], **kw) for k, kw in LOOK.items()}
+    M['eye'] = CV.clay(f'{name}_eye', (0.012, 0.01, 0.01), gloss=True)
+    return M
+
+
+# where each part can be on a standing Haru (fraction of her height from the soles): painted textures shade hair grey
+# and trousers dark, so colour alone mixes them up
+BAND = {'hair': (0.62, 1.0), 'skin': (0.3, 1.0), 'hoodie': (0.3, 0.86), 'pants': (0.03, 0.5),
+        'shoe': (0.0, 0.12), 'sole': (0.0, 0.05)}
+
+
+def _srgb(c):
+    return tuple((v * 12.92) if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055 for v in c[:3])
+
+
+def _nearest(rgb, keys):
+    """palette part whose sRGB colour is closest to rgb (sRGB 0..1), weighted toward lightness so tan vs mustard holds"""
+    def hx(h): h = h.lstrip('#'); return [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    def d(a, b): return 2.0 * (a[0] - b[0]) ** 2 + 4.0 * (a[1] - b[1]) ** 2 + 1.5 * (a[2] - b[2]) ** 2
+    return min(keys, key=lambda k: d(rgb, hx(PAL[k])))
+
+
+def apply_haru_clay(objects, name='haru', mapping=None, keys=('hoodie', 'skin', 'pants', 'hair', 'shoe', 'sole'),
+                    lumps=True, height=None):
+    """Give an imported Haru (Artlist GLB etc.) exactly the channel clay. Every face is sorted into a part (skin, hoodie,
+    hair...) by its painted colour: the texture sampled at the face's UVs, or the material's base colour when there is no
+    texture. The painted textures are dropped and the part's HC clay material goes on instead, plus the same clay lumps
+    as the code puppet. mapping={'<imported material name>': 'hair', ...} forces whole materials to a part (use 'eye'
+    for the eye beads). height: her height in metres if not yet scaled (the lumps are sized for 12.6 cm).
+    Returns {part: face count} so you can check the sort."""
+    import bmesh
+    M = haru_materials(name); mapping = mapping or {}; count = {}
+    meshes = [o for o in objects if o.type == 'MESH']
+    for ob in meshes:
+        old = list(ob.data.materials)
+        info = []                                                       # per old slot: forced part, image pixels, base colour
+        for m in old:
+            forced = mapping.get(m.name if m else '', None) or mapping.get((m.name if m else '').split('.')[0], None)
+            img, base = None, (0.5, 0.5, 0.5)
+            if m and m.use_nodes:
+                for n in m.node_tree.nodes:
+                    if n.type != 'BSDF_PRINCIPLED': continue
+                    bc = n.inputs['Base Color']; base = _srgb(bc.default_value)
+                    stack = [l.from_node for l in bc.links]             # the colour texture, not the normal map
+                    while stack and img is None:
+                        s = stack.pop()
+                        if s.type == 'TEX_IMAGE' and s.image: img = s.image
+                        else: stack += [l.from_node for i in s.inputs for l in i.links]
+            px = None
+            if img is not None and img.size[0] > 0:
+                import numpy as np
+                px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32); img.pixels.foreach_get(px)
+                px = (px.reshape(img.size[1], img.size[0], 4), img.colorspace_settings.name.lower().startswith('srgb'))
+            info.append((forced, px, base))
+        bm = bmesh.new(); bm.from_mesh(ob.data); uv = bm.loops.layers.uv.active
+        z0 = min(v.co.z for v in bm.verts); zh = max(max(v.co.z for v in bm.verts) - z0, 1e-9)
+        parts = []
+        for f in bm.faces:
+            zf = (f.calc_center_median().z - z0) / zh                   # 0 at her soles, 1 at the top of her hair
+            allowed = [p for p in keys if BAND.get(p, (0, 1))[0] <= zf <= BAND.get(p, (0, 1))[1]] or list(keys)
+            forced, px, base = info[f.material_index] if f.material_index < len(info) else (None, None, (0.5, 0.5, 0.5))
+            if forced: parts.append(forced); continue
+            rgb = base
+            if px is not None and uv is not None:
+                arr, is_srgb = px; h, w = arr.shape[:2]; acc = [0.0, 0.0, 0.0]
+                for l in f.loops:                                       # average the face's corners and centre
+                    u, v = l[uv].uv; c = arr[int((v % 1) * (h - 1)), int((u % 1) * (w - 1))]
+                    for i in range(3): acc[i] += c[i]
+                rgb = [a / len(f.loops) for a in acc]
+                if not is_srgb: rgb = _srgb(rgb)
+            parts.append(_nearest(rgb, allowed))
+        bm.free()
+        used = sorted(set(parts)); slot = {p: i for i, p in enumerate(used)}
+        ob.data.materials.clear()                                       # (clearing resets the face indices: set them after)
+        for p in used: ob.data.materials.append(M[p])
+        ob.data.polygons.foreach_set('material_index', [slot[p] for p in parts]); ob.data.update()
+        for p in parts: count[p] = count.get(p, 0) + 1
+        if lumps:
+            k = 1.0 if height is None else height / 0.126
+            CV.geometry(ob, **{a: v * k for a, v in LUMPS.items()})
+    return count
+
+
 class HaruClay(HP.Haru):
     def _materials(self):
-        n = self.name
-        def clay(k, **kw): return CV.clay(f'{n}_{k}', PAL[k], **kw)
-        return {'hoodie': clay('hoodie', sss=0.06, bump=0.7),
-                'pants': clay('pants', sss=0.04, bump=0.7),
-                'skin': clay('skin', rough=0.8, sss=0.12, bump=0.85, prints=1.2),
-                'hair': clay('hair', rough=0.7, sss=0.03, bump=0.6, prints=0.4, grooves=0.3, specks=0, film=0.2),
-                'shoe': clay('shoe', sss=0.08, bump=0.5, specks=1.2),
-                'sole': clay('sole', bump=0.5),
-                'mouth': clay('mouth', bump=0.2, prints=0, specks=0),
-                'mouth_in': clay('mouth_in', bump=0.2, prints=0, specks=0),
-                'brow': clay('brow', bump=0.25, prints=0, specks=0),
-                'white': clay('white', rough=0.6, sss=0.05, bump=0.2, prints=0, specks=0),
-                'eye': CV.clay(f'{n}_eye', (0.012, 0.01, 0.01), gloss=True)}
+        return haru_materials(self.name)
 
     # ---- body
     def _build(self):
