@@ -124,6 +124,18 @@ length in `index.json`).
   neck, head top) to place bones on `haru.glb`. Hair as its own mesh with a bone for a little swing.
 - **First test**: a 5-second shot of Haru standing in a lit room, blinking, then turning to look over her shoulder; compare it side by side with the board.
 
+## 6b. The library: references and working parts (Nov 27)
+
+- **Reference images** are in `refs/` (chars, sets, props, moods), made from `docs/reference_prompts.md`. Build
+  characters, rooms and props against them. The Haru moods there are for lighting only: that girl is not our Haru.
+- **Windows and doors kit**: `library/sets/openings.py`. Use it for every window or door a scare happens at:
+  `K.window(..., rig=True, curtains='thin'|'heavy', blind=True, sash=True, outside='streetlamp'|'moon'|'dark')` and
+  `K.door(..., rig=True, beyond='dark'|'lit', color='white', peephole=True, letterbox=True)` inside `K.wall()`, then
+  animate the built object (`opening['obj']`): `W.close(f, 0..1)`, `W.blind(f, 0..1)`, `W.open(f, 0..1)`,
+  `W.lamp(f, W)`, `D.swing(f, deg)`, `D.turn(f, 0..1)`, `D.light(f, W)`. Thin curtains let the streetlamp through, so
+  anything standing outside throws its shadow on them. Test scene: `scenes/openings_test.py` (stills in
+  `docs/openings_kit.jpg`). Openings without rig=True stay the old static ones, so earlier sets are unchanged.
+
 ## 7. Voices and sound (unchanged by Blender)
 
 - Narrator: Haru = **Samara X** (Artlist voice id 224933), Eleven v3, stability 0.5, one generation per line. Artlist had **49 credits left**,

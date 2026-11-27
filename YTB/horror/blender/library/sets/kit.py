@@ -384,13 +384,17 @@ def _cut(rect, holes):
     return out
 
 
-def door(u0, u1, h=DOOR_H, kind='door', angle=0.0, leaf=True, hinge='start', spill=None, keep=False):
-    """keep=True: an outside door or a cupboard; in the house the other doors swing wide open so she can walk through"""
-    return dict(kind=kind, u0=u0, u1=u1, z0=0.0, z1=h, angle=angle, leaf=leaf, hinge=hinge, spill=spill, keep=keep)
+def door(u0, u1, h=DOOR_H, kind='door', angle=0.0, leaf=True, hinge='start', spill=None, keep=False, rig=False, **opts):
+    """keep=True: an outside door or a cupboard; in the house the other doors swing wide open so she can walk through.
+    rig=True: the working door from openings.py (swing, handle, light behind); opts go to openings.Door and the built
+    door comes back as the dict's 'obj' after wall()"""
+    return dict(kind=kind, u0=u0, u1=u1, z0=0.0, z1=h, angle=angle, leaf=leaf, hinge=hinge, spill=spill, keep=keep, rig=rig, opts=opts)
 
 
-def window(u0, u1, z0, z1, curtains=True, moon=False, sky=True):
-    return dict(kind='window', u0=u0, u1=u1, z0=z0, z1=z1, curtains=curtains, moon=moon, sky=sky)
+def window(u0, u1, z0, z1, curtains=True, moon=False, sky=True, rig=False, **opts):
+    """rig=True: the working window from openings.py (curtains that close, blind, sash, streetlamp outside); opts go
+    to openings.Window (curtains='thin'/'heavy'/None, outside=...) and the built window comes back as 'obj'"""
+    return dict(kind='window', u0=u0, u1=u1, z0=z0, z1=z1, curtains=curtains, moon=moon, sky=sky, rig=rig, opts=opts)
 
 
 def wall(a, b, openings=(), h=H, mat='wall', skirting=True, inward=None):
@@ -420,6 +424,13 @@ def wall(a, b, openings=(), h=H, mat='wall', skirting=True, inward=None):
 
 def _frame(holder, o, side, a, t, n):
     u0, u1, z0, z1 = o['u0'], o['u1'], o['z0'], o['z1']; f = 0.007; s = side
+    if o.get('rig'):                                                        # the working version (openings.py)
+        import openings as OP
+        if o['kind'] == 'window':
+            o['obj'] = OP.Window(holder, u0, u1, z0, z1, side=s, **o['opts'])
+        else:
+            o['obj'] = OP.Door(holder, u0, u1, h=z1, side=s, hinge=o['hinge'], **o['opts']); o['obj'].swing(None, o['angle'])
+        return
     y0, y1 = s * (WT / 2 - 0.012), s * (WT / 2 + 0.003)
     yy = (min(y0, y1), max(y0, y1))
     parts = [(u0 - f, u0, z0, z1 + f), (u1, u1 + f, z0, z1 + f), (u0, u1, z1, z1 + f)]
