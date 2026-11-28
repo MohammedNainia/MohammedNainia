@@ -19,6 +19,7 @@ import numpy as np
 from mathutils import Vector, Matrix
 
 # measured on the flat front render of haru_full at the kit size (12.6 cm), rig at rest: x, z in metres
+MOUTH_AT = (0.0004, 0.1031, 0.0019)   # where the sculpted mouth sits: lower than her painted one, as on the sheet
 MEASURED = dict(eye=(0.0050, 0.1100, 0.0012), brow=(0.0057, 0.1137, 0.0024, 0.0009), mouth=(0.0004, 0.1037, 0.0019),
                 skin=(0.894, 0.673, 0.556))
 
@@ -122,7 +123,8 @@ class Face:
         self.M = dict(dark=_mat('face_dark', (0.006, 0.005, 0.005), rough=0.3, gloss=True),
                       brow=_mat('brow_clay', (0.035, 0.03, 0.029), rough=0.6),
                       inside=_mat('mouth_inside', (0.025, 0.004, 0.005), rough=1.0),
-                      tongue=_mat('mouth_tongue', (0.26, 0.05, 0.05), rough=0.55),
+                      tongue=_mat('mouth_tongue', (0.3, 0.07, 0.07), rough=0.55),
+                      crease=_mat('mouth_crease', (0.035, 0.01, 0.009), rough=0.6),
                       teeth=_mat('teeth', (0.78, 0.76, 0.71), rough=0.6),
                       lip=_mat('lip_line', (0.09, 0.025, 0.022), rough=0.55),
                       rim=_mat('lip_rim', (0.3, 0.1, 0.08), rough=0.6),
@@ -165,7 +167,7 @@ class Face:
         px = np.empty(w * h * 4, dtype=np.float32); img.pixels.foreach_get(px); px = px.reshape(h, w, 4)
         ex, ez, er = MEASURED['eye']; bx, bz, bw, bh = MEASURED['brow']; mx, mz, mw = MEASURED['mouth']
         regions = [(-ex, ez, er * 1.45, er * 1.45), (ex, ez, er * 1.45, er * 1.45), (-bx, bz, bw * 1.15, bh * 1.15),
-                   (bx, bz, bw * 1.15, bh * 1.15), (mx, mz, mw * 1.3, 0.0008)]
+                   (bx, bz, bw * 1.15, bh * 1.15), (mx, mz, mw * 1.7, 0.0013)]
         uv = me.uv_layers.active.data
         mask = np.zeros((h, w), bool)
         for p in me.polygons:
@@ -186,21 +188,39 @@ class Face:
             mask[yi, xi] = True
         # fill the holes from their edges inward (a membrane / Laplace fill), so the patch takes on the skin's own
         # shading around it; dark texels at the rim (the last of a painted line) are ignored as sources
+        R = 4                                                           # a wider ring: catches the paint's last dark texels
         ring = np.zeros_like(mask)
-        for dy in (-2, -1, 0, 1, 2):
-            for dx in (-2, -1, 0, 1, 2):
+        for dy in range(-R, R + 1):
+            for dx in range(-R, R + 1):
                 ring |= np.roll(np.roll(mask, dy, 0), dx, 1)
         ring &= ~mask
         rgb = px[..., :3].copy(); lum = rgb @ [0.2126, 0.7152, 0.0722]
-        bad = ring & (lum < 0.42)                                       # rim texels still dark: fill them too
+        ref = np.median(lum[ring]) if ring.any() else 0.6
+        bad = ring & ((lum < 0.42) | (lum < ref - 0.08) | (rgb[..., 0] - rgb[..., 1] > 0.3))   # dark or red paint left at the rim
         hole = mask | bad
         skin = rgb[ring & ~bad]
         col = np.median(skin, axis=0) if len(skin) > 20 else np.array(self.skin_rgb, np.float32)
-        rgb[hole] = col
-        for _ in range(400):
-            avg = (np.roll(rgb, 1, 0) + np.roll(rgb, -1, 0) + np.roll(rgb, 1, 1) + np.roll(rgb, -1, 1)) / 4
-            rgb[hole] = avg[hole]
-        noise = np.random.default_rng(3).normal(0, 0.006, (int(hole.sum()), 1)).astype(np.float32)
+        # fill each patch from its edges inward until it settles (a membrane fill), on a crop so it is quick:
+        # the patch takes on the skin's own baked shading around it instead of a flat, lighter average
+        def blobs(idx, gap=40):                                         # split the patches apart (two face islands)
+            out = []
+            ys, xs = idx
+            order = np.argsort(xs); xs, ys = xs[order], ys[order]
+            cuts = np.where(np.diff(xs) > gap)[0] + 1
+            for gx, gy in zip(np.split(xs, cuts), np.split(ys, cuts)):
+                o2 = np.argsort(gy); gx, gy = gx[o2], gy[o2]
+                c2 = np.where(np.diff(gy) > gap)[0] + 1
+                out += list(zip(np.split(gy, c2), np.split(gx, c2)))
+            return out
+        for ys, xs in blobs(np.where(hole)):
+            y0, y1 = max(0, ys.min() - 3), min(h, ys.max() + 4); x0, x1 = max(0, xs.min() - 3), min(w, xs.max() + 4)
+            sub = rgb[y0:y1, x0:x1]; hm = hole[y0:y1, x0:x1]
+            sub[hm] = col
+            for _ in range(3000):
+                avg = (np.roll(sub, 1, 0) + np.roll(sub, -1, 0) + np.roll(sub, 1, 1) + np.roll(sub, -1, 1)) / 4
+                sub[hm] = avg[hm]
+            rgb[y0:y1, x0:x1] = sub
+        noise = np.random.default_rng(3).normal(0, 0.004, (int(hole.sum()), 1)).astype(np.float32)
         px[hole, :3] = rgb[hole] + noise
         mask = hole
         img.pixels.foreach_set(px.ravel()); img.update(); img.pack()
@@ -211,7 +231,7 @@ class Face:
     def _shape_keys(self):
         ob = self.body; me = ob.data
         if not me.shape_keys: ob.shape_key_add(name='Basis', from_mix=False)
-        mx, mz, mw = MEASURED['mouth']; ex, ez, er = MEASURED['eye']
+        mx, mz, mw = MOUTH_AT; ex, ez, er = MEASURED['eye']
         co = np.array([v.co[:] for v in me.vertices])
         x, y, z = co[:, 0], co[:, 1], co[:, 2]
         front = y < -0.003
@@ -318,8 +338,13 @@ class Face:
             edges = list({e for f in faces for e in f.edges})
             bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=True, smooth=0.0)   # smoothing here scratches her cheeks
         bm.verts.ensure_lookup_table()
-        new = [v for v in bm.verts[n0:]]                               # relax only the new points: her own stay put
+        edge = {v for f in bm.faces if not all(inbox(x.co) for x in f.verts) for v in f.verts}   # the patch's rim stays put
+        new = [v for v in bm.verts[n0:] if v not in edge]              # relax only the new points: her own stay put
         for _ in range(6): bmesh.ops.smooth_vert(bm, verts=new, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        # her model has a little mouth crease sculpted where the painted mouth was: smooth it away (the mouths are ours)
+        omx, omz, omw = MEASURED['mouth']
+        old = [v for v in bm.verts if v not in edge and v.co.y < -0.004 and ((v.co.x - omx) / (omw * 1.9)) ** 2 + ((v.co.z - omz) / 0.0011) ** 2 < 1]
+        for _ in range(25): bmesh.ops.smooth_vert(bm, verts=old, factor=0.5, use_axis_x=False, use_axis_y=True, use_axis_z=False)
         bm.to_mesh(me); bm.free(); me.update()
         # the fine clay noise (pits, small lumps) would scratch the dense patch: fade it out there, keep the thumb dents
         co = np.array([v.co[:] for v in me.vertices])
@@ -356,7 +381,7 @@ class Face:
         return ins
 
     def _mouth(self):
-        mx, mz, mw = MEASURED['mouth']; ob = self.body; me = ob.data
+        mx, mz, mw = MOUTH_AT; ob = self.body; me = ob.data
         e = self.frame(f'{self.name}_mouth', mx, mz); self.mouth_root = e; M = self.M
         co = np.array([v.co[:] for v in me.vertices]); nr = np.array([v.normal[:] for v in me.vertices])
         bx, z0, z1 = self.BOX
@@ -366,53 +391,67 @@ class Face:
         ss = lambda a, b, x: np.clip((x - a) / (b - a), 0, 1) ** 2 * (3 - 2 * np.clip((x - a) / (b - a), 0, 1))
         g = lambda x, w: np.exp(-(x / w) ** 2)
         sq = lambda u: math.sqrt(max(0.0, 1 - u * u))
-        U = [2 * i / 30 - 1 for i in range(31)]
+        U = [2 * i / 40 - 1 for i in range(41)]
 
         def creases(disp, reach, depth=0.12):                    # nose-to-mouth-corner folds (terrified, crying)
             for sd in (-1, 1):
-                pl = np.array([(sd * (0.0024 + 0.0016 * s ** 1.3 * reach), 0.0022 - 0.0034 * s) for s in np.linspace(0, 1, 12)])
+                pl = np.array([(sd * (0.0024 + 0.0018 * s ** 1.3 * reach), 0.0020 - 0.0032 * s) for s in np.linspace(0, 1, 12)])
                 d, fr, _ = self._seg(P, pl, False)
-                disp -= depth * mm * g(d, 0.16 * mm) * np.sin(np.pi * np.clip(fr, 0, 1)) ** 0.6
+                disp -= depth * mm * g(d, 0.18 * mm) * np.sin(np.pi * np.clip(fr, 0, 1)) ** 0.6
 
-        LINES = dict(                                               # pts, groove, lower lip, upper lip (mm)
-            line=([(u * mw * 0.7, -mw * 0.03 * (1 - u * u)) for u in U], 0.18, 0.12, 0.06),
-            frown=([(u * mw * 1.0, -mw * 0.35 + mw * 0.55 * (1 - u * u)) for u in U], 0.26, 0.32, 0.1),
-            wavy=([(u * mw * 1.4, mw * 0.13 * math.sin(math.pi * 1.5 * (u + 1)) - mw * 0.12 * u) for u in U], 0.26, 0.34, 0.26),
-            pressed=([(u * mw * 1.35, mw * 0.09 * math.sin(math.pi * 2.5 * (u + 1)) + mw * 0.06 * (1 - u * u)) for u in U], 0.28, 0.32, 0.28),
-            smile=([(u * mw * 1.15, mw * 0.15 - mw * 0.4 * (1 - u * u)) for u in U], 0.22, 0.14, 0.06))
+        # sizes measured off the sheet (mw = 1.9 mm): closed mouths are one clean groove with soft lips either side
+        LINES = dict(                                               # pts, groove mm, lower lip mm, upper lip mm
+            line=([(u * mw * 0.75, -mw * 0.02 * (1 - u * u)) for u in U], 0.16, 0.1, 0.05),
+            frown=([(u * mw * 1.2, -mw * 0.45 + mw * 0.8 * (1 - u * u) ** 0.8) for u in U], 0.22, 0.26, 0.08),
+            wavy=([(u * mw * 1.85, mw * 0.14 * math.sin(math.pi * 1.4 * (u + 1)) - mw * 0.1 * u) for u in U], 0.22, 0.34, 0.3),
+            pressed=([(u * mw * 2.1, mw * 0.08 * math.sin(math.pi * 2.4 * (u + 1)) + mw * 0.05 * (1 - u * u)) for u in U], 0.24, 0.34, 0.3),
+            smile=([(u * mw * 1.35, mw * 0.18 - mw * 0.36 * (1 - u * u)) for u in U], 0.2, 0.14, 0.05))
         OPENS = dict(                                               # half width, top(u), bottom(u), depth mm, lip mm
-            o=(mw * 0.85, lambda u: -mw * 0.1 + mw * 0.28 * sq(u), lambda u: -mw * 0.1 - mw * 0.42 * sq(u), 0.9, 0.3),
-            cry=(mw * 1.8, lambda u: -mw * 0.6 + mw * 1.05 * (1 - u * u) ** 0.8, lambda u: -mw * 0.6 - mw * 0.3 * (1 - u * u) ** 0.8, 1.2, 0.3),
-            scream=(mw * 1.35, lambda u: -mw * 0.15 + mw * 0.8 * sq(u), lambda u: -mw * 0.15 - mw * 1.55 * sq(u) ** 0.8, 1.6, 0.3),
-            laugh=(mw * 1.4, lambda u: mw * 0.1 * (1 - u * u), lambda u: -mw * 0.7 * (1 - u * u) ** 0.8, 0.9, 0.2),
-            grimace=(mw * 1.5, lambda u: mw * 0.22 * (1 - u ** 4), lambda u: -mw * 0.22 * (1 - u ** 4), 0.6, 0.18))
+            o=(mw * 0.82, lambda u: -mw * 0.05 + mw * 0.36 * sq(u), lambda u: -mw * 0.05 - mw * 0.5 * sq(u), 0.9, 0.3),
+            cry=(mw * 1.75, lambda u: -mw * 0.8 + mw * 1.3 * (1 - u * u) ** 0.6, lambda u: -mw * 0.8 - mw * 0.32 * (1 - u * u), 1.3, 0.36),
+            scream=(mw * 1.5, lambda u: -mw * 0.1 + mw * 0.85 * sq(u) ** 0.5, lambda u: -mw * 0.1 - mw * 1.15 * sq(u) ** 0.7, 1.8, 0.34),
+            laugh=(mw * 1.4, lambda u: mw * 0.1 * (1 - u * u), lambda u: -mw * 0.7 * (1 - u * u) ** 0.8, 0.9, 0.22),
+            grimace=(mw * 1.5, lambda u: mw * 0.22 * (1 - u ** 4), lambda u: -mw * 0.22 * (1 - u ** 4), 0.6, 0.2))
         if not me.shape_keys: ob.shape_key_add(name='Basis', from_mix=False)
         self.mouth = {}; self.mouth_parts = {}
         for k, (pts, G, Lh, Lu) in LINES.items():
+            pts = [(x * 1.25, z * 1.15) for x, z in pts]               # the sheet's closed mouths are a quarter wider
             pl = np.array(pts); d, fr, side = self._seg(P, pl, False)
-            taper = np.clip(np.sin(np.pi * fr), 0, 1) ** 0.4
-            disp = -G * mm * g(d, 0.1 * mm) * taper
-            disp += np.where(side < 0, Lh, Lu) * mm * g(d - 0.27 * mm, 0.17 * mm) * taper ** 0.7
+            taper = np.clip(np.sin(np.pi * fr), 0, 1) ** 0.35
+            disp = -G * 0.5 * mm * g(d, 0.1 * mm) * taper                 # a soft seam where the lips meet
+            disp += np.where(side < 0, Lh * 0.7 * g(d - 0.3 * mm, 0.38 * mm), Lu * 0.8 * g(d - 0.2 * mm, 0.3 * mm)) * mm * taper ** 0.6   # soft lips, no hard edge
             for end in (pl[0], pl[-1]):                             # dimples at the corners
-                disp -= 0.1 * mm * g(np.sqrt(((P - end) ** 2).sum(1)), 0.13 * mm)
+                disp -= 0.08 * mm * g(np.sqrt(((P - end) ** 2).sum(1)), 0.16 * mm)
             if k == 'pressed':                                      # short worried creases off the corners
                 for end, sd in ((pl[0], -1), (pl[-1], 1)):
-                    c2 = np.array([end, end + [sd * 0.25 * mm, -0.45 * mm]]); d2, f2, _ = self._seg(P, c2, False)
-                    disp -= 0.08 * mm * g(d2, 0.07 * mm)
-            dark = g(d, 0.15 * mm) * taper
+                    c2 = np.array([end, end + [sd * 0.3 * mm, -0.5 * mm]]); d2, f2, _ = self._seg(P, c2, False)
+                    disp -= 0.08 * mm * g(d2, 0.1 * mm)
+            dark = 0.35 * g(d, 0.2 * mm) * taper                       # a soft shadow; the crisp line is a clay crease below
             self._mouth_key(k, reg, nr, disp, dark)
+            self.keys = me.shape_keys.key_blocks
+            kb = self.keys['m_' + k]; kb.value = 1.0
+            lp = self.bend(e, [(x, 0, z) for x, z in pts], -0.02 * mm)  # pressed into the seam
+            kb.value = 0.0
+            xs = np.array([q[0] for q in lp]); ys = np.array([q[1] for q in lp])
+            ys = np.convolve(np.pad(ys, 4, mode='edge'), np.ones(9) / 9, mode='valid') - 0.03 * mm   # smooth: no in-and-out specks
+            lp = [(q[0], float(y), q[2]) for q, y in zip(lp, ys)]
+            tp = [math.sin(math.pi * i / (len(lp) - 1)) ** 0.5 for i in range(len(lp))]
+            cr = _curve(f'mouth_{k}_crease', lp, 0.23 * mm, M['crease'], self.coll, radii=[0.35 + 0.65 * t for t in tp])
+            cr.data.bevel_resolution = 4; cr.data.twist_mode = 'Z_UP'
+            sp = cr.data.splines[0]; sp.type = 'NURBS'; sp.order_u = 4; sp.use_endpoint_u = True   # one smooth stroke
+            self.mouth_parts[k] = [self._kid(cr, e)]
         for k, (w, top, bot, D, Lh) in OPENS.items():
-            ol = np.array(_outline(top, bot, w, n=24)); d, fr, _ = self._seg(P, ol, True)
+            ol = np.array(_outline(top, bot, w, n=28)); d, fr, _ = self._seg(P, ol, True)
             ins = self._inside(P, ol); sd_ = np.where(ins, d, -d)          # signed: inside +
             zc = (top(0.0) + bot(0.0)) / 2
-            lower = np.where(P[:, 1] < zc, 1.7 if k == 'cry' else 1.45, 1.0)   # the crying lower lip pouts
-            hollow = D * mm * ss(0.0, 0.38 * mm, sd_)                  # pushed straight back into her head: a clean hollow
-            disp = Lh * mm * lower * g(sd_ + 0.13 * mm, 0.17 * mm)
+            lower = 1.0 + (0.7 if k == 'cry' else 0.4) * ss(0.3 * mm, -0.5 * mm, P[:, 1] - zc)   # a fuller lower lip (smooth, no step)
+            hollow = D * mm * ss(-0.04 * mm, 0.65 * mm, sd_)                   # the lips roll in, then straight back into her head
+            disp = Lh * mm * lower * g(sd_ + 0.16 * mm, 0.4 * mm)          # broad soft lips that roll into the mouth
             if k in ('cry', 'scream'):
                 creases(disp, 1.0 if k == 'scream' else 1.3)
-                chin = np.sqrt((P[:, 0] / 1.3) ** 2 + (P[:, 1] - (bot(0.0) - 0.75 * mm)) ** 2)
-                disp += (0.16 if k == 'cry' else 0.08) * mm * g(chin, 0.55 * mm)       # the chin bunches up
-            dark = ss(0.02 * mm, 0.2 * mm, sd_)
+                chin = np.sqrt((P[:, 0] / 1.3) ** 2 + (P[:, 1] - (bot(0.0) - 0.8 * mm)) ** 2)
+                disp += (0.18 if k == 'cry' else 0.08) * mm * g(chin, 0.6 * mm)       # the chin bunches up
+            dark = ss(0.12 * mm, 0.5 * mm, sd_)
             self._mouth_key(k, reg, nr, disp, dark, hollow)
             self._mouth_parts(k, e, w, top, bot)
         self.keys = me.shape_keys.key_blocks
@@ -421,7 +460,7 @@ class Face:
         ob = self.body; me = ob.data
         co = np.empty(len(me.vertices) * 3); me.shape_keys.key_blocks['Basis'].data.foreach_get('co', co); co = co.reshape(-1, 3)
         key = ob.shape_key_add(name='m_' + k, from_mix=False); key.value = 0.0   # new keys start at 1 in Blender 5
-        co[reg] += nr[reg] * disp[:, None]
+        co[reg, 1] -= disp                                              # straight out of her face (her normals crumple here)
         if hollow is not None: co[reg, 1] += hollow
         key.data.foreach_set('co', co.ravel())
         a = me.attributes.get('mk_' + k) or me.attributes.new('mk_' + k, 'FLOAT', 'POINT')
@@ -429,39 +468,52 @@ class Face:
         self.mouth[k] = True
 
     def _jaw_shift(self, x, z, jaw):
-        mx, mz, mw = MEASURED['mouth']
-        below = min(1, max(0, (mz - z) / 0.0035)) * max(0, 1 - ((x - mx) / 0.009) ** 2) * (z > mz - 0.012)
+        mx, mz, mw = MOUTH_AT
+        below = min(1, max(0, (mz - z) / 0.0035)) * max(0, 1 - ((x - mx) / 0.009) ** 2) * min(1, max(0, (z - (mz - 0.0095)) / 0.0025))
         return Vector((0, 0.0005 * below * jaw, -0.0026 * below * jaw))
 
+    def _keep(self, ob, e):
+        ob.parent = e; ob.matrix_parent_inverse = e.matrix_world.inverted(); return ob
+
     def _mouth_parts(self, k, e, w, top, bot):
-        """clay teeth and tongue inside an open mouth (body space, then parented to the mouth frame)"""
-        mx, mz, mw = MEASURED['mouth']; M = self.M; parts = []; jaw = MOUTHS[k]['jaw']
+        """clay teeth (wide flat bands, like the sheet) and a tongue inside an open mouth"""
+        mx, mz, mw = MOUTH_AT; M = self.M; parts = []; jaw = MOUTHS[k]['jaw']; mm = 0.001
         Bw = self.body.matrix_world
-        def place(name, pts_xz, r, inward, mat, flat=0.55, lower=False):
-            pts = []
-            for x, z in pts_xz:
-                p, n = self.surf(mx + x, mz + z)
-                q = p + Vector((0, inward, 0))                         # straight back, like the hollow
-                if lower: q = q + self._jaw_shift(mx + x, mz + z, jaw)
-                pts.append(tuple(Bw @ q))
-            ob = _curve(name, pts, r, mat, self.coll)
-            ob.data.bevel_resolution = 4
-            ob.parent = e; ob.matrix_parent_inverse = e.matrix_world.inverted()
-            return ob
-        teeth = MOUTHS[k].get('teeth'); mm = 0.001
-        ext = {'scream': 0.5, 'cry': 0.62, 'laugh': 0.6, 'grimace': 0.75}.get(k, 0.6)
-        us = [ext * (2 * i / 12 - 1) for i in range(13)]
-        th = (0.2 if k == 'grimace' else 0.28) * mw
+        def at(x, z, inward, lower):
+            p, n = self.surf(mx + x, mz + z)
+            q = p + Vector((0, inward, 0))                             # straight back, like the hollow
+            if lower: q = q + self._jaw_shift(mx + x, mz + z, jaw)
+            return Bw @ q
+        def band(name, edge, th, down, ext, inward, lower=False):
+            n = 17; us = [ext * (2 * i / (n - 1) - 1) for i in range(n)]
+            bm = bmesh.new(); A, B = [], []
+            for u in us:
+                rnd = (1 - (u / ext) ** 6) ** 0.5                         # rounded ends
+                z0 = edge(u); z1 = z0 + (-th if down else th) * (0.35 + 0.65 * rnd)
+                A.append(bm.verts.new(at(u * w, z0, inward, lower))); B.append(bm.verts.new(at(u * w, z1, inward, lower)))
+            for i in range(n - 1): bm.faces.new((A[i], A[i + 1], B[i + 1], B[i]))
+            me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+            ob = bpy.data.objects.new(name, me); self.coll.objects.link(ob); me.materials.append(M['teeth'])
+            for p in me.polygons: p.use_smooth = True
+            so = ob.modifiers.new('thick', 'SOLIDIFY'); so.thickness = 0.14 * mm; so.offset = 0.0
+            sb = ob.modifiers.new('round', 'SUBSURF'); sb.levels = 2; sb.render_levels = 2
+            return self._keep(ob, e)
+        teeth = MOUTHS[k].get('teeth')
+        ext = {'scream': 0.55, 'cry': 0.5, 'laugh': 0.6, 'grimace': 0.75}.get(k, 0.6)
+        th = (0.2 if k == 'grimace' else 0.3) * mw
+        flat = lambda f: (lambda u: 0.35 * f(u) + 0.65 * f(0.0))       # teeth sit in a straighter row than the lips
         if teeth:
-            row = lambda f, u: 0.45 * f(u) + 0.55 * f(0.0) if k == 'scream' else f(u)     # a straighter row in the tall scream
-            parts.append(place(f'teeth_{k}', [(u * w, row(top, u) - th * 1.1) for u in us], th * 0.55, th * 0.55 + 0.08 * mm, M['teeth']))
+            tf = flat(top) if k in ('scream', 'cry') else top
+            parts.append(band(f'teeth_{k}', lambda u: tf(u) - 0.1 * mw, th, True, ext, 0.3 * mm))
         if teeth == 'both':
-            row = lambda f, u: 0.45 * f(u) + 0.55 * f(0.0) if k == 'scream' else f(u)
-            parts.append(place(f'teeth_b_{k}', [(u * w, row(bot, u) + th * 0.95) for u in us], th * 0.5, th * 0.5 + 0.02 * mm, M['teeth'], lower=True))
-        if k == 'scream':
-            z = bot(0.0) + mw * 0.95; tw = w * 0.3
-            parts.append(place(f'tongue_{k}', [(tw * (2 * i / 6 - 1), z + 0.12 * mw * (1 - (2 * i / 6 - 1) ** 2)) for i in range(7)],
-                               mw * 0.32, 1.1 * mm, M['tongue'], lower=True))
+            bf = flat(bot) if k == 'scream' else bot
+            parts.append(band(f'teeth_b_{k}', lambda u: bf(u) + 0.12 * mw, th * 0.8, False, ext * 0.9, 0.3 * mm, lower=True))
+        if k in ('cry', 'scream'):                                      # a tongue low in the opening
+            z = bot(0.0) + mw * (0.35 if k == 'cry' else 0.55)
+            tg = _ball(f'tongue_{k}', 1.0, M['tongue'], self.coll)
+            tg.data.transform(Matrix.Diagonal((w * 0.45, 0.3 * mm, mw * 0.28, 1.0)))   # size in the mesh: set() keys the object scale
+            tg.location = at(0.0, z, (0.8 if k == 'cry' else 1.1) * mm, True)
+            parts.append(self._keep(tg, e))
         self.mouth_parts[k] = parts
 
     def _mouth_shader(self):
