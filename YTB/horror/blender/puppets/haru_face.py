@@ -343,8 +343,8 @@ class Face:
         for _ in range(6): bmesh.ops.smooth_vert(bm, verts=new, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
         # her model has a little mouth crease sculpted where the painted mouth was: smooth it away (the mouths are ours)
         omx, omz, omw = MEASURED['mouth']
-        old = [v for v in bm.verts if v not in edge and v.co.y < -0.004 and ((v.co.x - omx) / (omw * 1.9)) ** 2 + ((v.co.z - omz) / 0.0011) ** 2 < 1]
-        for _ in range(25): bmesh.ops.smooth_vert(bm, verts=old, factor=0.5, use_axis_x=False, use_axis_y=True, use_axis_z=False)
+        old = [v for v in bm.verts if v not in edge and v.co.y < -0.004 and ((v.co.x - omx) / (omw * 2.4)) ** 2 + ((v.co.z - omz) / 0.0016) ** 2 < 1]
+        for _ in range(150): bmesh.ops.smooth_vert(bm, verts=old, factor=0.5, use_axis_x=False, use_axis_y=True, use_axis_z=False)
         bm.to_mesh(me); bm.free(); me.update()
         # the fine clay noise (pits, small lumps) would scratch the dense patch: fade it out there, keep the thumb dents
         co = np.array([v.co[:] for v in me.vertices])
