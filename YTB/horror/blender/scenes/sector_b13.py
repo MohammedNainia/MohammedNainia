@@ -71,6 +71,7 @@ t_mika = W.Tent('tent_mika', -0.27, -0.17, 235, 'red')
 t_jun = W.Tent('tent_jun', 0.27, -0.15, 125, 'blue')
 fence = W.Fence(y=0.8)
 torch = W.Torch(0, 0, 0)
+bpy.data.lights['torch_beam'].spot_size = math.radians(28)           # a tighter beam: on her face, not her chest
 W.mood('night')
 
 # extra light rigs, keyed on and off per shot
@@ -359,10 +360,10 @@ for f in range(1, F + 1):
         d = (fence.sign_at - hand).normalized(); torch.h.rotation_euler = (-d).to_track_quat('Y', 'Z').to_euler()
         torch.level(f, 1.0)
     elif s in ('face', 'voice', 'zip', 'mouth', 'withdraw', 'dawn', 'turn', 'gate'):
-        lap = HRG.matrix_world @ Vector((0, -0.034, 0.058))             # under her chin, in front of her knees
-        torch.h.location = lap; d = (hp - lap).normalized()
+        lap = HRG.matrix_world @ Vector((0.014, -0.062, 0.052))         # in her lap, a little to one side: torch and clay rake light her face from the side, not up her hoodie
+        torch.h.location = lap; d = (hp + Vector((0, 0, 0.01)) - lap).normalized()   # aimed at her brow: the beam's edge falls at her chin
         torch.h.rotation_euler = (-d).to_track_quat('Y', 'Z').to_euler()
-        torch.level(f, 0.7 if s not in ('dawn', 'turn', 'gate') else 0.0)
+        torch.level(f, 0.5 if s not in ('dawn', 'turn', 'gate') else 0.0)
     else:
         torch.h.location = AWAY; torch.level(f, 0.0)
     torch.h.keyframe_insert('location', frame=f); torch.h.keyframe_insert('rotation_euler', frame=f)

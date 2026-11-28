@@ -234,7 +234,7 @@ class Face:
         mx, mz, mw = MOUTH_AT; ex, ez, er = MEASURED['eye']
         co = np.array([v.co[:] for v in me.vertices])
         x, y, z = co[:, 0], co[:, 1], co[:, 2]
-        front = y < -0.003
+        front = np.clip((-y - 0.002) / 0.006, 0, 1); front = front * front * (3 - 2 * front)   # a soft fade round to her sides (a hard cut left a ridge)
         # jaw: everything below the mouth line drops and tucks back; full at the chin, nothing at the lips' corners
         import cast_kit as CK
         fc = CK._face_colours(ob); lum = fc @ [0.2126, 0.7152, 0.0722]
@@ -243,7 +243,12 @@ class Face:
         for p, ok in zip(me.polygons, skin_f):
             for vi in p.vertices: fv[vi] += 1; skinv[vi] += ok
         skinv = (skinv / np.maximum(fv, 1)) ** 2
-        below = np.clip((mz - z) / 0.0035, 0, 1) * np.clip(1 - (np.abs(x - mx) / 0.009) ** 2, 0, 1) * front * np.clip((z - (mz - 0.0095)) / 0.0025, 0, 1) * skinv   # the chin moves, the neck stays
+        below = np.clip((mz - z) / 0.0035, 0, 1) * np.clip(1 - (np.abs(x - mx) / 0.0105) ** 2, 0, 1) ** 2 * front * np.clip((z - (mz - 0.0095)) / 0.0025, 0, 1) * skinv   # the chin moves, the neck stays
+        ev = np.array([e.vertices[:] for e in me.edges])                 # blur the weights across the clay: no steps anywhere
+        deg = np.bincount(ev.ravel(), minlength=len(co)).astype(float)
+        for _ in range(20):
+            acc = np.bincount(ev[:, 0], weights=below[ev[:, 1]], minlength=len(co)) + np.bincount(ev[:, 1], weights=below[ev[:, 0]], minlength=len(co))
+            below = 0.5 * below + 0.5 * acc / np.maximum(deg, 1)
         k = ob.shape_key_add(name='jaw', from_mix=False); k.value = 0.0; d = np.zeros_like(co)   # new keys start at 1 in Blender 5
         d[:, 2] = -0.0026 * below; d[:, 1] = 0.0005 * below
         k.data.foreach_set('co', (co + d).ravel())
@@ -578,11 +583,21 @@ class Face:
         import cast_kit as CK
         fc = CK._face_colours(self.body); lum = fc @ [0.2126, 0.7152, 0.0722]
         skin_f = (lum > 0.42) & (fc[:, 0] > fc[:, 1]) & (fc[:, 0] - fc[:, 2] < 0.45)      # warm skin, not hair or hoodie
-        mask = np.zeros(len(co))
+        # her face and neck skin, with a soft edge: a hard one read as a bump round her face when she went pale
+        mask = np.zeros(len(co)); fv = np.zeros(len(co))
         for p, ok in zip(me.polygons, skin_f):
-            c = p.center
-            if ok and c.z > 0.093 and c.y < -0.004:
-                for vi in p.vertices: mask[vi] = 1.0
+            for vi in p.vertices: fv[vi] += 1; mask[vi] += ok
+        mask = mask / np.maximum(fv, 1); skin = mask.copy()
+        zf = np.clip((co[:, 2] - 0.088) / 0.006, 0, 1); mask *= zf * zf * (3 - 2 * zf)      # head and neck, fading out down the neck
+        ev = np.array([e.vertices[:] for e in me.edges]); deg = np.bincount(ev.ravel(), minlength=len(co)).astype(float)
+        for _ in range(40):
+            acc = np.bincount(ev[:, 0], weights=mask[ev[:, 1]], minlength=len(co)) + np.bincount(ev[:, 1], weights=mask[ev[:, 0]], minlength=len(co))
+            mask = 0.5 * mask + 0.5 * acc / np.maximum(deg, 1)
+        sk = skin.copy()                                                # but only on skin: never her hair or ears' shadow side
+        for _ in range(3):
+            acc = np.bincount(ev[:, 0], weights=sk[ev[:, 1]], minlength=len(co)) + np.bincount(ev[:, 1], weights=sk[ev[:, 0]], minlength=len(co))
+            sk = 0.5 * sk + 0.5 * acc / np.maximum(deg, 1)
+        mask = np.clip(mask * 1.25, 0, 1) * np.clip(sk * 1.5, 0, 1)    # full on her face, fading at its edges
         a.data.foreach_set('value', mask)
         self.pale_nodes = []
         for m in me.materials:
