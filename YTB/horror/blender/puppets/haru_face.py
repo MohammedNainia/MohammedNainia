@@ -343,8 +343,17 @@ class Face:
         for _ in range(6): bmesh.ops.smooth_vert(bm, verts=new, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
         # her model has a little mouth crease sculpted where the painted mouth was: smooth it away (the mouths are ours)
         omx, omz, omw = MEASURED['mouth']
-        old = [v for v in bm.verts if v not in edge and v.co.y < -0.004 and ((v.co.x - omx) / (omw * 2.4)) ** 2 + ((v.co.z - omz) / 0.0016) ** 2 < 1]
-        for _ in range(150): bmesh.ops.smooth_vert(bm, verts=old, factor=0.5, use_axis_x=False, use_axis_y=True, use_axis_z=False)
+        # (it is a 0.4 mm ledge, not a groove): rebuild that patch as a smooth surface fitted to the skin around it
+        vs = [v for v in bm.verts if v.co.y < -0.004]
+        X = np.array([v.co.x - omx for v in vs]); Z = np.array([v.co.z - omz for v in vs]); Y = np.array([v.co.y for v in vs])
+        r = np.sqrt((X / 0.0048) ** 2 + (Z / 0.0017) ** 2)
+        ring = (r > 1.0) & (r < 1.6)
+        A = lambda x, z: np.stack([np.ones_like(x), x, z, x * x, x * z, z * z, z ** 3, x * x * z], 1)
+        coef = np.linalg.lstsq(A(X[ring], Z[ring]), Y[ring], rcond=None)[0]
+        fit = A(X, Z) @ coef
+        wgt = np.clip((1.15 - r) / 0.3, 0, 1); wgt = wgt * wgt * (3 - 2 * wgt)
+        for v, y, f_, w_ in zip(vs, Y, fit, wgt):
+            if w_ > 0 and v not in edge: v.co.y = y + (f_ - y) * w_
         bm.to_mesh(me); bm.free(); me.update()
         # the fine clay noise (pits, small lumps) would scratch the dense patch: fade it out there, keep the thumb dents
         co = np.array([v.co[:] for v in me.vertices])
