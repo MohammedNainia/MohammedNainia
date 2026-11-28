@@ -259,7 +259,7 @@ def rig(c, label):
     automatic weights; head and hair ride on the head bone. Returns the armature object (also c['rig'])."""
     body, head = c['body'], c['head']
     vs = [v.co.copy() for v in body.data.vertices]
-    H = max(v.z for v in vs)
+    H = c.get('neck_h') or max(v.z for v in vs)                    # one-piece models (Haru) give their neck height
     J = {k: f * H for k, f in JOINTS.items()}
     # legs: the centre of each leg's slice at knee and ankle height
     P = {}
@@ -276,8 +276,10 @@ def rig(c, label):
         arm = tip - sh
         P[side] = dict(hip=hip, knee=Vector((knee.x, knee.y + 0.005 * H, J['knee'])), ank=Vector((ank.x, ank.y, J['ankle'])),
                        toe=toe, sh=sh, elbow=sh + arm * 0.46 + Vector((0, 0.01 * H, 0)), wrist=sh + arm * 0.82, tip=tip)
-    hlo, hhi = bounds(head)
-    head_top = head.location.z - body.location.z + hhi.z
+    if head is not None:
+        hlo, hhi = bounds(head); head_top = head.location.z - body.location.z + hhi.z
+    else:
+        head_top = max(v.z for v in vs)
 
     arm_ob = bpy.data.armatures.new(label + '_rig')
     rg = bpy.data.objects.new(label + '_rig', arm_ob); bpy.context.collection.objects.link(rg)
@@ -313,11 +315,13 @@ def rig(c, label):
     for o in bpy.context.view_layer.objects: o.select_set(False)
     body.select_set(True); rg.select_set(True); bpy.context.view_layer.objects.active = rg
     # bone heat fails on puppet-sized meshes (a few cm): skin at 20x, then shrink back (weights don't care about scale)
+    arm_ob.bones['root'].use_deform = False
+    arm_ob.bones['head'].use_deform = head is None                  # a one-piece model's head is skinned to the head bone
     body.scale = rg.scale = (20, 20, 20); bpy.context.view_layer.update()
     bpy.ops.object.parent_set(type='ARMATURE_AUTO')
     body.matrix_parent_inverse.identity()
     rg.scale = (1, 1, 1); body.scale = (1, 1, 1); body.location = (0, 0, 0); bpy.context.view_layer.update()
-    deform = [b for b in arm_ob.bones if b.name not in ('root', 'head')]
+    deform = [b for b in arm_ob.bones if b.use_deform]
     missing = [v.index for v in body.data.vertices if not any(g.weight > 1e-3 for g in v.groups)]
     if missing:
         def seg_d(p, b):
@@ -369,3 +373,14 @@ def pose(rg, f=None, **turns):
             pb.rotation_mode = 'XYZ'; pb.rotation_euler = [math.radians(a) for a in v]
         if f is not None:
             pb.keyframe_insert('location' if name == 'root_loc' else 'rotation_euler', frame=f)
+
+
+def haru(loc=(0, 0, 0), label='haru'):
+    """the new Haru (library/kit/haru_full.glb, Tripo): one piece, in channel clay, rigged like the kit characters.
+    Her neck sits where a kit child's does, so the same joint shares and poses work on her."""
+    o = load('haru_full'); fit(o, CHILD); o.location = loc
+    bpy.context.view_layer.update()
+    HC.apply_textured_clay([o], name=label, height=CHILD)
+    c = dict(head=None, body=o, hair=None, neck_h=CHILD * (1 - HEAD_FRAC['child'] * (1 - PEG)))
+    rig(c, label)
+    return c
