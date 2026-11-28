@@ -1,94 +1,115 @@
 # Modular cast kit: heads, bodies, hair, clothes
 
-Every character in the channel is put together from parts, the way real stop-motion studios do it:
+Every character is put together from parts, the way stop-motion studios do it:
+character = head + expressions + hair + body + clothes (+ colours).
 
-  character = head + face + hair + body + clothes (+ colours)
+Standards (so any part fits any other):
+- Children are Haru's size (1.26 m, head about 1/4.5 of the height). Women are about 1.65 m and men about 1.78 m, with
+  heads about 1/7 of the height.
+- Every head ends in a short neck peg, and every body has a short smooth neck where a head attaches.
+- Hair is a wig shape that sits on the bald scalp of its head size (child or adult).
+- Bodies wear a plain light grey base layer, so clothes and colours make the character.
+- In code, `puppets/haru_clay.py` is the rig. Mika and Jun in `puppets/cast_camp.py` already work this way (a palette
+  plus a hair shape).
 
-All parts are made to one standard so any part fits any other:
-- Child scale is Haru: 1.26 m, head about 1/4.5 of the height. Adults are about 1.65 m (women) and 1.78 m (men), with a
-  head about 1/7 of the height.
-- Every head ends in the same flat neck cut, and every body starts with the same neck stump. They snap together there.
-- Every hairpiece is a cap that sits on the bald scalp of its head size (child or adult), so any hair fits any head of
-  the same size.
-- Bodies wear a plain light grey fitted base layer, so a clothes layer or a colour change makes a new character.
-- In code: `puppets/haru_clay.py` is the rig. A new character is a palette plus a hair shape, as Mika and Jun already
-  are in `puppets/cast_camp.py`. The kit adds head shapes and body types as swappable options.
+## How to run (Artlist, Nano Banana)
+- Attach `YTB/channel_art/haru_turnaround_sheet.png` as the reference image for every prompt.
+- Use 16:9. Paste the prompt exactly as written. Generate 4 and keep the best in `YTB/channel_art/kit/`, with the
+  generation id in the file name.
+- Every prompt below is complete on its own, so there is nothing to fill in.
 
-## How to run on Artlist (Nano Banana)
-- Attach `YTB/channel_art/haru_turnaround_sheet.png` to every prompt, or start from the blank-face Haru generation
-  `01a20472-a03b-705e-beec-2791c8c5c082`. This keeps every part in Haru's clay style.
-- Use 16:9 for every sheet, with the same layout: front, three-quarter, side, back in one row, at the same scale, on a
-  plain light grey background.
-- Generate 4 of each, keep the best in `YTB/channel_art/kit/<part>/`, and put the generation id in the file name.
+## Batch 1: heads
 
-## Style block (start of every prompt)
-> Handmade stop-motion claymation puppet part, matte plasticine with soft fingerprints and tool marks, rounded edges,
-> slightly uneven surfaces, never glossy. Exactly the same clay style and simple face as the attached Haru sheet: small
-> dark dot eyes with a tiny white catchlight, thin dark brows, a small round nose, a small simple mouth. Original
-> design. Plain light grey studio background, even soft light, no text.
+### Girl head
+```
+A character turnaround photo of a handmade stop-motion clay puppet head of a 10-year-old girl, shown four times in a row on a plain light grey background: front view, three-quarter view, side profile, and back of the head. The head is completely bald with no hair, a smooth round scalp and small ears. There is no body: the head ends under the chin in a short smooth neck peg. Round soft face, small chin, small dark dot eyes with a tiny white highlight, thin dark eyebrows, a small round nose, a small closed mouth, calm neutral expression. Warm tan matte plasticine skin with soft fingerprints and tool marks, nothing glossy. Exactly the same clay style, skin and face as the girl in the reference image. Soft even studio light, sharp focus, all four heads the same size, no text.
+```
 
-## 1. Heads (bald, no hair, no body)
-> [style block] Turnaround sheet of a single bald puppet head with no hair and no body, [HEAD]. The neck is cut flat
-> just under the jaw. Four views in one row, same scale: front, three-quarter, side, back. Neutral expression, ears
-> showing, smooth bald scalp so a hairpiece can sit on top.
+### Boy head
+```
+A character turnaround photo of a handmade stop-motion clay puppet head of a 10-year-old boy, shown four times in a row on a plain light grey background: front view, three-quarter view, side profile, and back of the head. The head is completely bald with no hair, a smooth round scalp and slightly big ears. There is no body: the head ends under the chin in a short smooth neck peg. Round face, a slightly wider nose than a girl's, small dark dot eyes with a tiny white highlight, thin dark eyebrows, a small closed mouth, calm neutral expression. Warm tan matte plasticine skin with soft fingerprints and tool marks, nothing glossy. Exactly the same clay style, skin and face as the girl in the reference image. Soft even studio light, sharp focus, all four heads the same size, no text.
+```
 
-HEAD (one prompt each):
-- Girl: a girl about 10, round soft face, small chin, the same head as the attached Haru.
-- Teen girl: a girl about 16, slightly longer face, defined cheekbones.
-- Woman: a woman about 35, oval face, soft jaw.
-- Old woman: a woman about 75, soft sagging cheeks, wrinkles pressed into the clay, thin lips.
-- Boy: a boy about 10, round face, a slightly wider nose than the girl, bigger ears.
-- Teen boy: a boy about 16, longer face, a stronger jaw starting.
-- Man: a man about 40, square jaw, heavier brows, a larger nose.
-- Old man: a man about 75, a long face, deep wrinkles, big ears and nose, a slightly hollow cheek.
+### Woman head
+```
+A character turnaround photo of a handmade stop-motion clay puppet head of a woman about 35 years old, shown four times in a row on a plain light grey background: front view, three-quarter view, side profile, and back of the head. The head is completely bald with no hair, a smooth oval scalp and small ears. There is no body: the head ends under the chin in a short smooth neck peg. An oval adult face that is longer than a child's, a soft jaw, gentle cheekbones, small dark dot eyes with a tiny white highlight, thin dark eyebrows, a small nose, a small closed mouth, calm neutral expression. Warm tan matte plasticine skin with soft fingerprints and tool marks, nothing glossy. The same clay style and simple face style as the girl in the reference image, but an adult. Soft even studio light, sharp focus, all four heads the same size, no text.
+```
 
-## 2. Faces (replacement parts for any head)
-> [style block] Sheet of stop-motion replacement face parts for the attached bald head, laid out in a neat grid:
-> 8 pairs of eyes (neutral, wide, closed, half-closed sleepy, narrowed, looking left, looking right, tiny pinprick
-> pupils), 8 brow pairs (neutral, worried, angry, raised, sad, one raised, flat, knitted), 10 mouths (closed, small
-> smile, big smile, open "o", screaming, sad, flat line, teeth showing, talking "ah", talking "ee"), and 4 noses
-> (button, small round, long, wide). Each part alone, front view.
+### Man head
+```
+A character turnaround photo of a handmade stop-motion clay puppet head of a man about 40 years old, shown four times in a row on a plain light grey background: front view, three-quarter view, side profile, and back of the head. The head is completely bald with no hair, a smooth scalp and medium ears. There is no body: the head ends under the chin in a short smooth neck peg. A longer adult face with a square jaw, heavier dark eyebrows, a larger nose, small dark dot eyes with a tiny white highlight, a small closed mouth, calm neutral expression. Warm tan matte plasticine skin with soft fingerprints and tool marks, nothing glossy. The same clay style and simple face style as the girl in the reference image, but an adult man. Soft even studio light, sharp focus, all four heads the same size, no text.
+```
 
-## 3. Bodies (no head, neck stump, A-pose)
-> [style block] Turnaround sheet of a headless puppet body, [BODY], ending in a short neck stump where a head attaches.
-> Arms slightly away from the body (A-pose), hands open with long fingers, feet flat. It wears a plain light grey fitted
-> base layer and plain grey shoes so the body shape reads. Four views in one row, same scale: front, three-quarter,
-> side, back.
+## Batch 2: bodies
 
-BODY:
-- Girl and boy (child, Haru's height): slim (Haru's own body); average; sturdy and round.
-- Women (adult): slim and tall; average; heavy and pear-shaped.
-- Men (adult): thin and tall; average; heavy, broad shoulders and a belly.
-- Elderly (use the adult bodies): slightly hunched, with a rounder back and shorter steps.
+### Child body
+```
+A character turnaround photo of a handmade stop-motion clay puppet body of a 10-year-old child with no head, shown four times in a row on a plain light grey background: front view, three-quarter view, side view, and back view. The body ends at the top in a short smooth neck where a head will be attached later, and nothing is above the neck. Slim child proportions, long thin arms held slightly away from the body, open hands with long thin fingers, thin legs, feet flat on the ground. It wears a plain light grey fitted long-sleeve top, plain light grey fitted trousers and plain grey shoes, with no logos or details, so the body shape is easy to see. Matte plasticine with soft fingerprints and tool marks. The same clay style and proportions as the girl's body in the reference image. Soft even studio light, sharp focus, all four bodies the same size, no text.
+```
 
-## 4. Hair (one piece alone, no head)
-> [style block] Turnaround sheet of a single sculpted clay hairpiece, [HAIR], shown alone with no head inside, as a
-> hollow cap that fits a [child / adult] bald head. Soft sculpted grooves, one solid clay mass. Four views in one row:
-> front, three-quarter, side, back.
+### Woman body
+```
+A character turnaround photo of a handmade stop-motion clay puppet body of an adult woman with no head, shown four times in a row on a plain light grey background: front view, three-quarter view, side view, and back view. The body ends at the top in a short smooth neck where a head will be attached later, and nothing is above the neck. Average adult woman proportions, taller and longer-legged than a child, arms held slightly away from the body, open hands with long thin fingers, feet flat on the ground. It wears a plain light grey fitted long-sleeve top, plain light grey fitted trousers and plain grey shoes, with no logos or details, so the body shape is easy to see. Matte plasticine with soft fingerprints and tool marks, in the same clay style as the reference image. Soft even studio light, sharp focus, all four bodies the same size, no text.
+```
 
-HAIR for girls and women: long straight with a side fringe (Haru); a chin-length bob with a blunt fringe; a bob with
-two small buns (Mika); two pigtails; a high ponytail; a low bun; long wavy; curly afro; short pixie cut; a grey bun
-with hairpins (old woman).
+### Man body
+```
+A character turnaround photo of a handmade stop-motion clay puppet body of an adult man with no head, shown four times in a row on a plain light grey background: front view, three-quarter view, side view, and back view. The body ends at the top in a short smooth neck where a head will be attached later, and nothing is above the neck. Average adult man proportions, broader shoulders, taller than a woman, arms held slightly away from the body, open hands with long thick fingers, feet flat on the ground. It wears a plain light grey fitted long-sleeve top, plain light grey fitted trousers and plain grey shoes, with no logos or details, so the body shape is easy to see. Matte plasticine with soft fingerprints and tool marks, in the same clay style as the reference image. Soft even studio light, sharp focus, all four bodies the same size, no text.
+```
 
-HAIR for boys and men: short messy clumps (Jun); a short tidy side parting; a buzz cut; curly top with short sides;
-a long fringe over the eyes; slicked back; balding on top with grey sides (old man); a beard and moustache piece (for
-the man's head, sits on the jaw).
+## Batch 3: hair (each one on a blank wig stand)
 
-## 5. Clothes (one garment alone, on an invisible body)
-> [style block] Turnaround sheet of a single clay puppet garment, [GARMENT], made for the [child / woman / man]
-> [slim / average / heavy] body, shown alone as if worn by an invisible body, with soft thick clay folds and seams. Four
-> views in one row: front, three-quarter, side, back.
+### Long straight hair (Haru)
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. Long straight jet-black hair past the shoulders with a side-swept fringe, sculpted as one solid clay mass with soft grooves and a few stray locks. Matte plasticine, no shine. The same hair as the girl in the reference image. Soft even studio light, no text.
+```
 
-GARMENT: a hoodie with a kangaroo pocket; a knitted jumper; a buttoned shirt; a school blazer; a raincoat; a long
-coat; a cardigan; a dress; a pleated skirt; jeans; trousers; shorts; pyjamas; a nightgown; a hazmat suit; a nurse's
-uniform; sneakers; boots; slippers.
+### Bob with two buns (Mika)
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. A chin-length dark brown bob with a blunt straight fringe and two small round buns on top of the head, sculpted as one solid clay mass with soft grooves. Matte plasticine, no shine, in the same clay style as the reference image. Soft even studio light, no text.
+```
 
-## Order to make them
-1. Heads: girl, boy, woman, man (four prompts). Then the elderly and teen heads.
-2. Bodies: the child average body, the woman average body, the man average body. Then the other types.
-3. Hair: ten pieces to start, the ones current characters need first.
-4. Faces: one sheet for the child head and one for the adult head.
-5. Clothes as stories need them.
+### Two pigtails
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. Light brown hair with a centre parting, a short fringe and two pigtails tied low behind the ears with small red hair ties, sculpted as one solid clay mass with soft grooves. Matte plasticine, no shine, in the same clay style as the reference image. Soft even studio light, no text.
+```
 
-After each batch: rebuild the parts in code to the standard sizes, then make a test lineup that mixes them (for
-example the woman's head on the slim body with the bun) and check that the seams and sizes fit.
+### Low bun (woman)
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. Black hair pulled back neatly into a low round bun at the back of the neck, with a few loose strands at the temples, sculpted as one solid clay mass with soft grooves. Matte plasticine, no shine, in the same clay style as the reference image. Soft even studio light, no text.
+```
+
+### Short messy hair (Jun)
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. Short messy black boy's hair made of soft rounded clumps, with a short fringe flicked to one side, sculpted as one solid clay mass. Matte plasticine, no shine, in the same clay style as the reference image. Soft even studio light, no text.
+```
+
+### Short side parting (man)
+```
+A turnaround photo of a handmade sculpted clay wig for a stop-motion puppet, sitting on a smooth light grey egg-shaped wig stand with no face, shown four times in a row on a plain light grey background: front, three-quarter, side and back. Short tidy dark brown men's hair with a neat side parting and short sides, sculpted as one solid clay mass with fine grooves. Matte plasticine, no shine, in the same clay style as the reference image. Soft even studio light, no text.
+```
+
+## Batch 4: expressions (attach the chosen head as the reference)
+
+### Child expressions
+```
+Eight copies of the same bald stop-motion clay puppet head from the reference image, arranged in a grid of 4 across and 2 down on a plain light grey background, all facing the camera at the same angle and size. Each head has a different expression: calm neutral; worried with raised inner eyebrows; scared with a small round open mouth; terrified with wide eyes and the mouth open screaming; sad and crying; a small happy smile; suspicious with narrowed eyelids; a blank wide stare with tiny pupils. Small dark dot eyes, thin eyebrows and a simple mouth, exactly like the reference. Matte plasticine with fingerprints, soft even studio light, no text.
+```
+
+### Adult expressions
+```
+Eight copies of the same bald adult stop-motion clay puppet head from the reference image, arranged in a grid of 4 across and 2 down on a plain light grey background, all facing the camera at the same angle and size. Each head has a different expression: calm neutral; worried; angry with lowered eyebrows; laughing with the eyes shut; sad; surprised with raised eyebrows and an open mouth; screaming; a cold flat stare. Small dark dot eyes, thin eyebrows and a simple mouth, exactly like the reference. Matte plasticine with fingerprints, soft even studio light, no text.
+```
+
+## Batch 5: clothes (attach the chosen body as the reference)
+
+### Example: knitted jumper and jeans on the woman body
+```
+A turnaround photo of the same headless stop-motion clay puppet body from the reference image, shown four times in a row on a plain light grey background: front, three-quarter, side and back. It now wears a chunky plum-coloured knitted jumper with visible stitches and soft folds at the elbows, blue jeans with seams and a slight crease at the knees, and white sneakers. The body shape, size and pose are exactly the same as the reference. Matte plasticine and clay fabric, soft even studio light, no text.
+```
+Change the garment and colour words for any outfit, and keep everything else the same.
+
+## Next
+- The elderly and teen heads, the other body types (slim and heavy), and the rest of the hair list will be written the
+  same way.
+- After each batch: rebuild the parts in code to the standard sizes, then make a test lineup that mixes them.
