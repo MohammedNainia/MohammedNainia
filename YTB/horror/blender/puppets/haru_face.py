@@ -61,7 +61,7 @@ EXPR = {
     'worried':       dict(eyes='dot', brows='worried', mouth='pressed', cheeks=0.0),
     'scared':        dict(eyes='dot', dot=0.9, brows='scared', mouth='o', cheeks=0.0),
     'crying':        dict(eyes='dot', brows='crying', mouth='cry', cheeks=0.2),
-    'muffled':       dict(eyes='dot', brows='crying', mouth='pressed', cheeks=0.3),     # crying with her mouth clamped shut
+    'muffled':       dict(eyes='dot', brows='crying', mouth='line', cheeks=0.3),        # crying with her mouth shut behind her hands
     'terrified':     dict(eyes='dot', dot=0.85, brows='terrified', mouth='scream', cheeks=0.1),
     'relieved':      dict(eyes='dot', brows='soft', mouth='smile', cheeks=0.3),
     'happy':         dict(eyes='dot', brows='soft', mouth='smile', cheeks=0.6),

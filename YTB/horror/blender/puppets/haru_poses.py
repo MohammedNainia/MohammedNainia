@@ -38,8 +38,9 @@ def apply(c, name, f=None, seat=0.034, extra=None):
             for sd, g in (('L', 1), ('R', -1)):                # arms forward round the shins, hands meeting
                 T('upper_arm.' + sd, 'X', -55); T('upper_arm.' + sd, 'Z', -g * 25); T('forearm.' + sd, 'X', -25)
         else:                                          # both hands up over her mouth
-            for sd, g in (('L', 1), ('R', -1)):                # upper arms forward and in, forearms up to the face
-                T('upper_arm.' + sd, 'X', -78); T('upper_arm.' + sd, 'Z', -g * 40); T('forearm.' + sd, 'X', -140)
+            for sd, g in (('L', 1), ('R', -1)):                # elbows out and down, forearms up, hands over her mouth
+                T('upper_arm.' + sd, 'X', -88); T('upper_arm.' + sd, 'Z', -g * 20); T('upper_arm.' + sd, 'Y', g * -64)
+                T('forearm.' + sd, 'X', -112); T('hand.' + sd, 'Z', -g * 80)   # solved: elbows out and low, hands over her mouth
             T('head', 'X', -6)
     elif name == 'sit':
         for sd in ('L', 'R'):
