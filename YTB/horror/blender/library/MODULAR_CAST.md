@@ -149,3 +149,17 @@ Code: `puppets/cast_kit.py`. One call builds a character:
 - Outfit: (top, trousers, shoes) recolours only the grey base clothes; hands keep the skin. Zones by height: shoes below
   7.5%, trousers below 52%.
 - Result: `docs/kit_lineup_v2.jpg` (Mika and Jun built from the kit beside Haru).
+
+## Batch 3: rig (no credits)
+Every `CK.character(...)` is now rigged (`rigged=True` by default): 18 bones (root, hips, spine, chest, neck, head, and
+per side thigh, shin, foot, upper_arm, forearm, hand; .L is the character's left, +x). Joints are placed from the body
+mesh itself; the clay is skinned with automatic weights (done at 20x scale, because bone heat fails on puppet-sized
+meshes); head and hair ride on the head bone. Models are welded on load (Tripo splits every UV seam).
+- `CK.relax(rig)`: arms down from the A-pose to hang at the sides.
+- `CK.turn(rig, bone, 'X'|'Y'|'Z', deg, f=None)`: turn about a world axis, on top of the current turn. X swings
+  forward/back, Y raises sideways (+ raises the right arm, lowers the left), Z turns.
+- `CK.pose(rig, f=None, **{'thigh.L': (-28, 0, 0), 'root_loc': (0, 0, -0.02)})`: bone-axis turns (X bends legs and
+  spine: negative lifts a thigh forward, positive bends a knee), and root_loc moves the whole character.
+- Outfit colours follow the body when it bends (zones come from a rest-height attribute).
+- Hair edges are tucked onto the skin (no line at the cheek).
+- Test: `scenes/kit_pose_test.py`, result `docs/kit_poses_v1.jpg` (rest, wave, walk, sit on a log, head turn).

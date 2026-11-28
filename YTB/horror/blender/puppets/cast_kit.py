@@ -39,6 +39,11 @@ def load(name):
         if x is not o: bpy.data.objects.remove(x)
     o.parent = None; o.matrix_world = mathutils.Matrix.Identity(4)
     o.data.transform(mathutils.Matrix.Rotation(math.radians(YAW), 4, 'Z') @ mw)
+    # Tripo splits vertices along every UV seam: weld them (UVs live on the loops, so they survive) so the mesh is one
+    # closed skin for skinning, and the only open edges are ones we cut
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6 * max(o.dimensions))
+    bm.to_mesh(o.data); bm.free()
     o.name = name
     return o
 
@@ -145,7 +150,24 @@ def hair(src, head):
     for v in s.data.vertices:
         d = v.co - c
         if d.length > 1e-9: v.co += d.normalized() * push
-    print(f'HAIR {src} -> {head.name}: scale {k:.3f}', flush=True)
+    # tuck the cut edge onto the skin: the boundary ring lands on the head surface, the next two rings blend toward it,
+    # so the hair meets the face as pressed-on clay instead of a floating edge with a dark line under it
+    from mathutils.bvhtree import BVHTree
+    tree = BVHTree.FromPolygons([v.co.copy() for v in head.data.vertices], [list(p.vertices) for p in head.data.polygons])
+    bm = bmesh.new(); bm.from_mesh(s.data)
+    ring = {v for v in bm.verts if v.is_boundary}; done = set(ring)
+    rings = [ring]
+    for _ in range(2):
+        nxt = {e.other_vert(v) for v in rings[-1] for e in v.link_edges} - done
+        done |= nxt; rings.append(nxt)
+    for w, rg in zip((1.0, 0.55, 0.2), rings):
+        for v in rg:
+            hit = tree.find_nearest(v.co)
+            if hit[0] is not None and hit[3] < 0.08 * (tzhi - tzlo):            # only edges that sit near the head
+                tgt = hit[0] + hit[1] * 0.00015
+                v.co = v.co.lerp(tgt, w)
+    bm.to_mesh(s.data); bm.free()
+    print(f'HAIR {src} -> {head.name}: scale {k:.3f}, edge verts tucked {len(rings[0])}', flush=True)
     s.location = head.location.copy(); s.name = src + '_on_' + head.name
     sol = s.modifiers.new('thick', 'SOLIDIFY'); sol.thickness = 0.0006; sol.offset = -1       # close the cut edges
     return s
@@ -155,6 +177,9 @@ def outfit_colours(body, top, pants, shoes):
     """recolour the grey base clothes of a kit body (after apply_textured_clay): only low-saturation texels change"""
     import numpy as np
     lo, hi = bounds(body); H = hi.z - lo.z
+    # rest height of every vertex as a share of the body (0 at the soles): the zones follow the clay when it is posed
+    a = body.data.attributes.get('rest_z') or body.data.attributes.new('rest_z', 'FLOAT', 'POINT')
+    a.data.foreach_set('value', [(v.co.z - lo.z) / H for v in body.data.vertices])
     for m in body.data.materials:
         nt = m.node_tree; b = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
         tex = next((n for n in nt.nodes if n.type == 'TEX_IMAGE'), None)
@@ -175,9 +200,8 @@ def outfit_colours(body, top, pants, shoes):
         nt.links.new(hsv.outputs[1], mr.inputs['Value']); mr.inputs['From Min'].default_value = 0.18
         mr.inputs['From Max'].default_value = 0.32; mr.inputs['To Min'].default_value = 1.0; mr.inputs['To Max'].default_value = 0.0
         mask = mr.outputs['Result']
-        tc = nt.nodes.new('ShaderNodeTexCoord'); sz = nt.nodes.new('ShaderNodeSeparateXYZ')
-        nt.links.new(tc.outputs['Object'], sz.inputs[0])
-        z = op('DIVIDE', op('SUBTRACT', sz.outputs['Z'], lo.z, False), H, False)
+        at = nt.nodes.new('ShaderNodeAttribute'); at.attribute_name = 'rest_z'      # height share, written below
+        z = at.outputs['Fac']
         def rgb(hexc): c = CV._lin(hexc); return (*[v / max(grey, 1e-3) for v in c], 1)
         m1 = nt.nodes.new('ShaderNodeMix'); m1.data_type = 'RGBA'
         nt.links.new(op('GREATER_THAN', z, SHOE), m1.inputs['Factor'])
@@ -190,8 +214,9 @@ def outfit_colours(body, top, pants, shoes):
         nt.links.new(tint.outputs[2], b.inputs['Base Color'])
 
 
-def character(head, body, total, kind, loc, label, hair_src=None, outfit=None):
-    """head + body (+ hair, + outfit colours) at loc (feet). Returns dict(head=, body=, hair=)."""
+def character(head, body, total, kind, loc, label, hair_src=None, outfit=None, rigged=True):
+    """head + body (+ hair, + outfit colours) at loc (feet), rigged (see rig / pose).
+    Returns dict(head=, body=, hair=, rig=)."""
     h, b = load(head), load(body)
     hh = HEAD_FRAC[kind] * total
     fit(h, hh); fit(b, total - hh * (1 - PEG))
@@ -207,4 +232,140 @@ def character(head, body, total, kind, loc, label, hair_src=None, outfit=None):
         hr = hair(hair_src, h)
         HC.apply_textured_clay([hr], name=label + '_hair', height=total, lumps=False)
         out['hair'] = hr
+    if rigged:
+        bpy.context.view_layer.update(); rig(out, label)
     return out
+
+
+# ---------------------------------------------------------------- rig
+# joint heights as a share of the body mesh height (feet at 0, top of the neck stump at 1), measured on the kit
+# bodies in A-pose; x positions are read from the mesh itself
+JOINTS = dict(ankle=0.05, knee=0.27, hip=0.47, pelvis=0.50, chest=0.72, neck=0.88, shoulder=0.85)
+
+
+def _slice(vs, z0, z1, side=0):
+    sel = [v for v in vs if z0 <= v.z <= z1 and (side == 0 or v.x * side > 0)]
+    return sel
+
+
+def _centre(vs):
+    n = max(len(vs), 1)
+    return Vector((sum(v.x for v in vs) / n, sum(v.y for v in vs) / n, sum(v.z for v in vs) / n))
+
+
+def rig(c, label):
+    """give a kit character (dict from character()) a skeleton: root, hips, spine, chest, neck, head, and per side
+    thigh, shin, foot, upper_arm, forearm, hand (.L is the character's left, +x). The body clay is skinned to it with
+    automatic weights; head and hair ride on the head bone. Returns the armature object (also c['rig'])."""
+    body, head = c['body'], c['head']
+    vs = [v.co.copy() for v in body.data.vertices]
+    H = max(v.z for v in vs)
+    J = {k: f * H for k, f in JOINTS.items()}
+    # legs: the centre of each leg's slice at knee and ankle height
+    P = {}
+    for side, s in (('L', 1), ('R', -1)):
+        knee = _centre(_slice(vs, J['knee'] - 0.02 * H, J['knee'] + 0.02 * H, s))
+        ank = _centre(_slice(vs, J['ankle'] - 0.02 * H, J['ankle'] + 0.02 * H, s))
+        hip = Vector((knee.x * 1.05, 0, J['hip']))
+        toe = Vector((ank.x, min(v.y for v in _slice(vs, 0, 0.06 * H, s)), 0.01 * H))
+        # arms: the hand tip is the vertex furthest out to that side; the shoulder sits inside the top of the arm
+        tip = max((v for v in vs if v.x * s > 0), key=lambda v: v.x * s)
+        top = _slice(vs, J['shoulder'] - 0.03 * H, J['shoulder'], s)
+        sx = max(v.x * s for v in top) * s
+        sh = Vector((sx * 0.72, 0, J['shoulder']))
+        arm = tip - sh
+        P[side] = dict(hip=hip, knee=Vector((knee.x, knee.y + 0.005 * H, J['knee'])), ank=Vector((ank.x, ank.y, J['ankle'])),
+                       toe=toe, sh=sh, elbow=sh + arm * 0.46 + Vector((0, 0.01 * H, 0)), wrist=sh + arm * 0.82, tip=tip)
+    hlo, hhi = bounds(head)
+    head_top = head.location.z - body.location.z + hhi.z
+
+    arm_ob = bpy.data.armatures.new(label + '_rig')
+    rg = bpy.data.objects.new(label + '_rig', arm_ob); bpy.context.collection.objects.link(rg)
+    rg.location = body.location.copy()
+    for o in bpy.context.view_layer.objects: o.select_set(False)
+    bpy.context.view_layer.objects.active = rg; rg.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT')
+    eb = arm_ob.edit_bones
+
+    def bone(name, a, b, parent=None, connect=False):
+        e = eb.new(name); e.head = a; e.tail = b
+        if parent: e.parent = eb[parent]; e.use_connect = connect
+        return e
+    pel = Vector((0, 0, J['pelvis'])); chest = Vector((0, 0, J['chest'])); neck = Vector((0, 0, J['neck']))
+    bone('root', Vector((0, 0, 0)), Vector((0, 0.15 * H, 0)))
+    bone('hips', pel, pel - Vector((0, 0, 0.08 * H)), 'root')
+    bone('spine', pel, chest, 'root')
+    bone('chest', chest, neck, 'spine', True)
+    bone('neck', neck, Vector((0, 0, H)), 'chest', True)
+    bone('head', Vector((0, 0, H)), Vector((0, 0, head_top)), 'neck', True)
+    for side, p in P.items():
+        bone('thigh.' + side, p['hip'], p['knee'], 'hips')
+        bone('shin.' + side, p['knee'], p['ank'], 'thigh.' + side, True)
+        bone('foot.' + side, p['ank'], p['toe'], 'shin.' + side, True)
+        bone('upper_arm.' + side, p['sh'], p['elbow'], 'chest')
+        bone('forearm.' + side, p['elbow'], p['wrist'], 'upper_arm.' + side, True)
+        bone('hand.' + side, p['wrist'], p['tip'], 'forearm.' + side, True)
+    for e in eb: e.select = True
+    bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')          # every bone's X axis lies flat: X turns = bend
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # skin the body: bone heat, then any vertex it missed takes the nearest bone
+    for o in bpy.context.view_layer.objects: o.select_set(False)
+    body.select_set(True); rg.select_set(True); bpy.context.view_layer.objects.active = rg
+    # bone heat fails on puppet-sized meshes (a few cm): skin at 20x, then shrink back (weights don't care about scale)
+    body.scale = rg.scale = (20, 20, 20); bpy.context.view_layer.update()
+    bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+    body.matrix_parent_inverse.identity()
+    rg.scale = (1, 1, 1); body.scale = (1, 1, 1); body.location = (0, 0, 0); bpy.context.view_layer.update()
+    deform = [b for b in arm_ob.bones if b.name not in ('root', 'head')]
+    missing = [v.index for v in body.data.vertices if not any(g.weight > 1e-3 for g in v.groups)]
+    if missing:
+        def seg_d(p, b):
+            a, t = b.head_local, b.tail_local; d = t - a
+            u = max(0.0, min(1.0, (p - a).dot(d) / max(d.length_squared, 1e-12)))
+            return (a + d * u - p).length
+        for i in missing:
+            p = body.data.vertices[i].co
+            b = min(deform, key=lambda b: seg_d(p, b))
+            g = body.vertex_groups.get(b.name) or body.vertex_groups.new(name=b.name)
+            g.add([i], 1.0, 'REPLACE')
+    print(f'RIG {label}: {len(arm_ob.bones)} bones, {len(missing)} of {len(body.data.vertices)} verts weighted by nearest bone', flush=True)
+    # head and hair ride on the head bone
+    for o in (head, c.get('hair')):
+        if o is None: continue
+        mw = o.matrix_world.copy()
+        o.parent = rg; o.parent_type = 'BONE'; o.parent_bone = 'head'
+        o.matrix_world = mw
+    c['rig'] = rg
+    return rg
+
+
+def turn(rg, name, axis, deg, f=None):
+    """turn a bone about a world axis ('X' nods forward, 'Y' swings sideways, 'Z' turns), on top of its current turn
+    (so relax() then turn(..., 'X', 20) swings a hanging arm forward)"""
+    pb = rg.pose.bones[name]; M = pb.bone.matrix_local.to_3x3()
+    R = mathutils.Matrix.Rotation(math.radians(deg), 3, axis)
+    cur = pb.rotation_quaternion.to_matrix() if pb.rotation_mode == 'QUATERNION' else pb.rotation_euler.to_matrix()
+    pb.rotation_mode = 'QUATERNION'; pb.rotation_quaternion = (M.inverted() @ R @ M @ cur).to_quaternion()
+    if f is not None: pb.keyframe_insert('rotation_quaternion', frame=f)
+
+
+def relax(rg, gap=6, f=None):
+    """bring the A-pose arms down to hang at the sides, `gap` degrees off the body (measured from the rest bones)"""
+    for side, sgn in (('L', 1), ('R', -1)):
+        b = rg.data.bones['upper_arm.' + side]; d = (b.tail_local - b.head_local).normalized()
+        a = math.degrees(math.atan2(abs(d.x), -d.z))                 # the arm's angle out from straight down
+        turn(rg, 'upper_arm.' + side, 'Y', sgn * max(0.0, a - gap), f)
+
+
+def pose(rg, f=None, **turns):
+    """turn bones by degrees in their own axes: pose(rig, **{'thigh.L': (-60, 0, 0)}); X bends, Y twists, Z swings.
+    root=(x, y, z) in metres moves the whole character. f: also key this frame."""
+    for name, v in turns.items():
+        pb = rg.pose.bones['root' if name == 'root_loc' else name]
+        if name == 'root_loc':
+            pb.location = v
+        else:
+            pb.rotation_mode = 'XYZ'; pb.rotation_euler = [math.radians(a) for a in v]
+        if f is not None:
+            pb.keyframe_insert('location' if name == 'root_loc' else 'rotation_euler', frame=f)
