@@ -1,8 +1,9 @@
 """Clay match check: an imported Haru model (Artlist GLB) beside the code puppet, both in THE Haru clay
 (haru_clay.apply_haru_clay / haru_materials) under the same clay key. Run it on every new imported Haru.
-blender -b -P scenes/haru_clay_match.py -- --still 1 --res 1080 1920 --samples 64 --out DIR [--glb PATH] [--yaw DEG] [--solo]
+blender -b -P scenes/haru_clay_match.py -- --still 1 --res 1080 1920 --samples 64 --out DIR [--glb PATH] [--yaw DEG] [--solo] [--textured]
 --glb: the model to check (default: the first Artlist Haru, YTB/horror/three/data/lib/chars/haru.glb)
 --solo: only the imported model, close up.
+--textured: keep the model's own painted colours under our clay (apply_textured_clay) instead of the palette sort.
 Prints the face count per part so a wrong sort (skin read as hoodie, etc.) shows up before any render."""
 import bpy, sys, os, math
 from mathutils import Vector
@@ -14,6 +15,8 @@ argv = sys.argv
 GLB = os.path.join(ROOT, 'YTB', 'horror', 'three', 'data', 'lib', 'chars', 'haru.glb')
 if '--glb' in argv: i = argv.index('--glb'); GLB = argv[i + 1]; del argv[i:i + 2]
 SOLO = '--solo' in argv
+TEXTURED = '--textured' in argv
+if TEXTURED: argv.remove('--textured')
 YAW = 0.0
 if '--yaw' in argv: i = argv.index('--yaw'); YAW = float(argv[i + 1]); del argv[i:i + 2]
 if SOLO: argv.remove('--solo')
@@ -55,7 +58,7 @@ for o in imp:                                                  # bake the scale 
         for s in bpy.context.view_layer.objects: s.select_set(False)
         o.select_set(True); bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
         o.data.shade_smooth() if hasattr(o.data, 'shade_smooth') else None
-count = HC.apply_haru_clay(imp, name='haru_imp')
+count = HC.apply_textured_clay(imp, name='haru_imp') if TEXTURED else HC.apply_haru_clay(imp, name='haru_imp')
 print('PARTS', count, flush=True)
 
 # ---- the code puppet beside it, same recipe

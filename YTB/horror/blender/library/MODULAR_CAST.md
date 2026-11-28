@@ -113,3 +113,27 @@ Change the garment and colour words for any outfit, and keep everything else the
 - The elderly and teen heads, the other body types (slim and heavy), and the rest of the hair list will be written the
   same way.
 - After each batch: rebuild the parts in code to the standard sizes, then make a test lineup that mixes them.
+
+## Built so far (batch 1, 28 Nov)
+Models in `library/kit/` (Tripo H3.1 image-to-3D, medium), source images in `YTB/channel_art/kit/` (Nano Banana 2,
+Haru's turnaround attached). Test scene: `scenes/kit_lineup.py`, result `docs/kit_lineup_v1.jpg`.
+
+| Part | File | Image generation | 3D generation |
+|---|---|---|---|
+| Girl head | head_girl.glb | 01a2202c-b9c1 | 01a2202e-43e5 |
+| Boy head | head_boy.glb | 01a2202c-be8b | 01a2202e-4823 |
+| Woman head | head_woman.glb | 01a2202c-c3fe | 01a2202e-4cb9 |
+| Man head | head_man.glb | 01a2202c-d0ef | 01a2202e-5112 |
+| Child body | body_child.glb | 01a2202c-d600 | 01a2202e-557c |
+| Woman body | body_woman.glb | 01a2202c-dbd7 | 01a2202e-5b3d |
+| Man body | body_man.glb | 01a2202c-e06c | 01a2202e-5f8c |
+| Haru (full) | haru_full.glb | (user's image) | 01a22025-5348 |
+
+Rules learned:
+- Always image-to-3D from one object in one front view. Text-to-3D of a turnaround made three heads in one 1.5M-tri mesh.
+- Tripo GLBs import facing +x: turn them -90 degrees (kit_lineup.py and haru_clay_match.py --yaw -90).
+- Use `HC.apply_textured_clay` (keeps the model's colours under our clay). The palette sort (`apply_haru_clay`) breaks
+  on Tripo textures because their baked shadows flip skin to hoodie.
+- Heads get `skin='#f3bf9f'` so every head matches Haru's face.
+- Kit sizes: head model = 27% of the height for children, 19% for adults; 35% of the head's height overlaps the neck.
+  Neck widths fit within 0.95 to 1.27 (the man's head peg is a little wide, hidden by the collar).

@@ -158,6 +158,57 @@ def apply_haru_clay(objects, name='haru', mapping=None, keys=('hoodie', 'skin', 
     return count
 
 
+def apply_textured_clay(objects, name='imp', lumps=True, height=None, sss=0.08, rough=0.82, skin=None):
+    """Clay for an imported model (Artlist / Tripo GLB) that keeps the model's own painted colours. Each material's colour
+    texture is multiplied into a white channel clay (CV.clay: mottling, fingerprints, tool marks, film) instead of sorting
+    faces into palette parts, so baked shadows in the texture can't flip skin to hoodie. Use this for kit parts and any
+    model whose texture is clean; apply_haru_clay is still the way to force exact palette colours.
+    skin='#hex': shift the texture's skin tones so their average lands on this colour (kit heads come out more orange
+    than Haru; pass PAL['skin'] so every head and hand shares one skin). Returns the number of materials converted."""
+    n = 0
+    for ob in [o for o in objects if o.type == 'MESH']:
+        for i, m in enumerate(list(ob.data.materials)):
+            img = None
+            if m and m.use_nodes:
+                for nd in m.node_tree.nodes:
+                    if nd.type != 'BSDF_PRINCIPLED': continue
+                    stack = [l.from_node for l in nd.inputs['Base Color'].links]
+                    while stack and img is None:
+                        s_ = stack.pop()
+                        if s_.type == 'TEX_IMAGE' and s_.image: img = s_.image
+                        else: stack += [l.from_node for x in s_.inputs for l in x.links]
+            c = CV.clay(f'{name}_clay_{ob.name}_{i}', (1.0, 1.0, 1.0), rough=rough, sss=sss)
+            if img is not None:
+                nt = c.node_tree; b = next(x for x in nt.nodes if x.type == 'BSDF_PRINCIPLED')
+                src = b.inputs['Base Color'].links[0].from_socket
+                uvn = nt.nodes.new('ShaderNodeTexCoord'); t = nt.nodes.new('ShaderNodeTexImage'); t.image = img
+                nt.links.new(uvn.outputs['UV'], t.inputs['Vector'])
+                mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'; mx.blend_type = 'MULTIPLY'
+                mx.inputs['Factor'].default_value = 1.0
+                nt.links.new(src, mx.inputs[6]); nt.links.new(t.outputs['Color'], mx.inputs[7])
+                out = mx.outputs[2]
+                if skin:
+                    import numpy as np
+                    px = np.empty(img.size[0] * img.size[1] * 4, dtype=np.float32); img.pixels.foreach_get(px)
+                    px = px.reshape(-1, 4)[:, :3]
+                    if img.colorspace_settings.name.lower().startswith('srgb'):
+                        px = np.where(px <= 0.04045, px / 12.92, ((px + 0.055) / 1.055) ** 2.4)
+                    sel = px[(px[:, 0] > px[:, 1]) & (px[:, 1] > px[:, 2]) & (px[:, 0] > 0.12)]   # warm, not the dark eyes
+                    if len(sel):
+                        mean = sel.mean(axis=0); tgt = CV._lin(skin)
+                        tn = nt.nodes.new('ShaderNodeMix'); tn.data_type = 'RGBA'; tn.blend_type = 'MULTIPLY'
+                        tn.inputs['Factor'].default_value = 1.0; nt.links.new(out, tn.inputs[6])
+                        tn.inputs[7].default_value = (*[min(3.0, t / max(m, 1e-4)) for t, m in zip(tgt, mean)], 1)
+                        out = tn.outputs[2]
+                nt.links.new(out, b.inputs['Base Color'])
+                b.inputs['Subsurface Radius'].default_value = (0.9, 0.5, 0.35)
+            ob.data.materials[i] = c; n += 1
+        if lumps:
+            k = 1.0 if height is None else height / 0.126
+            CV.geometry(ob, **{a: v * k for a, v in LUMPS.items()})
+    return n
+
+
 class HaruClay(HP.Haru):
     def _materials(self):
         return haru_materials(self.name)
