@@ -224,6 +224,8 @@ def cam_for(t, hp):
     fwd = Vector((math.sin(HRG.rotation_euler.z), -math.cos(HRG.rotation_euler.z), 0))       # her forward
     if s in ('face', 'voice', 'mouth') or (s == 'withdraw' and t >= T['withdraw'][0] + 1.5):
         push = ez(u_in(t, s)) * 0.008
+        if s == 'mouth' or s == 'withdraw':                            # hands up: back off so hands and face both fit and hold focus
+            return hp + fwd * (0.064 - push * 0.5) + Vector((0.004, 0, 0.003)), hp + fwd * 0.012 + Vector((0, 0, -0.009)), 34, 18.0
         return hp + fwd * (0.048 - push) + Vector((0.004, 0, 0.0)), hp + fwd * 0.011 + Vector((0, 0, -0.007)), 30, 11.0   # focus on her face, not the middle of her head; the tent is only 7 cm deep in front of her
     if s == 'fire':
         u = ez(u_in(t, 'fire')); a = math.radians(150)                  # from the trail side: Mika faces us, Haru in profile

@@ -38,9 +38,11 @@ def apply(c, name, f=None, seat=0.034, extra=None):
             for sd, g in (('L', 1), ('R', -1)):                # arms forward round the shins, hands meeting
                 T('upper_arm.' + sd, 'X', -55); T('upper_arm.' + sd, 'Z', -g * 25); T('forearm.' + sd, 'X', -25)
         else:                                          # both hands up over her mouth
-            for sd, g in (('L', 1), ('R', -1)):                # elbows out and down, forearms up, hands over her mouth
-                T('upper_arm.' + sd, 'X', -88); T('upper_arm.' + sd, 'Z', -g * 20); T('upper_arm.' + sd, 'Y', g * -64)
-                T('forearm.' + sd, 'X', -112); T('hand.' + sd, 'Z', -g * 80)   # solved: elbows out and low, hands over her mouth
+            # right palm flat on her mouth, left hand pressed over it (layered, so they never pass through each other);
+            # elbows out and low. Solved against her mouth: (upper_arm X, Z, Y, forearm X, hand Z) per side
+            for sd, g, (ux, uz, uy, fx, hz) in (('R', -1, (-92, 10, -70, -102, 88)), ('L', 1, (-74, 0, -90, -105, 40))):
+                T('upper_arm.' + sd, 'X', ux); T('upper_arm.' + sd, 'Z', -g * uz); T('upper_arm.' + sd, 'Y', g * uy)
+                T('forearm.' + sd, 'X', fx); T('hand.' + sd, 'Z', -g * hz)
             T('head', 'X', -6)
     elif name == 'sit':
         for sd in ('L', 'R'):
