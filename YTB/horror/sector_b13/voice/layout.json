@@ -1,0 +1,71 @@
+[
+ {
+  "name": "n1",
+  "start": 0.3,
+  "end": 3.15,
+  "offset": 0.3,
+  "audio": "n1"
+ },
+ {
+  "name": "n2",
+  "start": 4.3,
+  "end": 9.57,
+  "offset": 4.3,
+  "audio": "n2"
+ },
+ {
+  "name": "n3",
+  "start": 10.1,
+  "end": 14.72,
+  "offset": 10.1,
+  "audio": "n3"
+ },
+ {
+  "name": "n4",
+  "start": 15.3,
+  "end": 18.27,
+  "offset": 15.3,
+  "audio": "n4"
+ },
+ {
+  "name": "m1",
+  "start": 23.9,
+  "end": 27.66,
+  "offset": 23.9,
+  "audio": "m1"
+ },
+ {
+  "name": "n5",
+  "start": 28.4,
+  "end": 31.72,
+  "offset": 28.4,
+  "audio": "n5"
+ },
+ {
+  "name": "n6",
+  "start": 32.9,
+  "end": 35.07,
+  "offset": 32.9,
+  "audio": "n6"
+ },
+ {
+  "name": "n7",
+  "start": 35.9,
+  "end": 40.46,
+  "offset": 35.9,
+  "audio": "n7"
+ },
+ {
+  "name": "c1",
+  "start": 41.9,
+  "end": 42.76,
+  "offset": 41.9,
+  "audio": "c1"
+ },
+ {
+  "name": "END",
+  "start": 44.0,
+  "end": 44.0,
+  "offset": 44.0
+ }
+]

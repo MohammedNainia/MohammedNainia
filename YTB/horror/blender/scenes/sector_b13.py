@@ -29,18 +29,19 @@ from claylib import cli, run, camera, look_at, key, constant_interp, area_light,
 
 FPS = 12
 # ------------------------------------------------------------------ the time map (seconds): shot -> (start, end)
-T = dict(
+T = dict(                   # built from the recorded lines (sector_b13/voice/layout.json): n1 0.3, n2 4.3, n3 10.1, n4 15.3,
+                            # Mika 23.9, n5 28.4, n6 32.9, n7 35.9, "Bye, Haru." 41.9
     face=(0.0, 4.0),        # ECU: Haru in her tent, torch under her face, breathing             n1
-    fire=(4.0, 9.0),        # flashback: the three of them at the campfire, laughing             n2
-    fence=(9.0, 15.0),      # dusk: the sign close, then back to the open gate and the kids      n3
-    tents=(15.0, 18.0),     # night: three tents, the fire down to embers (screams in post)      n4
-    wake=(18.0, 20.0),      # Haru asleep in the tent: her eyes snap open
-    shadow=(20.0, 23.5),    # inside: a tall shadow passes along the wall, fingers drag on it
-    voice=(23.5, 27.5),     # CU Haru: "Haru? It's okay..." outside (Mika's voice)
-    zip=(27.5, 30.0),       # low: the zip opens by itself, grey fingertips in the gap            n5
-    mouth=(30.0, 32.0),     # CU: both hands over her mouth
-    withdraw=(32.0, 35.0),  # the fingers slide back out, hold on the gap                         n6
-    dawn=(35.0, 41.0),      # dawn through the gap: handlers walk it back toward the fence       n7
+    fire=(4.0, 9.8),        # flashback: the three of them at the campfire, laughing             n2
+    fence=(9.8, 15.0),      # dusk: the sign close, then back to the open gate and the kids      n3
+    tents=(15.0, 18.5),     # night: three tents, the fire down to embers (screams in post)      n4
+    wake=(18.5, 20.2),      # Haru asleep in the tent: her eyes snap open
+    shadow=(20.2, 23.6),    # inside: a tall shadow passes along the wall, fingers drag on it
+    voice=(23.6, 28.0),     # CU Haru: "Haru? It's okay..." outside (Mika's voice)
+    zip=(28.0, 30.4),       # low: the zip opens by itself, grey fingertips in the gap            n5
+    mouth=(30.4, 32.5),     # CU: both hands over her mouth
+    withdraw=(32.5, 35.5),  # the fingers slide back out, hold on the gap                         n6
+    dawn=(35.5, 41.0),      # dawn through the gap: handlers walk it back toward the fence       n7
     turn=(41.0, 43.0),      # behind the fence it stops and turns its head to her tent  "Bye, Haru."
     gate=(43.0, 44.0),      # the gate closes, a handler locks it
 )
