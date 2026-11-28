@@ -150,7 +150,7 @@ marsh.name = 'marshmallow'; marsh.data.materials.append(marsh_m); K._to(marsh)
 marsh_light = point_light('marsh_light', (0, 0, 0), 0.0, radius=0.002, color=(1.0, 0.5, 0.2)); K._to(marsh_light, 'Lights')
 
 # ------------------------------------------------------------------ Haru's poses (haru_poses names + extra world turns)
-H_IN = t_haru.inside(0.0, 0.015, 0.0)                              # where she sits in her tent (facing the door, +y)
+H_IN = t_haru.inside(0.0, 0.037, 0.0)                              # sitting up, she sits further back so her head keeps its place                              # where she sits in her tent (facing the door, +y)
 DOOR_IN = t_haru.door_point(0.03)
 
 

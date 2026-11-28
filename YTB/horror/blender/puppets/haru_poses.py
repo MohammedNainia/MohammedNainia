@@ -29,25 +29,27 @@ def hipz(c):
 def apply(c, name, f=None, seat=0.034, extra=None):
     rg = c['rig']; reset(rg); T = lambda b, ax, d: CK.turn(rg, b, ax, d)
     if name != 'point': CK.relax(rg)
-    if name in ('hug', 'mouth'):                       # on the floor, knees drawn up
+    if name in ('hug', 'mouth'):                       # on the floor, knees drawn up, curled forward over them
         for sd in ('L', 'R'):
             T('thigh.' + sd, 'X', -120); T('shin.' + sd, 'X', 120)
         rg.pose.bones['root'].location = (0, 0, -hipz(c) + 0.012)
-        T('spine', 'X', -12); T('chest', 'X', -8)
-        if name == 'hug':
-            for sd, g in (('L', 1), ('R', -1)):                # arms forward round the shins, hands meeting
-                T('upper_arm.' + sd, 'X', -55); T('upper_arm.' + sd, 'Z', -g * 25); T('forearm.' + sd, 'X', -25)
-        else:                                          # both hands up over her mouth
-            # right palm flat on her mouth, left hand pressed over it (layered, so they never pass through each other);
-            # elbows out and low. Solved against her mouth: (upper_arm X, Z, Y, forearm X, hand Z) per side
-            for sd, g, (ux, uz, uy, fx, hz) in (('R', -1, (-92, 10, -70, -102, 88)), ('L', 1, (-74, 0, -90, -105, 40))):
-                T('upper_arm.' + sd, 'X', ux); T('upper_arm.' + sd, 'Z', -g * uz); T('upper_arm.' + sd, 'Y', g * uy)
-                T('forearm.' + sd, 'X', fx); T('hand.' + sd, 'Z', -g * hz)
-            T('head', 'X', -6)
+        # sitting up over her hips (+ about X leans forward, a negative turn tips her back; in the 7 cm tent her head
+        # must stay over her hips for the close-ups). Arms solved against her knees / her mouth for this posture:
+        # (upper_arm X, Z, Y, forearm X, hand Z) per side
+        if name == 'hug':                              # clutching her knees (her arms are too short to wrap the shins)
+            T('spine', 'X', 3); T('chest', 'X', 2); T('head', 'X', -2)
+            arms = (('L', 1, (0, 39, 0, -70, 62)), ('R', -1, (0, 39, 0, -70, 62)))
+        else:                                          # right palm flat on her mouth, left hand pressed over it (layered)
+            T('spine', 'X', 2); T('chest', 'X', 2); T('head', 'X', 4)
+            arms = (('R', -1, (-84, 12, -90, -118, 58)), ('L', 1, (-84, 21, -90, -127, 0)))
+        for sd, g, (ux, uz, uy, fx, hz) in arms:
+            T('upper_arm.' + sd, 'X', ux); T('upper_arm.' + sd, 'Z', -g * uz); T('upper_arm.' + sd, 'Y', g * uy)
+            T('forearm.' + sd, 'X', fx); T('hand.' + sd, 'Z', -g * hz)
     elif name == 'sit':
         for sd in ('L', 'R'):
             T('thigh.' + sd, 'X', -85); T('shin.' + sd, 'X', 85)
-            T('upper_arm.' + sd, 'X', -25); T('forearm.' + sd, 'X', -35)
+        for sd, g in (('L', 1), ('R', -1)):                # solved: palms resting on her thighs, just behind the knees
+            T('upper_arm.' + sd, 'X', -10); T('upper_arm.' + sd, 'Z', -g * 33); T('forearm.' + sd, 'X', -15)
         rg.pose.bones['root'].location = (0, 0, -(hipz(c) - seat))
     elif name == 'lie':
         rg.rotation_euler = (math.radians(-90), 0, rg.rotation_euler.z)
