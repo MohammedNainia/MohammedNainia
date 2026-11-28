@@ -1,81 +1,113 @@
-"""The new Haru's face (cast_kit.haru): real eyes, clay eyelids, brows, a mouth with depth, a jaw and cheeks that move
-the clay, tears and pallor. Built on her Tripo head, matched to the Artlist sheet
-YTB/channel_art/kit/haru_new_expressions_01a220ad-358b.png.
+"""The new Haru's face (cast_kit.haru). Her eyes stay small glossy dots, always (her look). The feeling is carried by her
+clay brows and her mouth, like the Artlist sheet YTB/channel_art/kit/haru_dot_expressions_01a221d3.png.
 
     face = HF.Face(c)                                    # c = cast_kit.haru(...), built while the rig is at rest
-    face.set(f, 'terrified', look=(0.2, -0.1), blink=0, tears=0.6, pale=0.5, t=seconds)
+    face.set(f, 'sad', look=(0.2, -0.1), blink=0, tears=0.6, pale=0.5, t=seconds)
 
-How it works
+How it works (a stop-motion replacement kit)
 - Her painted eyes, brows and mouth are painted out of her texture (filled with her own skin), so nothing is doubled.
-- Each eye is a small rig on the head bone: a glossy dot bead (her neutral look), a white eyeball that grows for fear with
-  a pupil that looks around, an upper lid of her skin clay that closes over it, and closed-eye curves (laugh, squeeze,
-  sleep) like the sheet.
-- Brows are clay strokes that tilt and lift. The mouth is a set of sculpted shapes (line, frown, o, smile, scream) with
-  a dark inside and teeth, and the jaw is a shape key on her head that drops her chin, so a scream stretches the clay.
-- Cheeks push up for a smile (shape key). Tears are glossy drops that run down her cheeks. pale drains her skin.
+- Eyes: one dot bead each that can look around, and a closed curve for blinks and sleep. Nothing else.
+- Brows: a set of sculpted clay brows per side (thick in the middle, tapered at the ends), bent onto her forehead.
+  Each expression swaps in its pair, like an animator swapping replacement parts.
+- Mouth: a set of sculpted mouths bent onto her face: lip lines (line, frown, wavy, pressed, smile) and openings with a
+  dark inside, a lip rim and teeth (o, cry, scream, laugh, grimace). The jaw shape key drops her chin with the open ones.
+- Cheeks push up for a smile (shape key). Tears pool under the dots and run down. pale drains her skin.
 Positions come from a flat front photo of her face (measured once): see MEASURED."""
 import bpy, bmesh, math
 import numpy as np
 from mathutils import Vector, Matrix
-import clay_v3 as CV
 
 # measured on the flat front render of haru_full at the kit size (12.6 cm), rig at rest: x, z in metres
 MEASURED = dict(eye=(0.0050, 0.1100, 0.0012), brow=(0.0057, 0.1137, 0.0024, 0.0009), mouth=(0.0004, 0.1037, 0.0019),
                 skin=(0.894, 0.673, 0.556))
 
-# expression table: eyes (dot | wide | happy | squeeze | sleep), white (eyeball size when wide), pupil (scale),
-# lid (0 open .. 1 shut), brow (tilt deg, + = inner ends up; lift m), mouth, jaw (0..1), cheeks (0..1)
+# brows: (inner z, outer z, arch, pinch toward the nose, thickness) in metres, relative to the measured brow line.
+# inner high + outer low = sad. A pair is (her right, her left); one entry = both sides the same.
+BROWS = {
+    'neutral':   [(0.0000, -0.0002, 0.0005, 0.0000, 1.0)],
+    'sad':       [(0.0011, -0.0007, 0.0004, 0.0003, 1.0)],
+    'uneasy':    [(0.0002, -0.0003, 0.0003, 0.0001, 1.0), (0.0009, -0.0003, 0.0005, 0.0002, 1.0)],
+    'worried':   [(0.0010, -0.0004, 0.0001, 0.0006, 1.05)],
+    'scared':    [(0.0012, -0.0002, 0.0006, 0.0003, 1.0)],
+    'crying':    [(0.0014, -0.0008, 0.0006, 0.0004, 1.05)],
+    'terrified': [(0.0015, -0.0001, 0.0007, 0.0004, 1.05)],
+    'soft':      [(0.0003, 0.0000, 0.0004, 0.0000, 0.95)],
+    'up':        [(0.0005, 0.0002, 0.0005, 0.0000, 1.0)],
+    'tight':     [(-0.0004, 0.0001, 0.0002, 0.0004, 1.1)],
+    'low':       [(-0.0001, -0.0003, 0.0004, 0.0000, 1.0)],
+}
+
+# mouths: kind 'line' (a lip stroke) or 'open' (an opening). jaw = how far the chin drops with it.
+MOUTHS = {
+    'line':    dict(kind='line', jaw=0.0),
+    'frown':   dict(kind='line', jaw=0.05),
+    'wavy':    dict(kind='line', jaw=0.0),
+    'pressed': dict(kind='line', jaw=0.0),
+    'smile':   dict(kind='line', jaw=0.0),
+    'o':       dict(kind='open', jaw=0.15),
+    'cry':     dict(kind='open', jaw=0.45, teeth='top'),
+    'scream':  dict(kind='open', jaw=1.0, teeth='both'),
+    'laugh':   dict(kind='open', jaw=0.35, teeth='top'),
+    'grimace': dict(kind='open', jaw=0.15, teeth='both'),
+}
+
+# expressions: eyes ('dot' | 'closed'), dot size, brows, mouth, cheeks. The sheet's eight plus the reel's extras.
 EXPR = {
-    'neutral':   dict(eyes='dot', lid=0.0, brow=(0, 0.0), mouth='line', jaw=0.0, cheeks=0.0),
-    'worried':   dict(eyes='dot', lid=0.2, brow=(30, 0.0003), mouth='frown', jaw=0.1, cheeks=0.0),
-    'scared':    dict(eyes='wide', white=1.0, pupil=0.55, lid=0.0, brow=(14, 0.0006), mouth='o', jaw=0.35, cheeks=0.0),
-    'terrified': dict(eyes='wide', white=1.2, pupil=0.4, lid=0.0, brow=(22, 0.0009), mouth='scream', jaw=1.0, cheeks=0.2),
-    'crying':    dict(eyes='dot', lid=0.45, brow=(24, 0.0003), mouth='frown', jaw=0.15, cheeks=0.1),
-    'laugh':     dict(eyes='happy', lid=0.0, brow=(0, 0.0004), mouth='smile', jaw=0.5, cheeks=1.0),
-    'happy':     dict(eyes='dot', lid=0.05, brow=(0, 0.0002), mouth='smile', jaw=0.2, cheeks=0.6),
-    'squeeze':   dict(eyes='squeeze', lid=0.0, brow=(-16, -0.0004), mouth='grimace', jaw=0.25, cheeks=0.6),
-    'stare':     dict(eyes='wide', white=1.0, pupil=0.32, lid=0.0, brow=(0, 0.0003), mouth='line', jaw=0.0, cheeks=0.0),
-    'sleep':     dict(eyes='sleep', lid=0.0, brow=(0, -0.0001), mouth='line', jaw=0.0, cheeks=0.0),
+    'neutral':       dict(eyes='dot', brows='neutral', mouth='line', cheeks=0.0),
+    'sad':           dict(eyes='dot', brows='sad', mouth='frown', cheeks=0.0),
+    'uncomfortable': dict(eyes='dot', brows='uneasy', mouth='wavy', cheeks=0.0),
+    'worried':       dict(eyes='dot', brows='worried', mouth='pressed', cheeks=0.0),
+    'scared':        dict(eyes='dot', dot=0.9, brows='scared', mouth='o', cheeks=0.0),
+    'crying':        dict(eyes='dot', brows='crying', mouth='cry', cheeks=0.2),
+    'muffled':       dict(eyes='dot', brows='crying', mouth='pressed', cheeks=0.3),     # crying with her mouth clamped shut
+    'terrified':     dict(eyes='dot', dot=0.85, brows='terrified', mouth='scream', cheeks=0.1),
+    'relieved':      dict(eyes='dot', brows='soft', mouth='smile', cheeks=0.3),
+    'happy':         dict(eyes='dot', brows='soft', mouth='smile', cheeks=0.6),
+    'laugh':         dict(eyes='dot', brows='up', mouth='laugh', cheeks=1.0),
+    'squeeze':       dict(eyes='closed', brows='tight', mouth='grimace', cheeks=0.6),
+    'stare':         dict(eyes='dot', dot=0.85, brows='up', mouth='line', cheeks=0.0),
+    'sleep':         dict(eyes='closed', brows='low', mouth='line', cheeks=0.0),
 }
 HIDE = 1e-4
 
 
-def _mat(name, rgb, rough=0.4, gloss=False, glass=False, emit=None):
+def _mat(name, rgb, rough=0.4, gloss=False):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']; b.inputs['Base Color'].default_value = (*rgb, 1)
     b.inputs['Roughness'].default_value = rough
     if gloss: b.inputs['Coat Weight'].default_value = 0.8; b.inputs['Coat Roughness'].default_value = 0.04
-    if glass:
-        b.inputs['Transmission Weight'].default_value = 1.0; b.inputs['IOR'].default_value = 1.33
-        b.inputs['Roughness'].default_value = 0.02
     return m
 
 
-def _curve(name, pts, r, mat, coll):
+def _curve(name, pts, r, mat, coll, radii=None, closed=False):
     cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = r; cu.bevel_resolution = 3
     cu.use_fill_caps = True
-    sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1)
-    for p, q in zip(sp.points, pts): p.co = (*q, 1)
+    sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1); sp.use_cyclic_u = closed
+    for i, (p, q) in enumerate(zip(sp.points, pts)):
+        p.co = (*q, 1)
+        if radii is not None: p.radius = radii[i]
     ob = bpy.data.objects.new(name, cu); coll.objects.link(ob); ob.data.materials.append(mat)
     return ob
 
 
-def _ball(name, r, mat, coll, scale=(1, 1, 1), loc=(0, 0, 0), hemi=False):
+def _ball(name, r, mat, coll, scale=(1, 1, 1), loc=(0, 0, 0)):
     bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=12, radius=r)
-    if hemi: bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -1e-9], context='VERTS')
     me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
     for p in me.polygons: p.use_smooth = True
     ob = bpy.data.objects.new(name, me); coll.objects.link(ob); me.materials.append(mat)
     ob.scale = scale; ob.location = loc
-    if hemi:
-        s = ob.modifiers.new('shell', 'SOLIDIFY'); s.thickness = r * 0.25
     return ob
 
 
 def _arc(cx, w, h, n=9, z0=0.0):
-    """points of a curve across x in [-w, w], bulging by h in z (negative h bows down), in a feature's local frame
-    (y is depth: points sit just proud of the surface)"""
-    return [(cx + w * (2 * i / (n - 1) - 1), -0.0002, z0 + h * (1 - (2 * i / (n - 1) - 1) ** 2)) for i in range(n)]
+    """points across x in [-w, w], bulging by h in z (negative h bows down), in a feature's local x-z plane"""
+    return [(cx + w * (2 * i / (n - 1) - 1), 0.0, z0 + h * (1 - (2 * i / (n - 1) - 1) ** 2)) for i in range(n)]
+
+
+def _outline(top, bot, w, n=14):
+    """a closed opening: top(u) and bot(u) give z for u in [-1, 1] (x = u * w); the corners are where they meet"""
+    us = [math.cos(math.pi * (1 - i / (n - 1))) for i in range(n)]          # bunched at the corners
+    return [(u * w, top(u)) for u in us] + [(u * w, bot(u)) for u in reversed(us[1:-1])]
 
 
 class Face:
@@ -83,18 +115,16 @@ class Face:
         self.c, self.rg, self.body, self.name = c, c['rig'], c['body'], name
         self.coll = bpy.data.collections.new(name + '_face'); bpy.context.scene.collection.children.link(self.coll)
         bpy.context.view_layer.update()
-        self.dg = bpy.context.evaluated_depsgraph_get()
         self.skin_rgb = MEASURED['skin']
         self._paint_out()
         self.M = dict(dark=_mat('face_dark', (0.006, 0.005, 0.005), rough=0.3, gloss=True),
-                      white=_mat('eye_white', (0.86, 0.85, 0.82), rough=0.25, gloss=True),
-                      brow=_mat('brow_clay', (0.02, 0.018, 0.018), rough=0.8),
-                      inside=_mat('mouth_inside', (0.03, 0.004, 0.004), rough=0.7),
-                      teeth=_mat('teeth', (0.85, 0.83, 0.78), rough=0.35),
-                      lip=_mat('lip_line', (0.32, 0.1, 0.07), rough=0.6),
-                      tear=_mat('tear', (0.8, 0.88, 0.95), rough=0.05, gloss=True))
-        lin = tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in self.skin_rgb)
-        self.M['lid'] = CV.clay(name + '_lid_clay', lin, rough=0.8, sss=0.12, bump=0.5, prints=0.6)
+                      brow=_mat('brow_clay', (0.03, 0.026, 0.025), rough=0.75),
+                      inside=_mat('mouth_inside', (0.025, 0.004, 0.005), rough=1.0),
+                      tongue=_mat('mouth_tongue', (0.16, 0.03, 0.03), rough=0.6),
+                      teeth=_mat('teeth', (0.78, 0.76, 0.71), rough=0.6),
+                      lip=_mat('lip_line', (0.09, 0.025, 0.022), rough=0.55),
+                      rim=_mat('lip_rim', (0.3, 0.1, 0.08), rough=0.6),
+                      tear=_mat('tear', (0.85, 0.9, 0.95), rough=0.05, gloss=True))
         self._shape_keys()
         self._eyes(); self._brows(); self._mouth(); self._tears(); self._pallor()
 
@@ -197,70 +227,133 @@ class Face:
         k.data.foreach_set('co', (co + d).ravel())
         self.keys = me.shape_keys.key_blocks
 
-    # ---------------------------------------------------------------- eyes
+    # ---------------------------------------------------------------- bend a part onto her face
+    def bend(self, e, pts, off):
+        """pts in the frame's local x-z plane -> the same points laid on her face (local y = the surface), off proud"""
+        bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
+        ev = self.body.evaluated_get(dg); Bw = self.body.matrix_world; Bi = Bw.inverted()
+        Mw = e.matrix_world; Mi = Mw.inverted()
+        Y = (Mw.to_3x3() @ Vector((0, 1, 0))).normalized(); d = (Bi.to_3x3() @ Y).normalized()
+        out = []
+        for q in pts:
+            x, z = q[0], q[-1]
+            ok, p, n, _ = ev.ray_cast(Bi @ (Mw @ Vector((x, -0.01, z))), d, depsgraph=dg)
+            y = (Mi @ (Bw @ p)).y if ok else 0.0
+            out.append((x, y - off, z))
+        return out
+
+    def _mesh(self, name, e, outline, off, mat):
+        """a flat part (an opening, teeth) with this outline, bent onto her face"""
+        pts = self.bend(e, [(x, 0, z) for x, z in outline], off)
+        bm = bmesh.new(); vs = [bm.verts.new(p) for p in pts]; f = bm.faces.new(vs)
+        bmesh.ops.triangulate(bm, faces=[f], quad_method='BEAUTY', ngon_method='EAR_CLIP')
+        me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+        ob = bpy.data.objects.new(name, me); self.coll.objects.link(ob); me.materials.append(mat)
+        return self._kid(ob, e)
+
+    # ---------------------------------------------------------------- eyes: dots, always
     def _eyes(self):
         ex, ez, er = MEASURED['eye']; self.eyes = []
         for sd, tag in ((-1, 'R'), (1, 'L')):                       # her right eye is on -x
             e = self.frame(f'{self.name}_eye.{tag}', sd * ex, ez)
-            E = dict(root=e)
+            E = dict(root=e, sd=sd)
             E['dot'] = self._kid(_ball(f'eye_dot.{tag}', er * 1.1, self.M['dark'], self.coll, scale=(1, 0.6, 1)), e)
-            Rw = er * 1.75
-            E['white'] = self._kid(_ball(f'eye_white.{tag}', Rw, self.M['white'], self.coll, loc=(0, Rw - 0.0011, 0)), e)
-            E['pupil'] = self._kid(_ball(f'eye_pupil.{tag}', er * 0.85, self.M['dark'], self.coll, scale=(1, 0.35, 1)), e)
-            lid_r = Rw * 1.04
-            E['lid'] = self._kid(_ball(f'eye_lid.{tag}', lid_r, self.M['lid'], self.coll, loc=(0, Rw - 0.0011, 0), hemi=True), e)
-            E['lid'].rotation_mode = 'XYZ'
-            E['happy'] = self._kid(_curve(f'eye_happy.{tag}', _arc(0, er * 1.25, er * 0.9, z0=-er * 0.3), er * 0.28, self.M['dark'], self.coll), e)
-            E['sleep'] = self._kid(_curve(f'eye_sleep.{tag}', _arc(0, er * 1.2, -er * 0.55), er * 0.25, self.M['dark'], self.coll), e)
-            sq = [(sd * -er * 1.2, -0.0002, er * 0.7), (sd * er * 0.9, -0.0002, 0.0), (sd * -er * 1.2, -0.0002, -er * 0.7)]
-            E['squeeze'] = self._kid(_curve(f'eye_squeeze.{tag}', sq, er * 0.27, self.M['dark'], self.coll), e)
-            E['Rw'] = Rw; E['sd'] = sd
+            arc = [(x, -0.0002, z) for x, _, z in _arc(0, er * 1.2, -er * 0.55)]
+            E['closed'] = self._kid(_curve(f'eye_closed.{tag}', arc, er * 0.25, self.M['dark'], self.coll), e)
             self.eyes.append(E)
 
-    # ---------------------------------------------------------------- brows
+    # ---------------------------------------------------------------- brows: replacement pairs
+    def _brow_pts(self, sd, zi, zo, arch, pinch, n=13):
+        bw = MEASURED['brow'][2]; L = bw * 0.95; pts, rad = [], []
+        for i in range(n):
+            u = i / (n - 1)                                            # 0 = inner end (toward the nose), 1 = outer
+            x = -sd * (L - 2 * L * u) - sd * pinch * (1 - 0.5 * u)
+            z = zi + (zo - zi) * u + arch * 4 * u * (1 - u)
+            pts.append((x, 0, z))
+            rad.append((0.35 + 0.8 * math.sin(math.pi * (0.08 + 0.84 * u)) ** 0.7) * (1.1 - 0.35 * u))   # fat inner-middle, thin tail
+        return pts, rad
+
     def _brows(self):
         bx, bz, bw, bh = MEASURED['brow']; self.brows = []
-        for sd, tag in ((-1, 'R'), (1, 'L')):
-            e = self.frame(f'{self.name}_brow.{tag}', sd * bx, bz)
-            e.rotation_mode = 'XYZ'
-            b = self._kid(_curve(f'brow.{tag}', _arc(0, bw * 0.85, bh * 0.5), bh * 0.55, self.M['brow'], self.coll), e)
-            self.brows.append(dict(root=e, sd=sd, rest=e.location.copy(), rest_rot=e.rotation_euler.copy()))
+        for side, (sd, tag) in enumerate(((-1, 'R'), (1, 'L'))):
+            e = self.frame(f'{self.name}_brow.{tag}', sd * (bx - 0.0004), bz - 0.0007)   # lower and in: clear of her fringe
+            S = {}
+            for k, spec in BROWS.items():
+                zi, zo, arch, pinch, th = spec[side] if len(spec) > 1 else spec[0]
+                r = bh * 0.68 * th
+                pts, rad = self._brow_pts(sd, zi, zo, arch, pinch)
+                pts = self.bend(e, pts, r * 0.3)
+                S[k] = self._kid(_curve(f'brow_{k}.{tag}', pts, r, self.M['brow'], self.coll, radii=rad), e)
+            self.brows.append(dict(root=e, sd=sd, set=S))
 
-    # ---------------------------------------------------------------- mouth
+    # ---------------------------------------------------------------- mouths: replacement shapes
     def _mouth(self):
         mx, mz, mw = MEASURED['mouth']
-        e = self.frame(f'{self.name}_mouth', mx, mz); self.mouth_root = e; M = self.M; co = self.coll
-        P = dict()
-        P['line'] = _curve('mouth_line', _arc(0, mw * 0.9, -mw * 0.04), mw * 0.13, M['lip'], co)
-        P['frown'] = _curve('mouth_frown', _arc(0, mw * 0.8, mw * 0.28, z0=-mw * 0.15), mw * 0.14, M['lip'], co)
-        P['grimace'] = _curve('mouth_grimace', _arc(0, mw * 1.05, mw * 0.18, z0=-mw * 0.1), mw * 0.2, M['inside'], co)
-        # open mouths: a dark inside sunk into the clay (the face surface cuts it into an opening), teeth along the top
-        P['o'] = _ball('mouth_o', mw * 0.75, M['inside'], co, scale=(0.8, 0.22, 1.0), loc=(0, 0.0, -mw * 0.2))
-        P['smile'] = _ball('mouth_smile', mw * 1.0, M['inside'], co, scale=(1.0, 0.5, 0.45), loc=(0, 0.0005, -mw * 0.2))
-        P['smile_teeth'] = _ball('mouth_smile_teeth', mw * 0.85, M['teeth'], co, scale=(1.0, 0.4, 0.14), loc=(0, 0.00012, mw * 0.08))
-        P['scream'] = _ball('mouth_scream', mw * 1.9, M['inside'], co, scale=(0.85, 0.2, 1.35), loc=(0, 0.0001, -mw * 1.05))
-        P['scream_teeth'] = _ball('mouth_scream_teeth', mw * 0.95, M['teeth'], co, scale=(1.0, 0.3, 0.17), loc=(0, -0.00012, mw * 0.3))
-        for ob in P.values(): self._kid(ob, e)
+        e = self.frame(f'{self.name}_mouth', mx, mz); self.mouth_root = e; M = self.M
+        P = {}
+        taper = lambda n: [0.5 + 0.5 * math.sin(math.pi * i / (n - 1)) for i in range(n)]
+        n = 15; U = [2 * i / (n - 1) - 1 for i in range(n)]
+        lines = dict(
+            line=([(u * mw * 0.8, 0, -mw * 0.03 * (1 - u * u)) for u in U], 0.12),
+            frown=([(u * mw * 0.85, 0, -mw * 0.3 + mw * 0.45 * (1 - u * u)) for u in U], 0.15),
+            wavy=([(u * mw * 0.95, 0, mw * 0.11 * math.sin(math.pi * 1.5 * (u + 1)) - mw * 0.09 * u) for u in U], 0.12),
+            pressed=([(u * mw * 1.0, 0, mw * 0.07 * math.sin(math.pi * 2.5 * (u + 1)) + mw * 0.06 * (1 - u * u)) for u in U], 0.16),
+            smile=([(u * mw * 0.85, 0, mw * 0.1 - mw * 0.3 * (1 - u * u)) for u in U], 0.12))
+        for k, (pts, r) in lines.items():
+            r *= mw * 1.15
+            P[k] = [self._kid(_curve(f'mouth_{k}', self.bend(e, pts, r * 0.35), r, M['lip'], self.coll, radii=taper(n)), e)]
+        sq = lambda u: math.sqrt(max(0.0, 1 - u * u))
+        opens = dict(
+            o=(mw * 0.5, lambda u: -mw * 0.08 + mw * 0.32 * sq(u), lambda u: -mw * 0.08 - mw * 0.4 * sq(u)),
+            cry=(mw * 1.25, lambda u: -mw * 0.35 + mw * 0.55 * (1 - u * u), lambda u: -mw * 0.35 - mw * 0.6 * (1 - u * u) ** 0.7),
+            scream=(mw * 0.9, lambda u: -mw * 0.05 + mw * 0.6 * sq(u), lambda u: -mw * 0.05 - mw * 1.65 * sq(u)),
+            laugh=(mw * 1.0, lambda u: mw * 0.12 * (1 - u * u), lambda u: -mw * 0.75 * (1 - u * u) ** 0.8),
+            grimace=(mw * 1.2, lambda u: mw * 0.24 * (1 - u ** 4), lambda u: -mw * 0.24 * (1 - u ** 4)))
+        for k, (w, top, bot) in opens.items():
+            self.keys['jaw'].value = MOUTHS[k]['jaw']                 # lay it on the face as it is with that jaw
+            ol = _outline(top, bot, w, n=16)
+            parts = [self._mesh(f'mouth_{k}', e, ol, 0.00006, M['inside'])]
+            rim = self.bend(e, [(x, 0, z) for x, z in ol], mw * 0.02)
+            parts.append(self._kid(_curve(f'mouth_{k}_rim', rim, mw * 0.045, M['rim'], self.coll, closed=True), e))
+            teeth = MOUTHS[k].get('teeth')
+            th = mw * (0.17 if k == 'grimace' else 0.2)
+            if teeth:
+                ext = 0.5 if k in ('scream', 'o') else 0.72               # an oval's sides fall away fast
+                us = [ext * (2 * i / 10 - 1) for i in range(11)]
+                tt = [(u * w, top(u) - mw * 0.03) for u in us]
+                tt += [(u * w, top(u) - mw * 0.03 - th * (1 - u ** 6 * 0.6)) for u in reversed(us)]
+                parts.append(self._mesh(f'mouth_{k}_teeth', e, tt, 0.00011, M['teeth']))
+            if teeth == 'both':
+                bt = [(u * w, bot(u) + mw * 0.03) for u in us]
+                bt += [(u * w, bot(u) + mw * 0.03 + th * 0.8 * (1 - u ** 6 * 0.6)) for u in reversed(us)]
+                parts.append(self._mesh(f'mouth_{k}_teeth_b', e, bt, 0.00011, M['teeth']))
+            if k in ('cry', 'scream'):                                   # a tongue low in the opening
+                tw, tz = w * 0.38, bot(0.0) + mw * 0.22
+                tg = [(math.cos(a) * tw, tz + math.sin(a) * mw * (0.2 if math.sin(a) > 0 else 0.12))
+                      for a in [2 * math.pi * i / 16 for i in range(16)]]
+                parts.append(self._mesh(f'mouth_{k}_tongue', e, tg, 0.00009, M['tongue']))
+            P[k] = parts
+        self.keys['jaw'].value = 0.0
         self.mouth = P
-        self.mouth_sets = dict(line=('line',), frown=('frown',), grimace=('grimace',), o=('o',), smile=('smile', 'smile_teeth'),
-                               scream=('scream', 'scream_teeth'))
 
     # ---------------------------------------------------------------- tears
     def _tears(self):
         ex, ez, er = MEASURED['eye']; self.tears = []
         for sd in (-1, 1):
+            E = self.eyes[0 if sd < 0 else 1]; root = E['root']
+            pool = self._kid(_ball(f'tear_pool_{sd}', 0.0007, self.M['tear'], self.coll, scale=(1.5, 0.45, 0.6)), root)
+            pool.location = (sd * er * 0.15, -0.00015, -er * 1.7)
             path = []
             for i in range(10):
-                zz = ez - er * 1.1 - i * 0.0009; xx = sd * (ex + 0.0004 + 0.0002 * i)
+                zz = ez - er * 1.9 - i * 0.0009; xx = sd * (ex + 0.0004 + 0.0002 * i)
                 p, n = self.surf(xx, zz); path.append((p, n))
-            root = self.eyes[0 if sd < 0 else 1]['root']                 # ride on the eye's frame (head bone)
             inv = root.matrix_world.inverted() @ self.rg.matrix_world
             path = [(inv @ p, (inv.to_3x3() @ n).normalized()) for p, n in path]
             drops = []
             for k in range(2):
                 d = _ball(f'tear_{sd}_{k}', 0.0006, self.M['tear'], self.coll, scale=(1, 0.7, 1.5))
                 self._kid(d, root); drops.append(d)
-            self.tears.append(dict(path=path, drops=drops))
+            self.tears.append(dict(path=path, drops=drops, pool=pool))
 
     def _tear_at(self, path, u):
         u = min(0.999, max(0.0, u)) * (len(path) - 1); i = int(u); f = u - i
@@ -295,72 +388,31 @@ class Face:
             mx.inputs[7].default_value = (0.5, 0.46, 0.47, 1)                  # drained, a little grey-blue
             nt.links.new(mx.outputs[2], b.inputs['Base Color'])
             self.pale_nodes.append(v)
-        nt = self.M['lid'].node_tree; b = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')   # the lids pale with her
-        src = b.inputs['Base Color'].links[0].from_socket
-        v = nt.nodes.new('ShaderNodeValue'); v.outputs[0].default_value = 0.0
-        mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'; nt.links.new(v.outputs[0], mx.inputs['Factor'])
-        nt.links.new(src, mx.inputs[6]); mx.inputs[7].default_value = (0.5, 0.46, 0.47, 1); nt.links.new(mx.outputs[2], b.inputs['Base Color'])
-        self.pale_nodes.append(v)
 
     # ---------------------------------------------------------------- set an expression
     def set(self, f, name='neutral', look=(0.0, 0.0), blink=0.0, tears=0.0, pale=0.0, t=0.0):
         X = EXPR[name]; gx, gz = look
-        lid = max(X.get('lid', 0.0), blink)
+        closed = X['eyes'] == 'closed' or blink > 0.5
         for E in self.eyes:
-            eyes = X['eyes']
-            for k in ('dot', 'white', 'pupil', 'lid', 'happy', 'sleep', 'squeeze'):
-                E[k].hide_render = False
-            vis = dict(dot=eyes == 'dot', white=eyes == 'wide', pupil=eyes == 'wide', lid=eyes in ('dot', 'wide'),
-                       happy=eyes == 'happy', sleep=eyes == 'sleep', squeeze=eyes == 'squeeze')
-            if eyes in ('dot', 'wide') and lid > 0.97:                 # a full blink: the closed curve replaces the lid
-                vis.update(sleep=True, lid=False, dot=False, white=False, pupil=False)
-            for k, on in vis.items():
-                ob = E[k]; base = Vector((1, 0.6, 1)) if k == 'dot' else Vector((1, 0.35, 1)) if k == 'pupil' else Vector((1, 1, 1))
-                if k == 'white' and on: base = Vector((1, 1, 1)) * X.get('white', 1.0)
-                if k == 'pupil' and on: base = Vector((1, 0.35, 1)) * X.get('pupil', 0.5)
-                ob.scale = base if on else Vector((HIDE,) * 3)
-                ob.keyframe_insert('scale', frame=f)
-            Rw = E['Rw'] * X.get('white', 1.0)
-            c0 = Vector((0, E['Rw'] - 0.0011, 0))
-            if eyes == 'wide':                                         # the pupil sits on the white, looking
-                d = Vector((gx * 0.55, -1.0, gz * 0.55)).normalized()
-                E['pupil'].location = c0 + d * Rw * 1.01
-                E['white'].scale = Vector((1, 1, 1)) * X.get('white', 1.0)
-            else:
-                E['pupil'].location = c0
+            E['dot'].scale = Vector((1, 0.6, 1)) * X.get('dot', 1.0) if not closed else Vector((HIDE,) * 3)
+            E['closed'].scale = Vector((1, 1, 1)) if closed else Vector((HIDE,) * 3)
             E['dot'].location = (gx * 0.0004, -0.0002, gz * 0.0004)
-            E['pupil'].keyframe_insert('location', frame=f); E['dot'].keyframe_insert('location', frame=f)
-            E['white'].keyframe_insert('scale', frame=f)
-            # the lid: open = rolled back over the top into the head, shut = down over the front
-            E['lid'].location = c0; E['lid'].scale = Vector((1, 1, 1)) * (X.get('white', 1.0) if eyes == 'wide' else 0.72)
-            if not vis.get('lid'): E['lid'].scale = Vector((HIDE,) * 3)
-            a0 = -75 if eyes == 'wide' else -35                        # wide eyes: the lid rolls right back out of sight
-            E['lid'].rotation_euler = (math.radians(a0 + (125 - a0 - 35) * min(1.0, lid)), 0, 0)
-            for a in ('location', 'scale', 'rotation_euler'): E['lid'].keyframe_insert(a, frame=f)
-        tilt, lift = X['brow']
+            E['dot'].keyframe_insert('scale', frame=f); E['closed'].keyframe_insert('scale', frame=f)
+            E['dot'].keyframe_insert('location', frame=f)
         for B in self.brows:
-            # tilt about the brow's own depth axis (inner end, toward the nose, up for +tilt) and lift it
-            b = B['root'].children[0]
-            b.rotation_mode = 'XYZ'; b.rotation_euler = (0, math.radians(B['sd'] * tilt), 0)
-            b.location = (0, 0, lift)
-            b.keyframe_insert('rotation_euler', frame=f); b.keyframe_insert('location', frame=f)
-        on = self.mouth_sets[X['mouth']]
-        jaw = X.get('jaw', 0.0)
-        for k, ob in self.mouth.items():
-            vis = k in on
-            s0 = {'o': (0.8, 0.6, 1.0), 'smile': (1.0, 0.5, 0.45), 'smile_teeth': (1.0, 0.4, 0.14),
-                  'scream': (0.85, 0.2, 1.35), 'scream_teeth': (1.0, 0.3, 0.17), 'o': (0.8, 0.22, 1.0)}.get(k, (1, 1, 1))
-            if k in ('o', 'scream', 'smile'): s0 = (s0[0], s0[1], s0[2] * (0.6 + 0.6 * jaw))
-            ob.scale = s0 if vis else (HIDE,) * 3
-            ob.keyframe_insert('scale', frame=f)
-        if 'scream' in on:                                              # the top teeth ride the top edge of the opening
-            sc_ = self.mouth['scream']; R = MEASURED['mouth'][2] * 1.9
-            self.mouth['scream_teeth'].location = (0, -0.0003, sc_.location.z + R * sc_.scale.z * 0.74)
-            self.mouth['scream_teeth'].keyframe_insert('location', frame=f)
-        self.keys['jaw'].value = jaw; self.keys['cheeks'].value = X.get('cheeks', 0.0)
+            for k, ob in B['set'].items():
+                ob.scale = (1, 1, 1) if k == X['brows'] else (HIDE,) * 3
+                ob.keyframe_insert('scale', frame=f)
+        for k, parts in self.mouth.items():
+            for ob in parts:
+                ob.scale = (1, 1, 1) if k == X['mouth'] else (HIDE,) * 3
+                ob.keyframe_insert('scale', frame=f)
+        self.keys['jaw'].value = MOUTHS[X['mouth']]['jaw']; self.keys['cheeks'].value = X.get('cheeks', 0.0)
         self.keys['jaw'].keyframe_insert('value', frame=f); self.keys['cheeks'].keyframe_insert('value', frame=f)
-        # tears run down in turn while tears > 0
+        # tears pool under the dots and run down in turn while tears > 0
         for T in self.tears:
+            T['pool'].scale = Vector((1.5, 0.45, 0.6)) * min(1.0, tears * 1.5) if tears > 0.01 else Vector((HIDE,) * 3)
+            T['pool'].keyframe_insert('scale', frame=f)
             for k, d in enumerate(T['drops']):
                 if tears > 0.01:
                     u = ((t * 0.45 + k * 0.5 + (0.25 if T is self.tears[1] else 0)) % 1.0)

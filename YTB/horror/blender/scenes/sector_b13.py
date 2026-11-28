@@ -127,7 +127,7 @@ def seat_pos(name):
 
 
 HARU = CK.haru((0, 0, 0), 'haru'); HRG = HARU['rig']
-FACE = HF.Face(HARU, 'haru')                                         # her eyes, lids, brows, mouth, tears, pallor
+FACE = HF.Face(HARU, 'haru')                                         # dot eyes, replacement brows and mouths, tears, pallor
 MIKA = CK.character('head_girl', 'body_child', CK.CHILD, 'child', (0, 0, 0), 'mika', hair_src='hair_mika',
                     outfit=('#3d8c86', '#2f3a4f', '#eceae6'))
 JUN = CK.character('head_boy', 'body_child', CK.CHILD, 'child', (0, 0, 0), 'jun', hair_src='hair_jun',
@@ -179,16 +179,16 @@ def face_for(t):
     jit = (0.12 * math.sin(t * 7.3), 0.08 * math.sin(t * 5.1))      # eyes darting while she listens
     if s == 'face': return 'scared', jit, bl, 0.0, 0.35
     if s == 'fire': return ('laugh' if (t % 1.6) < 0.9 else 'happy'), (0, 0), 0.0, 0.0, 0.0
-    if s == 'fence': return 'worried', (0.1, 0.35), bl, 0.0, 0.0
+    if s == 'fence': return 'uncomfortable', (0.1, 0.35), bl, 0.0, 0.0
     if s == 'tents' or (s == 'wake' and t < T['wake'][0] + 0.7): return 'sleep', (0, 0), 0.0, 0.0, 0.0
     if s == 'wake': return 'stare', (0.7, 0.05), 0.0, 0.0, 0.25          # eyes snap open, cut to the wall
     if s == 'shadow': return 'scared', (0.65, 0.1), 0.0, 0.0, 0.4
     if s == 'voice':
         u = u_in(t, 'voice')
-        return ('terrified' if u < 0.45 else 'scared'), jit, 0.0, max(0.0, (u - 0.3) / 0.7), 0.5
-    if s in ('zip', 'mouth'): return 'scared', (0.0, -0.35), 0.0, 1.0, 0.55
-    if s == 'withdraw': return 'stare', (0.0, -0.3), 0.0, 0.8, 0.6
-    return 'stare', (0.0, 0.0), bl, 0.5, 0.45
+        return ('terrified' if u < 0.45 else 'crying'), jit, 0.0, max(0.0, (u - 0.3) / 0.7), 0.5
+    if s in ('zip', 'mouth'): return 'muffled', (0.0, -0.35), bl, 1.0, 0.55     # crying without a sound
+    if s == 'withdraw': return 'worried', (0.0, -0.3), 0.0, 0.8, 0.6
+    return 'sad', (0.0, 0.0), bl, 0.5, 0.45
 
 
 def place_kid(c, f, where, yaw, sitting):
@@ -224,7 +224,7 @@ def cam_for(t, hp):
     fwd = Vector((math.sin(HRG.rotation_euler.z), -math.cos(HRG.rotation_euler.z), 0))       # her forward
     if s in ('face', 'voice', 'mouth') or (s == 'withdraw' and t >= T['withdraw'][0] + 1.5):
         push = ez(u_in(t, s)) * 0.008
-        return hp + fwd * (0.048 - push) + Vector((0.004, 0, 0.0)), hp + Vector((0, 0, -0.008)), 30, 5.6   # the tent is only 7 cm deep in front of her
+        return hp + fwd * (0.048 - push) + Vector((0.004, 0, 0.0)), hp + fwd * 0.011 + Vector((0, 0, -0.007)), 30, 11.0   # focus on her face, not the middle of her head; the tent is only 7 cm deep in front of her
     if s == 'fire':
         u = ez(u_in(t, 'fire')); a = math.radians(150)                  # from the trail side: Mika faces us, Haru in profile
         r = 0.3 - 0.05 * u
