@@ -1,6 +1,6 @@
 """Clay match check: an imported Haru model (Artlist GLB) beside the code puppet, both in THE Haru clay
 (haru_clay.apply_haru_clay / haru_materials) under the same clay key. Run it on every new imported Haru.
-blender -b -P scenes/haru_clay_match.py -- --still 1 --res 1080 1920 --samples 64 --out DIR [--glb PATH] [--solo]
+blender -b -P scenes/haru_clay_match.py -- --still 1 --res 1080 1920 --samples 64 --out DIR [--glb PATH] [--yaw DEG] [--solo]
 --glb: the model to check (default: the first Artlist Haru, YTB/horror/three/data/lib/chars/haru.glb)
 --solo: only the imported model, close up.
 Prints the face count per part so a wrong sort (skin read as hoodie, etc.) shows up before any render."""
@@ -14,6 +14,8 @@ argv = sys.argv
 GLB = os.path.join(ROOT, 'YTB', 'horror', 'three', 'data', 'lib', 'chars', 'haru.glb')
 if '--glb' in argv: i = argv.index('--glb'); GLB = argv[i + 1]; del argv[i:i + 2]
 SOLO = '--solo' in argv
+YAW = 0.0
+if '--yaw' in argv: i = argv.index('--yaw'); YAW = float(argv[i + 1]); del argv[i:i + 2]
 if SOLO: argv.remove('--solo')
 import haru_clay as HC
 from claylib import *
@@ -36,6 +38,7 @@ imp = [o for o in bpy.data.objects if o not in before]
 root = bpy.data.objects.new('imported_haru', None); bpy.context.collection.objects.link(root)
 for o in imp:
     if o.parent is None: o.parent = root
+root.rotation_euler.z = math.radians(YAW)                      # --yaw: turn a model that was exported facing sideways
 bpy.context.view_layer.update()
 pts = [o.matrix_world @ Vector(c) for o in imp if o.type == 'MESH' for c in o.bound_box]
 lo, hi = Vector([min(p[i] for p in pts) for i in range(3)]), Vector([max(p[i] for p in pts) for i in range(3)])
