@@ -21,6 +21,7 @@ import haru_clay as HC
 import cast_camp as CC
 import cast_kit as CK
 import haru_poses as HPZ
+import haru_face as HF
 import importlib.util
 spec = importlib.util.spec_from_file_location('poses', os.path.join(HERE, '..', 'haru', 'test2_shot.py'))
 PO = importlib.util.module_from_spec(spec); spec.loader.exec_module(PO)
@@ -126,6 +127,7 @@ def seat_pos(name):
 
 
 HARU = CK.haru((0, 0, 0), 'haru'); HRG = HARU['rig']
+FACE = HF.Face(HARU, 'haru')                                         # her eyes, lids, brows, mouth, tears, pallor
 MIKA = CK.character('head_girl', 'body_child', CK.CHILD, 'child', (0, 0, 0), 'mika', hair_src='hair_mika',
                     outfit=('#3d8c86', '#2f3a4f', '#eceae6'))
 JUN = CK.character('head_boy', 'body_child', CK.CHILD, 'child', (0, 0, 0), 'jun', hair_src='hair_jun',
@@ -169,6 +171,24 @@ def haru_state(t):
     if s in ('dawn', 'turn', 'gate'):
         return H_IN, math.pi, 'hug', {}, 0.0012
     return H_IN, math.pi, 'hug', {('chest', 'X'): breath, ('head', 'X'): -breath * 0.5}, 0.0012
+
+
+def face_for(t):
+    """(expression, look, blink, tears, pale) for this moment: the sheet's faces, timed to the story"""
+    s = shot_at(t); bl = 1.0 if (t % 2.6) < 0.17 else 0.0          # a blink every 2.6 s, two frames long
+    jit = (0.12 * math.sin(t * 7.3), 0.08 * math.sin(t * 5.1))      # eyes darting while she listens
+    if s == 'face': return 'scared', jit, bl, 0.0, 0.35
+    if s == 'fire': return ('laugh' if (t % 1.6) < 0.9 else 'happy'), (0, 0), 0.0, 0.0, 0.0
+    if s == 'fence': return 'worried', (0.1, 0.35), bl, 0.0, 0.0
+    if s == 'tents' or (s == 'wake' and t < T['wake'][0] + 0.7): return 'sleep', (0, 0), 0.0, 0.0, 0.0
+    if s == 'wake': return 'stare', (0.7, 0.05), 0.0, 0.0, 0.25          # eyes snap open, cut to the wall
+    if s == 'shadow': return 'scared', (0.65, 0.1), 0.0, 0.0, 0.4
+    if s == 'voice':
+        u = u_in(t, 'voice')
+        return ('terrified' if u < 0.45 else 'scared'), jit, 0.0, max(0.0, (u - 0.3) / 0.7), 0.5
+    if s in ('zip', 'mouth'): return 'scared', (0.0, -0.35), 0.0, 1.0, 0.55
+    if s == 'withdraw': return 'stare', (0.0, -0.3), 0.0, 0.8, 0.6
+    return 'stare', (0.0, 0.0), bl, 0.5, 0.45
 
 
 def place_kid(c, f, where, yaw, sitting):
@@ -299,6 +319,7 @@ for f in range(1, F + 1):
     HRG.location = Vector(p) + Vector((0, 0, lift)) + j; HRG.rotation_euler = (je.x, je.y, yaw + je.z)
     HPZ.apply(HARU, pname, f=None, seat=SEAT_TOP, extra=extra)
     HPZ.key(HRG, f)
+    FACE.set(f, *face_for(t), t=t)
 
     # Mika and Jun: at the fire, at the fence, otherwise away
     if new_shot:
