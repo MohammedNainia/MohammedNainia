@@ -9,3 +9,7 @@ YTB/publish/token.json
 YTB/lanternfold/reels/*/build_all.log
 YTB/publish/stats_*.json
 YTB/animation_tests/.work/
+YTB/horror/sector_b13/renders/
+YTB/horror/sector_b13/check/
+YTB/horror/sector_b13/mix.wav
+YTB/horror/sector_b13/voice/*.wav
