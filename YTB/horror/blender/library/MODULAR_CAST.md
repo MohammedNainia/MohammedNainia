@@ -128,6 +128,8 @@ Haru's turnaround attached). Test scene: `scenes/kit_lineup.py`, result `docs/ki
 | Woman body | body_woman.glb | 01a2202c-dbd7 | 01a2202e-5b3d |
 | Man body | body_man.glb | 01a2202c-e06c | 01a2202e-5f8c |
 | Haru (full) | haru_full.glb | (user's image) | 01a22025-5348 |
+| Mika's hair (bob, buns) | hair_mika.glb | 01a2204e-4af7 (girl head edited) | 01a2204f-1f0e |
+| Jun's hair (messy clumps) | hair_jun.glb | 01a2204e-4f22 (boy head edited) | 01a2204f-2407 |
 
 Rules learned:
 - Always image-to-3D from one object in one front view. Text-to-3D of a turnaround made three heads in one 1.5M-tri mesh.
@@ -137,3 +139,13 @@ Rules learned:
 - Heads get `skin='#f3bf9f'` so every head matches Haru's face.
 - Kit sizes: head model = 27% of the height for children, 19% for adults; 35% of the head's height overlaps the neck.
   Neck widths fit within 0.95 to 1.27 (the man's head peg is a little wide, hidden by the collar).
+
+## Batch 2: hair and outfits (28 Nov)
+Code: `puppets/cast_kit.py`. One call builds a character:
+`CK.character('head_girl', 'body_child', CK.CHILD, 'child', (x, y, 0), 'mika', hair_src='hair_mika', outfit=('#3d8c86', '#2f3a4f', '#eceae6'))`.
+- Hair: edit the kit head's own image in Nano Banana ("the same head, now wearing ..."), then image-to-3D. cast_kit cuts
+  the dark hair out by texture colour, drops small islands (brows, eyes), fits it to any head of that size through the
+  neck peg, and pushes it 3.5% out so no scalp shows. Make every new hairstyle this way.
+- Outfit: (top, trousers, shoes) recolours only the grey base clothes; hands keep the skin. Zones by height: shoes below
+  7.5%, trousers below 52%.
+- Result: `docs/kit_lineup_v2.jpg` (Mika and Jun built from the kit beside Haru).
